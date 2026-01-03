@@ -1,13 +1,22 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, Hash, Play } from 'lucide-react';
+import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, Hash, Play, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useArticles } from '@/hooks/useArticles';
 
-export function Sidebar() {
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
+
+interface SidebarProps {
+    className?: string;
+}
+
+export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
+    // Real unread count
+    const unreadCount = useLiveQuery(() => db.articles.where('isRead').equals(0).count()) ?? 0;
 
     const links = [
         { href: '/', label: 'Today', icon: Calendar },
@@ -18,7 +27,7 @@ export function Sidebar() {
     ];
 
     return (
-        <aside className="w-64 bg-sidebar border-r border-zinc-800 hidden md:flex flex-col h-screen fixed left-0 top-0">
+        <aside className={clsx("w-64 bg-zinc-50/50 dark:bg-black/50 border-r border-zinc-200 dark:border-zinc-800 flex-col h-full hidden md:flex backdrop-blur-xl", className)}>
             <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
                 <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center text-brand-foreground font-bold">
                     FS

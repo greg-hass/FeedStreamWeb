@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { db } from '@/lib/db';
 import { useSettingsStore } from '@/store/settingsStore';
 import { md5 } from '@/lib/utils';
+import { OpmlService } from '@/lib/opml-service';
+import Link from 'next/link';
 
 export default function SettingsPage() {
     const { syncEndpoint, syncUsername, syncApiKey, setSyncConfig, setSyncEnabled } = useSettingsStore();
@@ -52,6 +54,65 @@ export default function SettingsPage() {
                         >
                             Clear Database & Reset App
                         </button>
+                    </div>
+                </section>
+
+                <section className="space-y-4">
+                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Feeds</h2>
+                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                        <Link href="/feeds/manage" className="flex items-center justify-between p-4 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                            <span className="text-sm font-medium">Manage Feeds</span>
+                            <span className="text-xs text-zinc-500">Edit / Delete</span>
+                        </Link>
+                    </div>
+                </section>
+
+                <section className="space-y-4">
+                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Data Management</h2>
+                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800 space-y-4">
+
+                        {/* Import */}
+                        <div>
+                            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">Import OPML</p>
+                            <input
+                                type="file"
+                                accept=".opml,.xml"
+                                className="block w-full text-sm text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand file:text-white hover:file:bg-brand/90"
+                                onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    try {
+                                        const text = await file.text();
+                                        await OpmlService.importOPML(text);
+                                        alert('Import Successful!');
+                                    } catch (err) {
+                                        console.error(err);
+                                        alert('Import Failed');
+                                    }
+                                }}
+                            />
+                        </div>
+
+                        <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
+
+                        {/* Export */}
+                        <div>
+                            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">Export OPML</p>
+                            <button
+                                onClick={async () => {
+                                    const xml = await OpmlService.exportOPML();
+                                    const blob = new Blob([xml], { type: 'text/xml' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = 'feedstream_export.opml';
+                                    a.click();
+                                }}
+                                className="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 rounded text-sm font-medium hover:bg-zinc-300 dark:hover:bg-zinc-700 transition"
+                            >
+                                Download OPML File
+                            </button>
+                        </div>
                     </div>
                 </section>
 

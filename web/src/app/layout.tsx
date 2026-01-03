@@ -3,15 +3,13 @@ import './globals.css';
 import { Sidebar } from '@/components/Sidebar';
 import { clsx } from 'clsx';
 import { AudioPlayer } from "@/components/AudioPlayer";
+import { TabBar } from "@/components/TabBar";
 
 export const metadata: Metadata = {
   title: 'FeedStream',
-  description: 'Self-hosted RSS Reader and PWA',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'FeedStream',
-  },
+  description: 'Your RSS Feed Reader',
+  manifest: '/manifest.json',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover',
 };
 
 export default function RootLayout({
@@ -20,18 +18,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased bg-background text-foreground">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className={clsx(
-            "flex-1 md:ml-64 min-h-screen transition-all duration-200 ease-in-out",
-            "pb-20 md:pb-0" // Padding for mobile tabbar
-          )}>
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 h-screen w-screen overflow-hidden flex flex-row">
+        <Sidebar className="hidden md:flex" /> {/* Hide Sidebar on Mobile */}
+
+        <main className="flex-1 w-full h-full relative overflow-hidden flex flex-col">
+          {/* Scrollable Content Container */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden pb-32 md:pb-0 scroll-smooth">
             {children}
-          </main>
-          {/* MobileTabbar will go here */}
+          </div>
+        </main>
+
+        <div className="md:hidden">
+          <TabBar />
         </div>
+
         <AudioPlayer />
       </body>
     </html>
