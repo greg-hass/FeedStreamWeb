@@ -4,7 +4,7 @@
 import { useArticles } from "@/hooks/useArticles";
 import { ArticleList } from "@/components/ArticleList";
 import { FeedService } from "@/lib/feed-service";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, RotateCw } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
@@ -19,22 +19,30 @@ export default function HomePage() {
   const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
 
   const handleSync = async () => {
+    if (isSyncing) return;
     setIsSyncing(true);
     try {
       await FeedService.syncWithFever();
       // Sequential sync for RSS feeds
       for (const feed of feeds) {
-        if (feed.type === 'rss') { // Only sync RSS. Fever handled separately
+        if (feed.type === 'rss') {
           await FeedService.refreshFeed(feed);
         }
       }
     } catch (e) {
       console.error(e);
-      alert("Sync Error");
     } finally {
       setIsSyncing(false);
     }
   };
+
+  // Auto-Refresh every 15 minutes (900000ms)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleSync();
+    }, 900000);
+    return () => clearInterval(interval);
+  }, [feeds.length]); // Re-bind if feeds change, though strictly handleSync ref is stable enough usually or better use ref
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-zinc-950">

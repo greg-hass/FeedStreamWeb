@@ -50,14 +50,38 @@ export function Reader({ article }: ReaderProps) {
 
         setLoading(true);
         try {
-            // Here we would call an API end point that fetches the URL and runs Readability
-            // For now, we'll simulate or simple-proxy fetch and client-side parse if possible, 
-            // but Readability is better on server/API to avoid CORS/Parsing issues fully. 
-            // We'll trust the simple content for now or implement a specific /api/readability endpoint later.
-            console.log("Reader mode requested");
-            // Placeholder for phase 4 polish
+            // Fetch via proxy to avoid CORS
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(article.url)}`;
+            const res = await fetch(proxyUrl);
+            if (!res.ok) throw new Error("Failed to fetch article");
+            const html = await res.text();
+
+            // Client-side parsing using Readability
+            // We need to create a DOM document from the string
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+
+            // We need to dynamically import Readability to avoid SSR issues if any (though this is 'use client')
+            const { Readability } = await import('@mozilla/readability');
+            const reader = new Readability(doc);
+            const parsed = reader.parse();
+
+            if (parsed && parsed.content) {
+                const cleanHtml = DOMPurify.sanitize(parsed.content, { ADD_TAGS: ['iframe', 'img'] });
+                setContent(cleanHtml);
+                setIsReaderMode(true);
+
+                // Optional: Save to DB for cache
+                await db.articles.update(article.id, {
+                    readerHTML: cleanHtml
+                });
+            } else {
+                alert("Could not parse article content");
+            }
+
         } catch (e) {
             console.error(e);
+            alert("Failed to load Reader View");
         } finally {
             setLoading(false);
         }

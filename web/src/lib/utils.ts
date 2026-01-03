@@ -22,9 +22,39 @@ export function decodeHTMLEntities(text: string): string {
 }
 
 export async function md5(message: string): Promise<string> {
-    const msgUint8 = new TextEncoder().encode(message);
-    const hashBuffer = await crypto.subtle.digest('MD5', msgUint8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return hashHex;
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+        try {
+            const msgUint8 = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('MD5', msgUint8);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+            console.warn("Crypto API failed, falling back to simple hash");
+        }
+    }
+    return simpleHash(message);
+}
+
+export async function sha256(message: string): Promise<string> {
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+        try {
+            const msgUint8 = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+            console.warn("Crypto API failed, falling back to simple hash");
+        }
+    }
+    return simpleHash(message);
+}
+
+// Simple FNV-1a hash for non-secure contexts
+function simpleHash(str: string): string {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = (hash * 0x01000193) >>> 0;
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
 }
