@@ -3,7 +3,7 @@ import { db, Feed, Article } from './db';
 import { parseFeed } from './feed-parser';
 import { FeverAPI } from './fever-api';
 import { useSettingsStore } from '@/store/settingsStore';
-import { md5 } from './utils';
+import { md5, uuidv4 } from './utils';
 
 export class FeedService {
 
@@ -16,7 +16,7 @@ export class FeedService {
         const text = await response.text();
         const normalized = await parseFeed(text, url);
 
-        const feedId = crypto.randomUUID();
+        const feedId = uuidv4();
 
         // 2. Add Feed to DB
         await db.feeds.add({

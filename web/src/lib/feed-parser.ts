@@ -69,7 +69,7 @@ async function parseJSONFeed(json: any, sourceURL: string): Promise<NormalizedFe
     const kind: FeedType = isYouTube ? 'youtube' : 'json';
 
     for (const item of (json.items || [])) {
-        const uidSource = item.id || item.url || item.title || crypto.randomUUID();
+        const uidSource = item.id || item.url || item.title || uuidv4();
         const articleID = await makeStableId(sourceURL, uidSource);
 
         let contentHTML = item.content_html || item.summary || '';

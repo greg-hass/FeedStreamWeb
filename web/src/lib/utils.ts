@@ -58,3 +58,22 @@ function simpleHash(str: string): string {
     }
     return (hash >>> 0).toString(16).padStart(8, '0');
 }
+// Simple UUID v4 fallback
+export function uuidv4() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+
+    // Fallback for secure contexts (if randomUUID missing but crypto present)
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
+            (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> +c / 4).toString(16)
+        );
+    }
+
+    // Insecure Fallback (Math.random) - for when crypto is totally missing
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
