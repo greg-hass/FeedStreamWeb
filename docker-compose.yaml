@@ -2,6 +2,9 @@
 services:
   feedstream-web:
     image: ghcr.io/greg-hass/feedstreamweb:main
+    build:
+      context: ./web
+      dockerfile: Dockerfile
     container_name: feedstream-web
     restart: always
     ports:
