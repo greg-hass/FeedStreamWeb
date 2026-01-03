@@ -1,7 +1,7 @@
 
 import { XMLParser } from 'fast-xml-parser';
 import { Feed, Article, FeedType } from './db';
-import { decodeHTMLEntities } from './utils';
+import { decodeHTMLEntities, sha256, uuidv4 } from './utils';
 
 export interface NormalizedFeed {
     title?: string;
@@ -29,11 +29,7 @@ function parseDate(dateStr: string | undefined): Date | undefined {
 // Stable ID generation (simplified version of iOS logic)
 async function makeStableId(feedURL: string, entryId: string): Promise<string> {
     const input = `${feedURL}|${entryId}`;
-    const encoder = new TextEncoder();
-    const data = encoder.encode(input);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return sha256(input);
 }
 
 // Extraction helpers
