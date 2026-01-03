@@ -1,0 +1,10 @@
+
+services:
+  feedstream-web:
+    image: ghcr.io/greg-hass/feedstreamweb:main
+    container_name: feedstream-web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
