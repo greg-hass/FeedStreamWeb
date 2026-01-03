@@ -41,33 +41,34 @@ export class FeedSearchService {
     }
 
     private static async searchYouTube(query: string): Promise<FeedSearchResult[]> {
-        // Use Piped API (public instance)
-        // Trying a more stable instance or fallback
+        // Use Invidious API - more reliable than Piped
         const instances = [
-            'https://pipedapi.kavin.rocks',
-            'https://api.piped.io'
+            'https://vid.puffyan.us',
+            'https://invidious.fdn.fr',
+            'https://y.com.sb'
         ];
 
         for (const instance of instances) {
             try {
-                // Ensure query params are correctly encoded and proxied
-                const targetUrl = `${instance}/search?q=${encodeURIComponent(query)}&filter=channels`;
+                const targetUrl = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=channel`;
                 const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
 
                 const res = await fetch(proxyUrl);
                 if (!res.ok) continue;
                 const data = await res.json();
 
-                return (data.items || []).map((item: any) => ({
-                    title: item.name,
-                    url: `https://www.youtube.com/feeds/videos.xml?channel_id=${item.url.split('/').pop()}`,
-                    description: item.description,
-                    thumbnail: item.avatarUrl,
-                    type: 'youtube',
-                    source: 'youtube'
-                }));
+                if (Array.isArray(data) && data.length > 0) {
+                    return data.slice(0, 5).map((item: any) => ({
+                        title: item.author || item.name,
+                        url: `https://www.youtube.com/feeds/videos.xml?channel_id=${item.authorId}`,
+                        description: `${item.subCount || 0} subscribers`,
+                        thumbnail: item.authorThumbnails?.[0]?.url,
+                        type: 'youtube',
+                        source: 'youtube'
+                    }));
+                }
             } catch (e) {
-                console.warn(`Piped instance ${instance} failed`, e);
+                console.warn(`Invidious instance ${instance} failed`, e);
             }
         }
         return [];
@@ -129,51 +130,91 @@ export class FeedSearchService {
     private static async searchRSS(query: string): Promise<FeedSearchResult[]> {
         const results: FeedSearchResult[] = [];
 
-        // 1. Direct Web Discovery (if query looks like a domain)
-        if (query.includes('.') && !query.includes(' ')) {
+        // Helper to scrape a URL for RSS feeds
+        const scrapeForFeeds = async (url: string): Promise<FeedSearchResult[]> => {
+            const found: FeedSearchResult[] = [];
             try {
-                let url = query.startsWith('http') ? query : `https://${query}`;
+                if (!url.startsWith('http')) url = `https://${url}`;
                 const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
                 const res = await fetch(proxyUrl);
+                if (!res.ok) return found;
+
+                const html = await res.text();
+
+                // Check if URL itself is a feed
+                if (html.trim().startsWith('<?xml') || html.includes('<rss') || html.includes('<feed')) {
+                    found.push({
+                        title: query,
+                        url: url,
+                        description: 'Direct feed URL',
+                        type: 'rss',
+                        source: 'rss'
+                    });
+                    return found;
+                }
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const links = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
+
+                links.forEach((link) => {
+                    const href = link.getAttribute('href');
+                    const title = link.getAttribute('title') || doc.title || query;
+                    if (href) {
+                        const absoluteUrl = new URL(href, url).toString();
+                        found.push({
+                            title: title,
+                            url: absoluteUrl,
+                            description: `Feed from ${new URL(url).hostname}`,
+                            type: 'rss',
+                            source: 'rss'
+                        });
+                    }
+                });
+            } catch (e) {
+                console.warn(`Failed to scrape ${url}`, e);
+            }
+            return found;
+        };
+
+        // Strategy 1: If query looks like a URL/domain, scrape it directly
+        if (query.includes('.') && !query.includes(' ')) {
+            const directResults = await scrapeForFeeds(query);
+            results.push(...directResults);
+        }
+
+        // Strategy 2: SMART SEARCH - Use DuckDuckGo to find the website, then scrape it
+        // This enables typing "omg ubuntu" and finding omgubuntu.co.uk
+        if (results.length === 0) {
+            try {
+                const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query + ' site')}`;
+                const proxyUrl = `/api/proxy?url=${encodeURIComponent(ddgUrl)}`;
+                const res = await fetch(proxyUrl);
+
                 if (res.ok) {
                     const html = await res.text();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    const links = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
-
-                    links.forEach((link) => {
-                        const href = link.getAttribute('href');
-                        const title = link.getAttribute('title') || doc.title || query;
-                        if (href) {
-                            // Resolve relative URLs
-                            const absoluteUrl = new URL(href, url).toString();
-                            results.push({
-                                title: title,
-                                url: absoluteUrl,
-                                description: `Detected feed from ${new URL(url).hostname}`,
-                                type: 'rss',
-                                source: 'rss'
-                            });
-                        }
-                    });
+                    // Extract first result URL from DDG HTML
+                    const urlMatch = html.match(/uddg=([^&"]+)/);
+                    if (urlMatch && urlMatch[1]) {
+                        const foundUrl = decodeURIComponent(urlMatch[1]);
+                        console.log(`Smart search found: ${foundUrl} for "${query}"`);
+                        const smartResults = await scrapeForFeeds(foundUrl);
+                        results.push(...smartResults);
+                    }
                 }
             } catch (e) {
-                console.warn("Direct discovery failed", e);
+                console.warn('Smart search failed', e);
             }
         }
 
-        // 2. Google News RSS for topics (Fallback)
-        try {
-            results.push({
-                title: `News: ${query}`,
-                url: `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`,
-                description: `Google News feed for "${query}"`,
-                type: 'rss',
-                source: 'rss'
-            });
-        } catch (e) {
-            // ignore
-        }
+        // Strategy 3: Google News RSS as fallback
+        results.push({
+            title: `Google News: ${query}`,
+            url: `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`,
+            description: `News feed for "${query}"`,
+            type: 'rss',
+            source: 'rss'
+        });
 
         return results;
     }

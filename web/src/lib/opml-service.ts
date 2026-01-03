@@ -2,6 +2,7 @@
 import { db } from './db';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 import { FeedService } from './feed-service';
+import { uuidv4 } from './utils';
 
 export class OpmlService {
 
@@ -42,7 +43,7 @@ export class OpmlService {
             // Case 2: Folder (Nested outlines)
             else if (node.outline) {
                 // Create Folder
-                const newFolderId = crypto.randomUUID();
+                const newFolderId = uuidv4();
                 await db.folders.add({
                     id: newFolderId,
                     name: node.text || node.title || 'Untitled Folder',
