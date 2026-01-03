@@ -41,18 +41,47 @@ export class FeedSearchService {
     }
 
     private static async searchYouTube(query: string): Promise<FeedSearchResult[]> {
-        // Use Invidious API - more reliable than Piped
-        const instances = [
-            'https://vid.puffyan.us',
-            'https://invidious.fdn.fr',
-            'https://y.com.sb'
-        ];
+        // Strategy 1: Scrape YouTube.com directly
+        try {
+            const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=EgIQAg%3D%3D`; // sp filter for channels
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(ytUrl)}`;
+            const res = await fetch(proxyUrl);
 
+            if (res.ok) {
+                const html = await res.text();
+                // Extract channel IDs from ytInitialData JSON embedded in the page
+                const match = html.match(/var ytInitialData = ({.*?});<\/script>/s);
+                if (match) {
+                    const data = JSON.parse(match[1]);
+                    const contents = data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
+
+                    const results: FeedSearchResult[] = [];
+                    for (const item of contents.slice(0, 5)) {
+                        const channel = item.channelRenderer;
+                        if (channel) {
+                            results.push({
+                                title: channel.title?.simpleText || 'Unknown',
+                                url: `https://www.youtube.com/feeds/videos.xml?channel_id=${channel.channelId}`,
+                                description: channel.subscriberCountText?.simpleText || '',
+                                thumbnail: channel.thumbnail?.thumbnails?.[0]?.url,
+                                type: 'youtube',
+                                source: 'youtube'
+                            });
+                        }
+                    }
+                    if (results.length > 0) return results;
+                }
+            }
+        } catch (e) {
+            console.warn('Direct YouTube scraping failed', e);
+        }
+
+        // Strategy 2: Invidious API fallback
+        const instances = ['https://vid.puffyan.us', 'https://invidious.fdn.fr', 'https://y.com.sb'];
         for (const instance of instances) {
             try {
                 const targetUrl = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=channel`;
                 const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-
                 const res = await fetch(proxyUrl);
                 if (!res.ok) continue;
                 const data = await res.json();
@@ -68,7 +97,7 @@ export class FeedSearchService {
                     }));
                 }
             } catch (e) {
-                console.warn(`Invidious instance ${instance} failed`, e);
+                console.warn(`Invidious ${instance} failed`, e);
             }
         }
         return [];
