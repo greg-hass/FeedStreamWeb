@@ -50,7 +50,7 @@ export class FeedSearchService {
             if (res.ok) {
                 const html = await res.text();
                 // Extract channel IDs from ytInitialData JSON embedded in the page
-                const match = html.match(/var ytInitialData = ({.*?});<\/script>/s);
+                const match = html.match(/var ytInitialData = (\{[\s\S]*?\});<\/script>/);
                 if (match) {
                     const data = JSON.parse(match[1]);
                     const contents = data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
