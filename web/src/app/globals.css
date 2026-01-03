@@ -13,10 +13,13 @@
 }
 
 :root {
-  --background: #ffffff;
+  --background: #fdfdfd;
   --foreground: #171717;
   --brand: #84cc16;
-  /* Lime-500 */
+
+  /* Premium Gradients */
+  --bg-gradient-from: #fdfdfd;
+  --bg-gradient-to: #f4f4f5;
 }
 
 /* iOS Safe Area & Native Feel */
@@ -27,13 +30,30 @@ html {
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #09090b;
     --foreground: #ededed;
+
+    --bg-gradient-from: #09090b;
+    --bg-gradient-to: #18181b;
   }
 }
 
 body {
-  background: var(--background);
+  /* Subtle mesh gradient background */
+  background: linear-gradient(to bottom right, var(--bg-gradient-from), var(--bg-gradient-to));
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  @apply bg-white/70 dark:bg-black/60 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-lg;
+}
+
+/* Premium Card Hover */
+.premium-card {
+  @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 border border-zinc-200/50 dark:border-zinc-800/50;
 }

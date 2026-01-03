@@ -8,10 +8,12 @@ import { useState } from "react";
 import { Plus, RotateCw } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
+import { FeedSearchModal } from "@/components/FeedSearchModal";
 
 export default function HomePage() {
   const [view, setView] = useState('today');
   const articles = useArticles(view);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
@@ -34,20 +36,10 @@ export default function HomePage() {
     }
   };
 
-  const handleAddTestFeed = async () => {
-    const url = prompt("Enter Feed URL");
-    if (url) {
-      try {
-        await FeedService.addFeed(url);
-        alert("Feed added!");
-      } catch (e: any) {
-        alert("Error: " + e.message);
-      }
-    }
-  };
-
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-zinc-950">
+      <FeedSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+
       <header className="h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 shrink-0">
         <h1 className="font-semibold text-lg">Today</h1>
         <div className="flex items-center gap-2">
@@ -60,7 +52,7 @@ export default function HomePage() {
             <RotateCw size={20} className={isSyncing ? "animate-spin" : ""} />
           </button>
           <button
-            onClick={handleAddTestFeed}
+            onClick={() => setIsSearchOpen(true)}
             className="p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
             title="Add Feed"
           >
