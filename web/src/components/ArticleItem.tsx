@@ -89,4 +89,3 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
 }
 
 ArticleItem.displayName = 'ArticleItem';
-```
