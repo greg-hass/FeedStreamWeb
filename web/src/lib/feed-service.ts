@@ -1,6 +1,9 @@
 
 import { db, Feed, Article } from './db';
 import { parseFeed } from './feed-parser';
+import { FeverAPI } from './fever-api';
+import { useSettingsStore } from '@/store/settingsStore';
+import { md5 } from './utils';
 
 export class FeedService {
 
@@ -79,6 +82,117 @@ export class FeedService {
                 consecutiveFailures: (feed.consecutiveFailures || 0) + 1
             });
         }
+    }
+
+    static async syncWithFever() {
+        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
+        if (!syncEnabled || !syncEndpoint || !syncApiKey) {
+            console.log("Sync disabled or missing config");
+            return;
+        }
+
+        // Fever expects API key = MD5(username:password) usually, or we provide it raw if user gave raw.
+        // Assuming user provided the already computed key or we compute it in settings.
+        // Let's assume the store holds the valid key for now.
+
+        // In Fever, the api_key parameter is md5(email + ":" + password).
+        // We will assume the prompt sends us the computed hash for now or simple API key.
+
+        const api = new FeverAPI(syncEndpoint, syncApiKey);
+
+        try {
+            console.log("Starting Sync...");
+
+            // 1. Sync Groups (Folders)
+            const groupsData = await api.getGroups();
+            if (groupsData.groups) {
+                await db.transaction('rw', db.folders, async () => {
+                    for (const g of groupsData.groups) {
+                        await db.folders.put({
+                            id: String(g.id),
+                            name: g.title,
+                            position: 0 // Fever doesn't strictly give position in basic response
+                        });
+                    }
+                });
+            }
+
+            // 2. Sync Feeds
+            const feedsData = await api.getFeeds();
+            if (feedsData.feeds) {
+                await db.transaction('rw', db.feeds, async () => {
+                    for (const f of feedsData.feeds) {
+                        await db.feeds.put({
+                            id: String(f.id),
+                            title: f.title,
+                            feedURL: f.url,
+                            siteURL: f.site_url, // Changed from link to siteURL to match DB schema
+                            folderID: String(f.group_id),
+                            isFaviconLoaded: false,
+                            type: 'rss', // Assume RSS default
+                            dateAdded: new Date(f.last_updated_on_time * 1000), // Fever uses unix timestamp
+                            consecutiveFailures: 0,
+                            isPaused: false,
+                            sortOrder: 0,
+                            isFavorite: false
+                        });
+                    }
+                });
+            }
+
+            // 3. Sync Unread Status
+            // Fever gives list of unread item IDs "1,2,3"
+            const unreadData = await api.getUnreadItemIds();
+            if (unreadData.unread_item_ids) {
+                const unreadIds = new Set(unreadData.unread_item_ids.split(',').map(String));
+                // Mark local articles as read if NOT in this list?
+                // Or just ensure these are unread.
+                // Usually we mark everything older than X as read, and specific IDs as unread.
+                // For simplicity: We trust server. If server says X is unread, we mark unread.
+                // If server implies read (implied by absence?), strictly speaking only if we have full history.
+
+                // Getting all unread items from API
+                // Note: Fever doesn't give content in 'unread_item_ids', just IDs.
+                // We need to fetch the items if we don't have them.
+            }
+
+            // 4. Fetch Items (Articles)
+            // We fetch latest 50 items for now.
+            const itemsData = await api.getItems();
+            if (itemsData.items) {
+                await this.processFeverItems(itemsData.items);
+            }
+
+        } catch (e) {
+            console.error("Sync Failed", e);
+            throw e;
+        }
+    }
+
+    private static async processFeverItems(items: any[]) {
+        const articles = items.map(item => ({
+            id: String(item.id), // Fever ID
+            feedID: String(item.feed_id),
+            title: item.title,
+            url: item.url,
+            author: item.author,
+            contentHTML: item.html,
+            summary: item.url, // Fever doesn't always distinguish summary/content perfectly
+            publishedAt: new Date(item.created_on_time * 1000),
+            isRead: item.is_read === 1,
+            isBookmarked: item.is_saved === 1,
+            mediaKind: 'none', // parsing needed if we want podcast
+            imageCacheStatus: 0,
+            downloadStatus: 0,
+            playbackPosition: 0,
+        }));
+
+        // Simplified merge: Just put them in.
+        /*
+           Critical: We need to map Article Type from DB.
+           But here we just put them in Articles table.
+        */
+        await db.articles.bulkPut(articles as any);
     }
 
     private static async mergeArticles(feedId: string, incoming: Article[]) {

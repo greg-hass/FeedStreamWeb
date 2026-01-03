@@ -15,6 +15,7 @@ export interface Feed {
   id: string;
   title: string;
   siteURL?: string;
+  isFaviconLoaded?: boolean;
   feedURL: string;
   type: FeedType;
   folderID?: string;
@@ -49,7 +50,7 @@ export interface Article {
   thumbnailPath?: string;
   duration?: number;
   cachedReadingTime?: number;
-  
+
   // Offline/Cache
   contentPrefetchedAt?: Date;
   imageCacheStatus: number; // 0=not_cached, 1=cached, 2=failed
@@ -59,10 +60,10 @@ export interface Article {
   // Enclosure
   enclosureURL?: string;
   enclosureType?: string;
-  
+
   // Content Hash (Deduplication)
   content_hash?: string;
-  
+
   // Podcast
   playbackPosition: number;
   localFilePath?: string;
@@ -94,7 +95,7 @@ export class FeedStreamDB extends Dexie {
 
   constructor() {
     super('FeedStreamDB');
-    
+
     // Schema version 1 (matching iOS v25)
     this.version(1).stores({
       folders: 'id, position',

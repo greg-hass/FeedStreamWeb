@@ -1,8 +1,8 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
 import { Sidebar } from '@/components/Sidebar';
 import { clsx } from 'clsx';
+import { AudioPlayer } from "@/components/AudioPlayer";
 
 export const metadata: Metadata = {
   title: 'FeedStream',
@@ -32,6 +32,7 @@ export default function RootLayout({
           </main>
           {/* MobileTabbar will go here */}
         </div>
+        <AudioPlayer />
       </body>
     </html>
   );

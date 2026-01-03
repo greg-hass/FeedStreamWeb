@@ -19,10 +19,16 @@ export default function HomePage() {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      // Sequential sync for now to avoid overwhelming network/browser
+      await FeedService.syncWithFever();
+      // Sequential sync for RSS feeds
       for (const feed of feeds) {
-        await FeedService.refreshFeed(feed);
+        if (feed.type === 'rss') { // Only sync RSS. Fever handled separately
+          await FeedService.refreshFeed(feed);
+        }
       }
+    } catch (e) {
+      console.error(e);
+      alert("Sync Error");
     } finally {
       setIsSyncing(false);
     }
