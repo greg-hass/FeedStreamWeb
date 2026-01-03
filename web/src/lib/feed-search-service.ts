@@ -42,24 +42,35 @@ export class FeedSearchService {
 
     private static async searchYouTube(query: string): Promise<FeedSearchResult[]> {
         // Use Piped API (public instance)
-        // https://pipedapi.kavin.rocks/search?q=...&filter=channels
-        try {
-            const res = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=channels`);
-            if (!res.ok) return [];
-            const data = await res.json();
+        // Trying a more stable instance or fallback
+        const instances = [
+            'https://pipedapi.kavin.rocks',
+            'https://api.piped.io'
+        ];
 
-            return (data.items || []).map((item: any) => ({
-                title: item.name,
-                url: `https://www.youtube.com/feeds/videos.xml?channel_id=${item.url.split('/').pop()}`,
-                description: item.description,
-                thumbnail: item.avatarUrl,
-                type: 'youtube',
-                source: 'youtube'
-            }));
-        } catch (e) {
-            console.error('YouTube search failed', e);
-            return [];
+        for (const instance of instances) {
+            try {
+                // Ensure query params are correctly encoded and proxied
+                const targetUrl = `${instance}/search?q=${encodeURIComponent(query)}&filter=channels`;
+                const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+
+                const res = await fetch(proxyUrl);
+                if (!res.ok) continue;
+                const data = await res.json();
+
+                return (data.items || []).map((item: any) => ({
+                    title: item.name,
+                    url: `https://www.youtube.com/feeds/videos.xml?channel_id=${item.url.split('/').pop()}`,
+                    description: item.description,
+                    thumbnail: item.avatarUrl,
+                    type: 'youtube',
+                    source: 'youtube'
+                }));
+            } catch (e) {
+                console.warn(`Piped instance ${instance} failed`, e);
+            }
         }
+        return [];
     }
 
     private static async searchPodcasts(query: string): Promise<FeedSearchResult[]> {
@@ -116,17 +127,54 @@ export class FeedSearchService {
     }
 
     private static async searchRSS(query: string): Promise<FeedSearchResult[]> {
-        // 1. Google News RSS for topics
+        const results: FeedSearchResult[] = [];
+
+        // 1. Direct Web Discovery (if query looks like a domain)
+        if (query.includes('.') && !query.includes(' ')) {
+            try {
+                let url = query.startsWith('http') ? query : `https://${query}`;
+                const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+                const res = await fetch(proxyUrl);
+                if (res.ok) {
+                    const html = await res.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const links = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
+
+                    links.forEach((link) => {
+                        const href = link.getAttribute('href');
+                        const title = link.getAttribute('title') || doc.title || query;
+                        if (href) {
+                            // Resolve relative URLs
+                            const absoluteUrl = new URL(href, url).toString();
+                            results.push({
+                                title: title,
+                                url: absoluteUrl,
+                                description: `Detected feed from ${new URL(url).hostname}`,
+                                type: 'rss',
+                                source: 'rss'
+                            });
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn("Direct discovery failed", e);
+            }
+        }
+
+        // 2. Google News RSS for topics (Fallback)
         try {
-            return [{
+            results.push({
                 title: `News: ${query}`,
                 url: `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`,
                 description: `Google News feed for "${query}"`,
                 type: 'rss',
                 source: 'rss'
-            }];
+            });
         } catch (e) {
-            return [];
+            // ignore
         }
+
+        return results;
     }
 }
