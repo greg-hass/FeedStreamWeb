@@ -3,7 +3,7 @@ import Dexie, { type EntityTable } from 'dexie';
 
 // Interfaces matching the iOS schema
 
-export type FeedType = 'rss' | 'atom' | 'json' | 'youtube' | 'reddit';
+export type FeedType = 'rss' | 'atom' | 'json' | 'youtube' | 'reddit' | 'podcast';
 
 export interface Folder {
   id: string;
