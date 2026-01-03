@@ -85,9 +85,9 @@ export default function SettingsPage() {
                                         const text = await file.text();
                                         await OpmlService.importOPML(text);
                                         alert('Import Successful!');
-                                    } catch (err) {
+                                    } catch (err: any) {
                                         console.error(err);
-                                        alert('Import Failed');
+                                        alert('Import Failed: ' + (err.message || 'Unknown error'));
                                     }
                                 }}
                             />

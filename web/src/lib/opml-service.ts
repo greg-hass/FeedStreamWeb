@@ -12,11 +12,13 @@ export class OpmlService {
         });
 
         const result = parser.parse(xmlContent);
-        const body = result.opml?.body;
+        // Check for OPML root
+        if (!result.opml && !result.OPML) throw new Error("Invalid OPML file: No <opml> tag found");
 
-        if (!body) throw new Error("Invalid OPML file");
+        const body = result.opml?.body || result.OPML?.body;
+        if (!body) throw new Error("Invalid OPML file: No <body> tag found");
 
-        const outlines = Array.isArray(body.outline) ? body.outline : [body.outline];
+        const outlines = Array.isArray(body.outline) ? body.outline : (body.outline ? [body.outline] : []);
 
         await this.processOutlines(outlines);
     }
@@ -25,10 +27,14 @@ export class OpmlService {
         for (const node of outlines) {
             if (!node) continue;
 
+            // Handle casing variations if necessary (fast-xml-parser usually respects case)
+            // But some OPMLs might use slightly different attribute names? Standard is xmlUrl.
+            const feedUrl = node.xmlUrl || node.xmlurl || node.url;
+
             // Case 1: Subscription (has xmlUrl)
-            if (node.xmlUrl) {
+            if (feedUrl) {
                 try {
-                    await FeedService.addFeed(node.xmlUrl, folderId);
+                    await FeedService.addFeed(feedUrl, folderId);
                 } catch (e) {
                     console.error(`Failed to import feed ${node.xmlUrl}`, e);
                 }
