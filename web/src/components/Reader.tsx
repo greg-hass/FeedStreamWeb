@@ -19,11 +19,16 @@ export function Reader({ article }: ReaderProps) {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        const sanitizeOptions = {
+            ADD_TAGS: ['iframe'],
+            ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style']
+        };
+
         // Sanitize initial content
         if (article.contentHTML) {
-            setContent(DOMPurify.sanitize(article.contentHTML));
+            setContent(DOMPurify.sanitize(article.contentHTML, sanitizeOptions));
         } else if (article.summary) {
-            setContent(DOMPurify.sanitize(article.summary));
+            setContent(DOMPurify.sanitize(article.summary, sanitizeOptions));
         }
     }, [article]);
 
@@ -83,16 +88,54 @@ export function Reader({ article }: ReaderProps) {
                 </div>
             </header>
 
+            {article.mediaKind === 'youtube' && (
+                <div className="mb-6 -mx-4 sm:mx-0">
+                    <div className="relative pt-[56.25%] bg-black">
+                        {/* We extract src from content if possible, or re-render if we had videoID stored. 
+                            Since we rely on contentHTML having the iframe, we can try to extract it or just let content handle it.
+                            But for "Inline Mobile" feel, a top player is best. 
+                            Let's trust the content flow for now if the user wants it inline with text, 
+                            BUT often feeds have text then video. 
+                            If the parser puts it in content, we might duplicate it. 
+                            Let's stick to content-based rendering first to avoid duplication.
+                        */}
+                    </div>
+                </div>
+            )}
+
+            {/* 
+              User Update: "inline on mobile" often means effectively maximizing the video width.
+              We'll add a CSS class to ensure iframes break out of padding on mobile.
+            */}
+            <style jsx global>{`
+                .prose iframe {
+                    width: 100%;
+                    aspect-ratio: 16/9;
+                    border-radius: 0.5rem;
+                }
+                @media (max-width: 640px) {
+                    .prose iframe {
+                        border-radius: 0;
+                        margin-left: -1rem; /* Break out of parent padding (px-4) */
+                        margin-right: -1rem;
+                        width: calc(100% + 2rem);
+                        max-width: none;
+                    }
+                }
+            `}</style>
+
             <article className="prose prose-zinc dark:prose-invert lg:prose-lg max-w-none">
                 {/* Render HTML safely */}
                 <div dangerouslySetInnerHTML={{ __html: content }} />
             </article>
 
-            {loading && (
-                <div className="fixed inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-sm">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
-                </div>
-            )}
-        </div>
+            {
+                loading && (
+                    <div className="fixed inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-sm">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
+                    </div>
+                )
+            }
+        </div >
     );
 }

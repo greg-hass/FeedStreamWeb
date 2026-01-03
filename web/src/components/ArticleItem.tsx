@@ -87,7 +87,6 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
         </ArticleSwipeRow>
     );
 }
-    );
-}
 
 ArticleItem.displayName = 'ArticleItem';
+```
