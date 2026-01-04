@@ -213,7 +213,7 @@ export default function SettingsPage() {
                             </p>
                             <div className="flex gap-2">
                                 <button
-                                    onClick={() => {
+                                    onClick={async () => {
                                         const settings = {
                                             syncEndpoint,
                                             syncUsername,
@@ -222,12 +222,31 @@ export default function SettingsPage() {
                                             geminiApiKey,
                                             exportedAt: new Date().toISOString(),
                                         };
-                                        const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+                                        const json = JSON.stringify(settings, null, 2);
+                                        const blob = new Blob([json], { type: 'application/json' });
+                                        const file = new File([blob], 'feedstream_settings.json', { type: 'application/json' });
+
+                                        // Try Web Share API first (works on iOS Safari)
+                                        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+                                            try {
+                                                await navigator.share({
+                                                    files: [file],
+                                                    title: 'FeedStream Settings',
+                                                });
+                                                return;
+                                            } catch (e) {
+                                                // User cancelled or share failed, fall through
+                                            }
+                                        }
+
+                                        // Fallback: try traditional download
                                         const url = URL.createObjectURL(blob);
                                         const a = document.createElement('a');
                                         a.href = url;
                                         a.download = 'feedstream_settings.json';
+                                        document.body.appendChild(a);
                                         a.click();
+                                        document.body.removeChild(a);
                                         URL.revokeObjectURL(url);
                                     }}
                                     className="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 rounded text-sm font-medium hover:bg-zinc-300 dark:hover:bg-zinc-700 transition"
