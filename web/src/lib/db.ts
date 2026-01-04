@@ -93,6 +93,8 @@ export class FeedStreamDB extends Dexie {
   articles!: EntityTable<Article, 'id'>;
   playbackQueue!: EntityTable<PlaybackQueueItem, 'id'>;
   feedCollectionMembership!: EntityTable<FeedCollectionMembership, 'id'>;
+  rules!: EntityTable<AutomationRule, 'id'>;
+  briefings!: EntityTable<DailyBriefing, 'id'>;
 
   constructor() {
     super('FeedStreamDB');
@@ -115,7 +117,7 @@ export class FeedStreamDB extends Dexie {
     this.version(3).stores({
       feeds: 'id, folderID, type, &feedURL, isPaused, sortOrder, isFavorite, dateAdded, iconURL'
     });
-    
+
     // Schema version 4: Add compound indexes for efficient filtering + sorting
     this.version(4).stores({
       articles: 'id, feedID, [feedID+isRead+publishedAt], [isRead+publishedAt], publishedAt, url, &content_hash, [contentPrefetchedAt+isRead], isBookmarked, mediaKind, [mediaKind+publishedAt], [isBookmarked+publishedAt]'
@@ -123,28 +125,28 @@ export class FeedStreamDB extends Dexie {
 
     // Schema version 5: Automation Rules & AI Briefings
     this.version(5).stores({
-        rules: 'id, name, isActive', // Simple index, full scan is fine for rules (usually < 50)
-        briefings: 'id, date, generatedAt'
+      rules: 'id, name, isActive', // Simple index, full scan is fine for rules (usually < 50)
+      briefings: 'id, date, generatedAt'
     });
   }
 }
 
 export interface AutomationRule {
-    id: string;
-    name: string;
-    conditionType: 'title_contains' | 'content_contains' | 'feed_is' | 'author_contains';
-    conditionValue: string; // e.g. "Sponsor" or FeedID
-    action: 'mark_read' | 'delete' | 'star' | 'tag_important';
-    isActive: boolean;
-    createdAt: Date;
+  id: string;
+  name: string;
+  conditionType: 'title_contains' | 'content_contains' | 'feed_is' | 'author_contains';
+  conditionValue: string; // e.g. "Sponsor" or FeedID
+  action: 'mark_read' | 'delete' | 'star' | 'tag_important';
+  isActive: boolean;
+  createdAt: Date;
 }
 
 export interface DailyBriefing {
-    id: string;
-    date: string; // YYYY-MM-DD key
-    content: string; // Markdown content
-    generatedAt: Date;
-    articlesCovered: string[]; // List of article IDs included
+  id: string;
+  date: string; // YYYY-MM-DD key
+  content: string; // Markdown content
+  generatedAt: Date;
+  articlesCovered: string[]; // List of article IDs included
 }
 
 export const db = new FeedStreamDB();
