@@ -82,7 +82,7 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
 
                         <div className="flex-1 min-w-0 flex flex-col">
                             {/* Meta Line */}
-                            <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
+                            <div className="flex items-center gap-2 text-sm text-zinc-500 mb-1">
                                 {article.mediaKind === 'podcast' ? (
                                     <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
                                         <Mic size={12} />
