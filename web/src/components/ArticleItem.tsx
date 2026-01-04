@@ -59,14 +59,8 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
     const getPreviewText = () => {
         let text = article.summary || article.contentHTML || '';
 
-        // Strip HTML comments (like <!-- SC_OFF --> from Reddit)
-        text = text.replace(/<!--[\s\S]*?-->/g, '');
-
-        // Strip all HTML tags
-        text = text.replace(/<[^>]*>/g, '');
-
-        // Decode HTML entities (including numeric like &#32; and &#39;)
-        text = text
+        // Step 1: Decode HTML entities FIRST (handles double-encoded content like &lt;table&gt;)
+        const decodeEntities = (str: string) => str
             .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
             .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
             .replace(/&amp;/g, '&')
@@ -76,7 +70,18 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
             .replace(/&apos;/g, "'")
             .replace(/&nbsp;/g, ' ');
 
-        // Clean up excessive whitespace
+        text = decodeEntities(text);
+
+        // Step 2: Strip HTML comments (like <!-- SC_OFF --> from Reddit)
+        text = text.replace(/<!--[\s\S]*?-->/g, '');
+
+        // Step 3: Strip all HTML tags
+        text = text.replace(/<[^>]*>/g, '');
+
+        // Step 4: Decode again in case there were nested entities
+        text = decodeEntities(text);
+
+        // Step 5: Clean up excessive whitespace
         text = text.replace(/\s+/g, ' ').trim();
 
         return text.slice(0, 160);
