@@ -110,37 +110,39 @@ export function AppHeader({
         <>
             <FeedSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
             <header className="header-blur sticky top-0 z-30 border-b border-zinc-200/50 dark:border-zinc-800/50">
-                <div className="h-14 flex items-center gap-3 px-4 sm:px-6">
-                    {/* Logo - Left */}
-                    <div className="flex items-center gap-2 shrink-0">
-                        {icon}
-                        {title && <h1 className="text-lg font-semibold">{title}</h1>}
-                    </div>
+                <div className="h-14 flex items-center gap-4 px-4 sm:px-6">
+                    {/* Logo with FeedStream - Always on LEFT */}
+                    <Link href="/" className="flex items-center gap-2 shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+                            <Rss className="text-white" size={18} />
+                        </div>
+                        <span className="font-bold text-lg hidden sm:block text-zinc-900 dark:text-white">FeedStream</span>
+                    </Link>
 
-                    {/* Search Bar - Fills Space */}
+                    {/* Search Bar - FILLS MIDDLE SPACE */}
                     {showSearch && (
-                        <div className="flex-1 max-w-2xl relative group">
+                        <div className="flex-1 relative group">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-brand transition-colors" size={16} />
                             <input
                                 type="text"
                                 placeholder="Search articles..."
                                 value={searchValue}
                                 onChange={(e) => onSearchChange?.(e.target.value)}
-                                className="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-full py-1.5 pl-9 pr-8 text-sm focus:ring-2 focus:ring-brand/20 transition-all placeholder:text-zinc-500"
+                                className="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-full py-2 pl-10 pr-10 text-sm focus:ring-2 focus:ring-brand/30 transition-all placeholder:text-zinc-500"
                             />
                             {searchValue && (
                                 <button
                                     onClick={() => onSearchChange?.('')}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 rounded-full"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                                 >
-                                    <X size={14} />
+                                    <X size={16} />
                                 </button>
                             )}
                         </div>
                     )}
 
-                    {/* Action Buttons - Right */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Action Buttons - Always on RIGHT */}
+                    <div className="flex items-center gap-2 shrink-0 ml-auto">
                         {showRefresh && timeRemaining && (
                             <span className="hidden sm:inline-block text-xs font-mono text-zinc-400 dark:text-zinc-600 tabular-nums">
                                 {timeRemaining}
