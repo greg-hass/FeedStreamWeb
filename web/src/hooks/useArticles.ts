@@ -39,14 +39,16 @@ export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved'
                 .toArray();
         } else if (view === 'youtube') {
             return db.articles
-                .where('mediaKind').equals('youtube')
+                .orderBy('publishedAt')
                 .reverse()
+                .filter(a => a.mediaKind === 'youtube')
                 .limit(limit)
                 .toArray();
         } else if (view === 'podcasts') {
             return db.articles
-                .where('mediaKind').equals('podcast')
+                .orderBy('publishedAt')
                 .reverse()
+                .filter(a => a.mediaKind === 'podcast')
                 .limit(limit)
                 .toArray();
         } else if (view === 'reddit') {
