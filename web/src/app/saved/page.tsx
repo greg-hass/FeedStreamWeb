@@ -3,18 +3,17 @@
 import { useArticles } from "@/hooks/useArticles";
 import { ArticleList } from "@/components/ArticleList";
 import { Bookmark } from "lucide-react";
+import { AppHeader } from "@/components/AppHeader";
 
 export default function SavedPage() {
     const articles = useArticles('saved');
 
     return (
         <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
-            <header className="header-blur sticky top-0 z-30 border-b border-zinc-200/50 dark:border-zinc-800/50">
-                <div className="h-14 flex items-center gap-3 px-4 sm:px-6">
-                    <Bookmark className="text-amber-500" size={20} />
-                    <h1 className="text-xl font-bold tracking-tight">Bookmarks</h1>
-                </div>
-            </header>
+            <AppHeader
+                title="Bookmarks"
+                icon={<Bookmark className="text-amber-500" size={20} />}
+            />
             <div className="flex-1 overflow-hidden">
                 {articles && articles.length > 0 ? (
                     <ArticleList articles={articles} />

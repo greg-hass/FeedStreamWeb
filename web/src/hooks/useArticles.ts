@@ -58,12 +58,31 @@ export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved'
                 .limit(limit)
                 .toArray();
         } else if (view === 'rss') {
-            // Generic RSS/Articles - articles where mediaKind is 'none' (not youtube/podcast)
+            // Generic RSS/Articles - exclude reddit, youtube, podcast feeds
+            const excludedFeeds = await db.feeds
+                .where('type').anyOf(['reddit', 'youtube', 'podcast'])
+                .keys();
+
+            if (excludedFeeds.length === 0) {
+                // No excluded feeds, show all
+                return db.articles
+                    .orderBy('publishedAt')
+                    .reverse()
+                    .limit(limit)
+                    .toArray();
+            }
+
+            // Filter out articles from excluded feeds
             return db.articles
-                .where('mediaKind').equals('none')
+                .orderBy('publishedAt')
                 .reverse()
-                .limit(limit)
-                .toArray();
+                .limit(limit * 3) // Get more to filter
+                .toArray()
+                .then(articles =>
+                    articles
+                        .filter(a => !excludedFeeds.includes(a.feedID))
+                        .slice(0, limit)
+                );
         } else if (view === 'all') {
             return db.articles
                 .orderBy('publishedAt')

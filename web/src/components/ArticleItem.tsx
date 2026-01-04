@@ -99,14 +99,14 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                                     </>
                                 )}
                                 <span className="text-zinc-300 dark:text-zinc-600">•</span>
-                                <time className="shrink-0 text-zinc-400 dark:text-white">
+                                <time className="shrink-0 text-sm text-orange-500 dark:text-orange-400 font-medium">
                                     {article.publishedAt ? formatDistanceToNow(article.publishedAt, { addSuffix: true }) : ''}
                                 </time>
                             </div>
 
                             {/* Title */}
                             <h3 className={clsx(
-                                "text-[15px] font-semibold leading-snug line-clamp-2 tracking-tight flex items-start gap-2",
+                                "text-[17px] font-semibold leading-snug line-clamp-2 tracking-tight flex items-start gap-2",
                                 article.isRead
                                     ? "text-zinc-500 dark:text-zinc-500"
                                     : "text-zinc-900 dark:text-zinc-100"
