@@ -357,7 +357,35 @@ export function Sidebar({ className }: SidebarProps) {
                             </button>
                         </>
                     )}
-                    {/* ... folder context menu ... */}
+                    {contextMenu.type === 'folder' && (
+                        <>
+                            <button
+                                onClick={() => {
+                                    const folder = folders.find(f => f.id === contextMenu.id);
+                                    setRenameModal({ id: contextMenu.id, name: folder?.name || '' });
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-2"
+                            >
+                                <Edit2 size={14} /> Rename
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (confirm('Delete this folder? Feeds will be moved to root.')) {
+                                        // Move feeds to root first
+                                        const folderFeeds = feeds.filter(f => f.folderID === contextMenu.id);
+                                        for (const feed of folderFeeds) {
+                                            await db.feeds.update(feed.id, { folderID: undefined });
+                                        }
+                                        await db.folders.delete(contextMenu.id);
+                                        setContextMenu(null);
+                                    }
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-zinc-800 flex items-center gap-2"
+                            >
+                                <Trash2 size={14} /> Delete Folder
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 

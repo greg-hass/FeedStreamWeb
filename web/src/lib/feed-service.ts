@@ -53,7 +53,7 @@ export class FeedService {
         return feedId;
     }
 
-    static async refreshFeed(feed: Feed): Promise<void> {
+    static async refreshFeed(feed: Feed): Promise<number> {
         console.log(`[RefreshFeed] Starting refresh for: ${feed.title}`);
         try {
             const proxyUrl = `/api/proxy?url=${encodeURIComponent(feed.feedURL)}`;
