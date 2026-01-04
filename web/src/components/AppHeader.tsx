@@ -61,7 +61,7 @@ export function AppHeader({
         };
 
         updateTimer();
-        const interval = setInterval(updateTimer, 1000); // 1 second
+        const interval = setInterval(updateTimer, 10000); // 10 seconds (battery optimization)
         return () => clearInterval(interval);
     }, [lastRefreshTime]);
 
@@ -170,7 +170,7 @@ export function AppHeader({
             }
         };
 
-        const interval = setInterval(checkAutoRefresh, 10000); // Check every 10 seconds
+        const interval = setInterval(checkAutoRefresh, 60000); // Check every 60 seconds (battery optimization)
         checkAutoRefresh(); // Also check immediately
         return () => clearInterval(interval);
     }, [lastRefreshTime, isSyncing, showRefresh, feeds, performSync]); // Depend on performSync

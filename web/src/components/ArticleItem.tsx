@@ -15,7 +15,7 @@ interface ArticleItemProps {
     onToggleBookmark?: (id: string) => void;
 }
 
-export function ArticleItem({ article, feed, isSelected, onToggleRead, onToggleBookmark }: ArticleItemProps) {
+function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggleBookmark }: ArticleItemProps) {
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
     const getTypeIcon = () => {
@@ -267,5 +267,16 @@ export function ArticleItem({ article, feed, isSelected, onToggleRead, onToggleB
         </ArticleSwipeRow>
     );
 }
+
+// Memoized to prevent re-renders during virtual scroll
+export const ArticleItem = React.memo(ArticleItemComponent, (prev, next) => {
+    return (
+        prev.article.id === next.article.id &&
+        prev.article.isRead === next.article.isRead &&
+        prev.article.isBookmarked === next.article.isBookmarked &&
+        prev.isSelected === next.isSelected &&
+        prev.feed?.id === next.feed?.id
+    );
+});
 
 ArticleItem.displayName = 'ArticleItem';
