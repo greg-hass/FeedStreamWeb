@@ -21,18 +21,10 @@ export function decodeHTMLEntities(text: string): string {
     return txt.value;
 }
 
+import md5Lib from 'blueimp-md5';
+
 export async function md5(message: string): Promise<string> {
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-        try {
-            const msgUint8 = new TextEncoder().encode(message);
-            const hashBuffer = await crypto.subtle.digest('MD5', msgUint8);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        } catch (e) {
-            console.warn("Crypto API failed, falling back to simple hash");
-        }
-    }
-    return simpleHash(message);
+    return md5Lib(message);
 }
 
 export async function sha256(message: string): Promise<string> {
