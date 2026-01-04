@@ -1,7 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Article } from "@/lib/db";
 
-export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved' | 'history' | 'youtube' | 'podcasts' | 'reddit' | string = 'all', limit = 100) {
+export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved' | 'history' | 'youtube' | 'podcasts' | 'reddit' | string = 'all', limit = 500) {
     return useLiveQuery(async () => {
         const now = new Date();
 
@@ -56,48 +56,40 @@ export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved'
                 .equals('reddit')
                 .primaryKeys();
 
-            console.log('[useArticles] Reddit feed IDs:', redditFeedIds);
-
             if (redditFeedIds.length === 0) {
-                console.log('[useArticles] No Reddit feeds found');
                 return [];
             }
 
-            const articles = await db.articles
+            return db.articles
                 .where('feedID')
                 .anyOf(redditFeedIds as string[])
                 .reverse()
                 .limit(limit)
-                .toArray();
-
-            console.log('[useArticles] Found', articles.length, 'Reddit articles');
-            return articles;
+                .toArray()
+                // Sort by date manually since using 'feedID' index
+                .then(articles => articles.sort((a, b) =>
+                    (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0)
+                ));
         } else if (view === 'rss') {
             // Generic RSS/Articles - exclude reddit, youtube, podcast feeds
-            const excludedFeeds = await db.feeds
-                .where('type').anyOf(['reddit', 'youtube', 'podcast'])
-                .keys();
+            // Optimization: Find Allowed Feeds first
+            const allowedFeedIds = await db.feeds
+                .where('type').noneOf(['reddit', 'youtube', 'podcast'])
+                .primaryKeys();
 
-            if (excludedFeeds.length === 0) {
-                // No excluded feeds, show all
-                return db.articles
-                    .orderBy('publishedAt')
-                    .reverse()
-                    .limit(limit)
-                    .toArray();
+            if (allowedFeedIds.length === 0) {
+                return [];
             }
 
-            // Filter out articles from excluded feeds
             return db.articles
-                .orderBy('publishedAt')
+                .where('feedID').anyOf(allowedFeedIds as string[])
                 .reverse()
-                .limit(limit * 3) // Get more to filter
+                .limit(limit)
                 .toArray()
-                .then(articles =>
-                    articles
-                        .filter(a => !excludedFeeds.includes(a.feedID))
-                        .slice(0, limit)
-                );
+                // Sort by date manually since using 'feedID' index
+                .then(articles => articles.sort((a, b) =>
+                    (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0)
+                ));
         } else if (view === 'all') {
             return db.articles
                 .orderBy('publishedAt')

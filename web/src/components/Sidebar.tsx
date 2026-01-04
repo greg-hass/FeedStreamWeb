@@ -44,13 +44,10 @@ export function Sidebar({ className }: SidebarProps) {
                 return db.articles.where('feedID').anyOf(feeds.map(f => f.id)).count();
             }),
             // RSS/Articles (generic) - counts articles NOT from reddit/youtube/podcast feeds
-            db.feeds.where('type').anyOf(['reddit', 'youtube', 'podcast']).toArray().then(async excludedFeeds => {
-                if (excludedFeeds.length === 0) {
-                    return db.articles.count();
-                }
-                const excludedIds = excludedFeeds.map(f => f.id);
-                const allArticles = await db.articles.toArray();
-                return allArticles.filter(a => !excludedIds.includes(a.feedID)).length;
+            // Optimization: Find Allowed Feeds first, avoiding full table scan/load
+            db.feeds.where('type').noneOf(['reddit', 'youtube', 'podcast']).primaryKeys().then(allowedIds => {
+                if (allowedIds.length === 0) return 0;
+                return db.articles.where('feedID').anyOf(allowedIds as string[]).count();
             })
         ]);
         return { youtube, podcast, reddit, rss };
