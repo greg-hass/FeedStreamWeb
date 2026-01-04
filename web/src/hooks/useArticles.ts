@@ -8,7 +8,7 @@ export function useArticles(
     searchQuery: string = ''
 ) {
     return useLiveQuery(async () => {
-        let collection: Dexie.Collection<Article, string> | Dexie.Table<Article, string>;
+        let collection: any; // Use any to avoid Dexie's complex generic type issues
         const now = new Date();
 
         // 1. Select the base collection strategy
@@ -56,7 +56,7 @@ export function useArticles(
         if (searchQuery && searchQuery.trim().length > 0) {
             const lowerQuery = searchQuery.toLowerCase();
             const originalCollection = collection;
-            
+
             // Dexie collections are immutable-ish chains, so we filter
             // Note: This is an in-memory filter on the results of the index scan.
             // For massive datasets, we'd need a full-text index.
