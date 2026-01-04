@@ -109,21 +109,21 @@ export function AppHeader({
     return (
         <>
             <FeedSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
-            <header className="sticky top-0 z-50 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200/50 dark:border-zinc-800/50">
-                <div className="h-14 flex items-center gap-3 px-4 sm:px-6 max-w-screen-2xl mx-auto">
-                    {/* Logo */}
-                    <Link href="/" className="flex items-center gap-2 shrink-0">
-                        <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-                            <Rss className="text-white" size={18} />
-                        </div>
-                        <span className="font-bold text-lg hidden sm:block">FeedStream</span>
-                    </Link>
-                    {showSearch ? (
-                        <div className="flex-1 max-w-md relative group">
+            <header className="header-blur sticky top-0 z-30 border-b border-zinc-200/50 dark:border-zinc-800/50">
+                <div className="h-14 flex items-center gap-3 px-4 sm:px-6">
+                    {/* Logo - Left */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {icon}
+                        {title && <h1 className="text-lg font-semibold">{title}</h1>}
+                    </div>
+
+                    {/* Search Bar - Fills Space */}
+                    {showSearch && (
+                        <div className="flex-1 max-w-2xl relative group">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-brand transition-colors" size={16} />
                             <input
                                 type="text"
-                                placeholder="Search..."
+                                placeholder="Search articles..."
                                 value={searchValue}
                                 onChange={(e) => onSearchChange?.(e.target.value)}
                                 className="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-full py-1.5 pl-9 pr-8 text-sm focus:ring-2 focus:ring-brand/20 transition-all placeholder:text-zinc-500"
@@ -137,13 +137,10 @@ export function AppHeader({
                                 </button>
                             )}
                         </div>
-                    ) : (
-                        <div className="flex items-center gap-3">
-                            {icon}
-                            {title && <h1 className="text-xl font-bold tracking-tight">{title}</h1>}
-                        </div>
                     )}
-                    <div className="flex items-center gap-2">
+
+                    {/* Action Buttons - Right */}
+                    <div className="flex items-center gap-2 shrink-0">
                         {showRefresh && timeRemaining && (
                             <span className="hidden sm:inline-block text-xs font-mono text-zinc-400 dark:text-zinc-600 tabular-nums">
                                 {timeRemaining}

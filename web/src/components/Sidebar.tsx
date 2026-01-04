@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, FolderOpen, Play, Radio, MoreHorizontal, Trash2, MoveRight, GripVertical, ChevronDown, ChevronRight, Mic, Youtube, MessageCircle, FileText } from 'lucide-react';
+import { Calendar, LayoutGrid, Bookmark, Settings, List, ChevronRight, ChevronDown, FolderOpen, Rss, Youtube, Mic, MessageCircle, MoreVertical, Edit2, Trash2, FolderInput, Folder as FolderIcon, Clock, FileText, MoreHorizontal, MoveRight, GripVertical } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
@@ -22,12 +22,12 @@ export function Sidebar({ className }: SidebarProps) {
     // Sidebar counts
     const counts = useLiveQuery(async () => {
         const now = new Date();
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         const [today, all, saved] = await Promise.all([
-            db.articles.where('publishedAt').above(startOfDay).count(),
-            db.articles.count(),
-            db.articles.where('isBookmarked').equals(1).count() // Dexie boolean index
+            db.articles.filter(a => a.publishedAt instanceof Date && a.publishedAt >= todayStart && a.isRead === false).count(),
+            db.articles.filter(a => a.isRead === false).count(),
+            db.articles.filter(a => Boolean(a.isBookmarked)).count(),
         ]);
 
         return { today, all, saved };
@@ -281,11 +281,16 @@ export function Sidebar({ className }: SidebarProps) {
                                     </button>
                                     <Link
                                         href={`/folder/view/${folder.id}`}
-                                        className="flex-1 px-2 py-1.5 flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors"
+                                        className={clsx(
+                                            "flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
+                                            pathname === `/folder/view/${folder.id}`
+                                                ? "bg-brand/10 text-brand font-medium"
+                                                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                        )}
                                     >
-                                        <FolderOpen size={14} />
-                                        <span className="truncate flex-1">{folder.name}</span>
-                                        <span className="text-zinc-600">{folderFeeds.length}</span>
+                                        <FolderIcon size={16} />
+                                        <span className="flex-1">{folder.name}</span>
+                                        <span className="text-xs font-mono text-brand font-semibold">{folderFeeds.length}</span>
                                     </Link>
                                     <button
                                         onClick={(e) => {
@@ -497,8 +502,8 @@ function SidebarFeedItem({ feed, isActive, small, onContextMenu, onMenuClick }: 
                     "flex-1 flex items-center gap-3 rounded-lg transition-all duration-150",
                     small ? "px-2 py-1.5 text-xs" : "px-3 py-2 text-sm",
                     isActive
-                        ? "bg-zinc-800 text-white font-medium"
-                        : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                        ? "bg-brand/10 text-brand font-medium"
+                        : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
                 )}
                 title={feed.title}
             >
