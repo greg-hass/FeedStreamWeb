@@ -20,6 +20,7 @@ export interface Feed {
   type: FeedType;
   folderID?: string;
   faviconPath?: string;
+  iconURL?: string; // NEW: Favicon/channel icon URL
   lastSync?: Date;
   etag?: string;
   lastModified?: string;
@@ -108,6 +109,11 @@ export class FeedStreamDB extends Dexie {
     // Schema version 2: Add indices for sidebar counts (isBookmarked, mediaKind)
     this.version(2).stores({
       articles: 'id, feedID, [feedID+isRead+publishedAt], [isRead+publishedAt], publishedAt, url, &content_hash, [contentPrefetchedAt+isRead], isBookmarked, mediaKind'
+    });
+
+    // Schema version 3: Add iconURL for feed icons/favicons
+    this.version(3).stores({
+      feeds: 'id, folderID, type, &feedURL, isPaused, sortOrder, isFavorite, dateAdded, iconURL'
     });
   }
 }

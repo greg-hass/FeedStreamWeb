@@ -116,13 +116,28 @@ export default function MorePage() {
                                     feed.type === 'podcast' ? Mic :
                                         feed.type === 'reddit' ? MessageCircle : Rss;
 
+                                const iconColor = feed.type === 'youtube' ? 'text-red-500' :
+                                    feed.type === 'podcast' ? 'text-purple-500' :
+                                        feed.type === 'reddit' ? 'text-orange-500' : 'text-zinc-400';
+
                                 return (
                                     <Link
                                         key={feed.id}
                                         href={`/feed/${feed.id}`}
                                         className="flex items-center gap-3 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 last:border-b-0 active:bg-zinc-100 dark:active:bg-zinc-800 transition-colors"
                                     >
-                                        <Icon size={16} className="text-zinc-400 shrink-0" />
+                                        {/* Show feed icon if available **/}
+                                        {feed.iconURL ? (
+                                            <img
+                                                src={feed.iconURL}
+                                                alt=""
+                                                className="w-4 h-4 rounded object-cover shrink-0 bg-zinc-200 dark:bg-zinc-800"
+                                                loading="lazy"
+                                                onError={(e) => e.currentTarget.style.display = 'none'}
+                                            />
+                                        ) : (
+                                            <Icon size={16} className={`shrink-0 ${iconColor}`} />
+                                        )}
                                         <span className="flex-1 font-medium text-sm truncate">{feed.title}</span>
                                         <ChevronRight size={18} className="text-zinc-400" />
                                     </Link>

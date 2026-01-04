@@ -4,6 +4,7 @@ import { parseFeed } from './feed-parser';
 import { FeverAPI } from './fever-api';
 import { useSettingsStore } from '@/store/settingsStore';
 import { md5, uuidv4 } from './utils';
+import { IconService } from './icon-service';
 
 export class FeedService {
 
@@ -42,6 +43,12 @@ export class FeedService {
         }));
 
         await db.articles.bulkAdd(articlesWithFeedId);
+
+        // 4. Fetch and update feed icon
+        const feed = await db.feeds.get(feedId);
+        if (feed) {
+            await IconService.updateFeedIcon(feed, normalized.rawData);
+        }
 
         return feedId;
     }

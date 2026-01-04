@@ -490,7 +490,26 @@ function SidebarFeedItem({ feed, isActive, small, onContextMenu, onMenuClick }: 
                 )}
                 title={feed.title}
             >
-                <Icon size={small ? 14 : 16} className={clsx("shrink-0", iconColor)} />
+                {/* Show feed icon if available, otherwise show type icon */}
+                {feed.iconURL ? (
+                    <div className="relative shrink-0">
+                        <img
+                            src={feed.iconURL}
+                            alt=""
+                            className={clsx(
+                                "rounded object-cover bg-zinc-800",
+                                small ? "w-3.5 h-3.5" : "w-4 h-4"
+                            )}
+                            loading="lazy"
+                            onError={(e) => {
+                                // Fallback to type icon on error
+                                e.currentTarget.style.display = 'none';
+                            }}
+                        />
+                    </div>
+                ) : (
+                    <Icon size={small ? 14 : 16} className={clsx("shrink-0", iconColor)} />
+                )}
                 <span className="truncate">{feed.title}</span>
             </Link>
             <button

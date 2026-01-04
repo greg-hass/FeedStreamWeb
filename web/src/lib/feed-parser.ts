@@ -9,6 +9,7 @@ export interface NormalizedFeed {
     kind: FeedType;
     articles: Article[];
     avatarURL?: string;
+    rawData?: any; // Raw parsed XML/JSON data for icon extraction
 }
 
 const xmlParser = new XMLParser({
@@ -219,6 +220,7 @@ async function parseXMLFeed(xmlData: string, sourceURL: string): Promise<Normali
         title: String(feedTitle || ''),
         site: String(feedLink),
         kind,
-        articles
+        articles,
+        rawData: parsed // Include raw parsed data for icon extraction
     };
 }

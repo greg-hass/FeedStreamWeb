@@ -86,9 +86,20 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
 
                             {/* Meta Line */}
                             <div className="flex items-center gap-2 text-sm text-zinc-500 mb-2">
+                                {/* Feed Icon */}
+                                {feed?.iconURL && (
+                                    <img
+                                        src={feed.iconURL}
+                                        alt=""
+                                        className="w-4 h-4 rounded object-cover shrink-0 bg-zinc-200 dark:bg-zinc-800"
+                                        loading="lazy"
+                                        onError={(e) => e.currentTarget.style.display = 'none'}
+                                    />
+                                )}
+
                                 {article.mediaKind === 'podcast' ? (
                                     <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
-                                        <Mic size={12} />
+                                        {!feed?.iconURL && <Mic size={12} />}
                                         <span className="font-medium text-purple-600 dark:text-purple-400 truncate max-w-[150px]">
                                             {feed?.title || 'Unknown Feed'}
                                         </span>
