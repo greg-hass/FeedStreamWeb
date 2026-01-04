@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, List, Folder, Settings, Search } from 'lucide-react';
+import { Home, LayoutGrid, Bookmark, MoreHorizontal } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAudioStore } from '@/store/audioStore';
 
@@ -16,9 +16,9 @@ export function TabBar() {
 
     const tabs = [
         { name: 'Today', icon: Home, href: '/' },
-        { name: 'Feeds', icon: List, href: '/folder/all' },
-        { name: 'Saved', icon: Folder, href: '/saved' },
-        { name: 'Settings', icon: Settings, href: '/settings' },
+        { name: 'All', icon: LayoutGrid, href: '/feeds/all' },
+        { name: 'Saved', icon: Bookmark, href: '/saved' },
+        { name: 'More', icon: MoreHorizontal, href: '/more' },
     ];
 
     return (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Plus } from 'lucide-react';
+import { RefreshCw, Plus, Search, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
@@ -10,13 +10,24 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { FeedSearchModal } from './FeedSearchModal';
 
 interface AppHeaderProps {
-    title: string;
+    title?: string;
     icon?: React.ReactNode;
     showRefresh?: boolean;
     showAddButton?: boolean;
+    showSearch?: boolean;
+    searchValue?: string;
+    onSearchChange?: (value: string) => void;
 }
 
-export function AppHeader({ title, icon, showRefresh = true, showAddButton = true }: AppHeaderProps) {
+export function AppHeader({
+    title,
+    icon,
+    showRefresh = true,
+    showAddButton = true,
+    showSearch = false,
+    searchValue = '',
+    onSearchChange
+}: AppHeaderProps) {
     const [isSyncing, setIsSyncing] = useState(false);
     const { lastRefreshTime, setLastRefreshTime } = useSettingsStore();
     const [timeRemaining, setTimeRemaining] = useState<string>('');
@@ -70,11 +81,32 @@ export function AppHeader({ title, icon, showRefresh = true, showAddButton = tru
         <>
             <FeedSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
             <header className="header-blur sticky top-0 z-30 border-b border-zinc-200/50 dark:border-zinc-800/50">
-                <div className="h-14 flex items-center justify-between px-4 sm:px-6">
-                    <div className="flex items-center gap-3">
-                        {icon}
-                        <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-                    </div>
+                <div className="h-14 flex items-center justify-between px-4 sm:px-6 gap-4">
+                    {showSearch ? (
+                        <div className="flex-1 max-w-md relative group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-brand transition-colors" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                value={searchValue}
+                                onChange={(e) => onSearchChange?.(e.target.value)}
+                                className="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-full py-1.5 pl-9 pr-8 text-sm focus:ring-2 focus:ring-brand/20 transition-all placeholder:text-zinc-500"
+                            />
+                            {searchValue && (
+                                <button
+                                    onClick={() => onSearchChange?.('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 rounded-full"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-3">
+                            {icon}
+                            {title && <h1 className="text-xl font-bold tracking-tight">{title}</h1>}
+                        </div>
+                    )}
                     <div className="flex items-center gap-2">
                         {showRefresh && timeRemaining && (
                             <span className="hidden sm:inline-block text-xs font-mono text-zinc-400 dark:text-zinc-600 tabular-nums">
