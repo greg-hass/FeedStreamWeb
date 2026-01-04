@@ -115,14 +115,27 @@ export class FeedService {
             return;
         }
 
-        // Fever expects API key = MD5(username:password) usually, or we provide it raw if user gave raw.
-        // Assuming user provided the already computed key or we compute it in settings.
-        // Let's assume the store holds the valid key for now.
+        // Fever API Authentication Strategy
+        // Standard: api_key = md5(username + ":" + password)
+        // We assume the user entered their "API Password" in the settings "API Key" field.
 
-        // In Fever, the api_key parameter is md5(email + ":" + password).
-        // We will assume the prompt sends us the computed hash for now or simple API key.
+        let finalKey = syncApiKey;
 
-        const api = new FeverAPI(syncEndpoint, syncApiKey);
+        // If we have a username, we should try to hash it according to spec
+        if (syncUsername && syncApiKey) {
+            // Check if it already looks like an MD5 hash (32 hex chars)
+            // Some users might input the hash directly, though unlikely. 
+            // Most will put their plaintext password.
+            // If it's NOT 32 hex chars, definitely hash it. 
+            // If it IS, it's ambiguous, but re-hashing a hash wouldn't work if it was meant to be raw.
+            // Safest bet for 'FreshRSS' style: input is 'password'.
+
+            // We'll proceed with hashing.
+            finalKey = await md5(`${syncUsername}:${syncApiKey}`);
+            console.log(`[FeedService] Authenticating with MD5(${syncUsername}:***)`);
+        }
+
+        const api = new FeverAPI(syncEndpoint, finalKey);
 
         try {
             console.log("Starting Sync...");
