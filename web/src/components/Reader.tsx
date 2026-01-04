@@ -18,19 +18,73 @@ export function Reader({ article }: ReaderProps) {
     const [isReaderMode, setIsReaderMode] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    // Helper to fetch and parse with Readability
+    const fetchReaderContent = async () => {
+        if (!article.url) return null;
+
+        try {
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(article.url)}`;
+            const res = await fetch(proxyUrl);
+            if (!res.ok) return null;
+            const html = await res.text();
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+
+            const { Readability } = await import('@mozilla/readability');
+            const reader = new Readability(doc);
+            const parsed = reader.parse();
+
+            if (parsed && parsed.content) {
+                const cleanHtml = DOMPurify.sanitize(parsed.content, { ADD_TAGS: ['iframe', 'img'] });
+                // Cache in DB
+                await db.articles.update(article.id, { readerHTML: cleanHtml });
+                return cleanHtml;
+            }
+        } catch (e) {
+            console.error('Reader mode failed', e);
+        }
+        return null;
+    };
+
     useEffect(() => {
         const sanitizeOptions = {
             ADD_TAGS: ['iframe'],
             ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style']
         };
 
-        // Sanitize initial content
-        if (article.contentHTML) {
-            setContent(DOMPurify.sanitize(article.contentHTML, sanitizeOptions));
-        } else if (article.summary) {
-            setContent(DOMPurify.sanitize(article.summary, sanitizeOptions));
-        }
-    }, [article]);
+        // For RSS articles (not youtube/podcast), auto-invoke Readability
+        const shouldAutoReader = article.mediaKind !== 'youtube' && article.mediaKind !== 'podcast';
+
+        const init = async () => {
+            // If we have cached reader content, use it
+            if (article.readerHTML && shouldAutoReader) {
+                setContent(article.readerHTML);
+                setIsReaderMode(true);
+                return;
+            }
+
+            // Set initial content from RSS
+            if (article.contentHTML) {
+                setContent(DOMPurify.sanitize(article.contentHTML, sanitizeOptions));
+            } else if (article.summary) {
+                setContent(DOMPurify.sanitize(article.summary, sanitizeOptions));
+            }
+
+            // Auto-fetch reader content for RSS feeds
+            if (shouldAutoReader && article.url) {
+                setLoading(true);
+                const readerContent = await fetchReaderContent();
+                if (readerContent) {
+                    setContent(readerContent);
+                    setIsReaderMode(true);
+                }
+                setLoading(false);
+            }
+        };
+
+        init();
+    }, [article.id]);
 
     const toggleReaderMode = async () => {
         if (isReaderMode) {

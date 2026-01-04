@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, FolderOpen, Play, Radio, MoreHorizontal, Trash2, MoveRight, GripVertical } from 'lucide-react';
+import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, FolderOpen, Play, Radio, MoreHorizontal, Trash2, MoveRight, GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
@@ -25,6 +25,28 @@ export function Sidebar({ className }: SidebarProps) {
 
     const [contextMenu, setContextMenu] = useState<{ type: 'feed' | 'folder'; id: string; x: number; y: number } | null>(null);
     const [showMoveModal, setShowMoveModal] = useState<string | null>(null);
+
+    // Collapsible folder state - persisted in localStorage
+    const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('feedstream-collapsed-folders');
+            return saved ? new Set(JSON.parse(saved)) : new Set();
+        }
+        return new Set();
+    });
+
+    const toggleFolderCollapse = (folderId: string) => {
+        setCollapsedFolders(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(folderId)) {
+                newSet.delete(folderId);
+            } else {
+                newSet.add(folderId);
+            }
+            localStorage.setItem('feedstream-collapsed-folders', JSON.stringify([...newSet]));
+            return newSet;
+        });
+    };
 
     const links = [
         { href: '/', label: 'Today', icon: Calendar },
@@ -166,13 +188,20 @@ export function Sidebar({ className }: SidebarProps) {
                     {/* Folders */}
                     {folders.map(folder => {
                         const folderFeeds = feeds.filter(f => f.folderID === folder.id);
+                        const isCollapsed = collapsedFolders.has(folder.id);
 
                         return (
                             <div key={folder.id} className="mt-3">
                                 <div className="group flex items-center">
+                                    <button
+                                        onClick={() => toggleFolderCollapse(folder.id)}
+                                        className="p-1 text-zinc-600 hover:text-zinc-300 transition-colors"
+                                    >
+                                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                                    </button>
                                     <Link
                                         href={`/folder/view/${folder.id}`}
-                                        className="flex-1 px-3 py-1.5 flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors"
+                                        className="flex-1 px-2 py-1.5 flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors"
                                     >
                                         <FolderOpen size={14} />
                                         <span className="truncate flex-1">{folder.name}</span>
@@ -189,8 +218,8 @@ export function Sidebar({ className }: SidebarProps) {
                                         <MoreHorizontal size={14} />
                                     </button>
                                 </div>
-                                {folderFeeds.length > 0 && (
-                                    <div className="mt-0.5 ml-3 pl-3 border-l border-zinc-800 space-y-0.5">
+                                {!isCollapsed && folderFeeds.length > 0 && (
+                                    <div className="mt-0.5 ml-6 pl-3 border-l border-zinc-800 space-y-0.5">
                                         {folderFeeds.map(feed => (
                                             <SidebarFeedItem
                                                 key={feed.id}

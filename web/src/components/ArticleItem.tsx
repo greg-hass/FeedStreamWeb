@@ -1,10 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, Bookmark, Play, Youtube, Radio, Rss } from 'lucide-react';
+import { Check, Bookmark, Youtube, Radio, Rss } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Article } from '@/lib/db';
 import { ArticleSwipeRow } from './ArticleSwipeRow';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 
 interface ArticleItemProps {
     article: Article;
@@ -13,6 +15,9 @@ interface ArticleItemProps {
 }
 
 export function ArticleItem({ article, onToggleRead, onToggleBookmark }: ArticleItemProps) {
+    // Look up feed title from database
+    const feed = useLiveQuery(() => db.feeds.get(article.feedID), [article.feedID]);
+
     const getMediaIcon = () => {
         if (article.mediaKind === 'youtube') return Youtube;
         if (article.mediaKind === 'podcast') return Radio;
@@ -54,7 +59,7 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                             <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
                                 {MediaIcon && <MediaIcon size={12} className="text-brand" />}
                                 <span className="font-medium text-zinc-600 dark:text-zinc-400 truncate">
-                                    {article.feedID?.slice(0, 20)}
+                                    {feed?.title || 'Loading...'}
                                 </span>
                                 <span className="text-zinc-300 dark:text-zinc-700">•</span>
                                 <time className="shrink-0">
