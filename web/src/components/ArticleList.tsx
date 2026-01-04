@@ -1,17 +1,21 @@
-
 'use client';
 
-import React from 'react';
-import { Virtuoso } from 'react-virtuoso';
+import React, { useEffect, useRef } from 'react';
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Article } from '@/lib/db';
 import { ArticleItem } from './ArticleItem';
 import { db } from '@/lib/db';
+import { usePathname } from 'next/navigation';
+import { useScrollStore } from '@/store/scrollStore';
 
 interface ArticleListProps {
     articles: Article[];
 }
 
 export function ArticleList({ articles }: ArticleListProps) {
+    const pathname = usePathname();
+    const virtuosoRef = useRef<VirtuosoHandle>(null);
+    const { getScrollPosition, setScrollPosition } = useScrollStore();
 
     const handleToggleRead = async (id: string) => {
         const article = await db.articles.get(id);
@@ -27,6 +31,14 @@ export function ArticleList({ articles }: ArticleListProps) {
         }
     };
 
+    // Restore scroll position on mount
+    useEffect(() => {
+        const savedPosition = getScrollPosition(pathname);
+        if (savedPosition > 0 && virtuosoRef.current) {
+            virtuosoRef.current.scrollToIndex({ index: savedPosition, align: 'start' });
+        }
+    }, [pathname, getScrollPosition]);
+
     if (!articles || articles.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center p-12 text-zinc-400">
@@ -37,6 +49,7 @@ export function ArticleList({ articles }: ArticleListProps) {
 
     return (
         <Virtuoso
+            ref={virtuosoRef}
             data={articles}
             itemContent={(index, article) => (
                 <ArticleItem
@@ -46,7 +59,12 @@ export function ArticleList({ articles }: ArticleListProps) {
                     onToggleBookmark={handleToggleBookmark}
                 />
             )}
+            rangeChanged={(range) => {
+                // Save scroll position when user scrolls
+                setScrollPosition(pathname, range.startIndex);
+            }}
             className="w-full h-full"
         />
     );
 }
+

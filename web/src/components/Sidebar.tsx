@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, FolderOpen, Play, Radio, MoreHorizontal, Trash2, MoveRight, Edit2 } from 'lucide-react';
+import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, FolderOpen, Play, Radio, MoreHorizontal, Trash2, MoveRight, GripVertical } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { uuidv4 } from '@/lib/utils';
+import { useScrollStore } from '@/store/scrollStore';
 
 interface SidebarProps {
     className?: string;
@@ -17,6 +18,10 @@ export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const folders = useLiveQuery(() => db.folders.orderBy('position').toArray()) || [];
     const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
+
+    const { sidebarWidth, setSidebarWidth } = useScrollStore();
+    const [isResizing, setIsResizing] = useState(false);
+    const sidebarRef = useRef<HTMLElement>(null);
 
     const [contextMenu, setContextMenu] = useState<{ type: 'feed' | 'folder'; id: string; x: number; y: number } | null>(null);
     const [showMoveModal, setShowMoveModal] = useState<string | null>(null);
@@ -48,6 +53,33 @@ export function Sidebar({ className }: SidebarProps) {
         setContextMenu(null);
     };
 
+    // Resize handlers
+    const startResize = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsResizing(true);
+    }, []);
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizing) return;
+            setSidebarWidth(e.clientX);
+        };
+        const handleMouseUp = () => setIsResizing(false);
+
+        if (isResizing) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        }
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+    }, [isResizing, setSidebarWidth]);
+
     // Close context menu on click outside
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
@@ -58,10 +90,14 @@ export function Sidebar({ className }: SidebarProps) {
     }, [contextMenu]);
 
     return (
-        <aside className={clsx(
-            "w-64 bg-zinc-950 border-r border-zinc-800/50 flex-col h-full hidden md:flex",
-            className
-        )}>
+        <aside
+            ref={sidebarRef}
+            style={{ width: sidebarWidth }}
+            className={clsx(
+                "bg-zinc-950 border-r border-zinc-800/50 flex-col h-full hidden md:flex relative",
+                className
+            )}
+        >
             {/* Logo */}
             <div className="h-14 px-4 flex items-center gap-3 border-b border-zinc-800/50 shrink-0">
                 <div className="w-8 h-8 bg-gradient-to-br from-brand to-emerald-600 rounded-lg flex items-center justify-center shadow-lg shadow-brand/20">
@@ -235,6 +271,16 @@ export function Sidebar({ className }: SidebarProps) {
                     </div>
                 </div>
             )}
+
+            {/* Resize Handle */}
+            <div
+                onMouseDown={startResize}
+                className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-brand/50 transition-colors group"
+            >
+                <div className="absolute top-1/2 -translate-y-1/2 right-0 w-3 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <GripVertical size={12} className="text-zinc-600" />
+                </div>
+            </div>
         </aside>
     );
 }
