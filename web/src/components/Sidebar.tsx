@@ -53,6 +53,16 @@ export function Sidebar({ className }: SidebarProps) {
 
     const [contextMenu, setContextMenu] = useState<{ type: 'feed' | 'folder'; id: string; x: number; y: number } | null>(null);
     const [showMoveModal, setShowMoveModal] = useState<string | null>(null);
+    const [renameModal, setRenameModal] = useState<{ id: string, name: string } | null>(null);
+
+    const handleRenameFeed = async () => {
+        if (!renameModal) return;
+        if (renameModal.name.trim()) {
+            await db.feeds.update(renameModal.id, { title: renameModal.name });
+        }
+        setRenameModal(null);
+        setContextMenu(null);
+    };
 
     // Collapsible folder state - persisted in localStorage
     const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => {
@@ -293,7 +303,6 @@ export function Sidebar({ className }: SidebarProps) {
                     })}
                 </div>
             </nav>
-
             {/* Context Menu */}
             {contextMenu && (
                 <div
@@ -303,6 +312,13 @@ export function Sidebar({ className }: SidebarProps) {
                 >
                     {contextMenu.type === 'feed' && (
                         <>
+                            <button
+                                onClick={() => setRenameModal({ id: contextMenu.id, name: feeds.find(f => f.id === contextMenu.id)?.title || '' })}
+                                className="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-2"
+                            >
+                                <Settings size={14} /> Rename
+                            </button>
+
                             <button
                                 onClick={() => setShowMoveModal(contextMenu.id)}
                                 className="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-2"
@@ -317,16 +333,33 @@ export function Sidebar({ className }: SidebarProps) {
                             </button>
                         </>
                     )}
-                    {contextMenu.type === 'folder' && (
-                        <button
-                            onClick={() => handleDeleteFolder(contextMenu.id)}
-                            className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-zinc-800 flex items-center gap-2"
-                        >
-                            <Trash2 size={14} /> Delete Folder
-                        </button>
-                    )}
+                    {/* ... folder context menu ... */}
                 </div>
             )}
+
+            {/* Rename Modal */}
+            {renameModal && (
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setRenameModal(null)}>
+                    <div className="bg-zinc-900 rounded-xl w-full max-w-sm shadow-xl border border-zinc-700 p-4" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="font-semibold text-white mb-4">Rename Feed</h3>
+                        <input
+                            type="text"
+                            value={renameModal.name}
+                            onChange={(e) => setRenameModal({ ...renameModal, name: e.target.value })}
+                            className="w-full bg-zinc-800 border-zinc-700 rounded-lg px-3 py-2 text-white mb-4 focus:ring-2 focus:ring-brand outline-none"
+                            autoFocus
+                            onKeyDown={(e) => e.key === 'Enter' && handleRenameFeed()}
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setRenameModal(null)} className="px-4 py-2 text-zinc-400 hover:text-white">Cancel</button>
+                            <button onClick={handleRenameFeed} className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand/90">Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Move Modal */}
+            {/* ... */}
 
             {/* Move Modal */}
             {showMoveModal && (
