@@ -3,7 +3,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
 import { useState } from 'react';
-import { Trash2, FolderPlus, ArrowLeft, MoreVertical, FolderOpen, Rss, Play, Radio, MoveRight, Check, X, Edit2 } from 'lucide-react';
+import { Trash2, FolderPlus, ArrowLeft, MoreVertical, FolderOpen, Rss, Play, Radio, MoveRight, Check, X, Edit2, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
 import { uuidv4 } from '@/lib/utils';
@@ -348,16 +348,34 @@ function FeedRow({ feed, onDelete, onMove }: { feed: Feed; onDelete: () => void;
     const getIcon = () => {
         if (feed.type === 'youtube') return Play;
         if (feed.type === 'podcast') return Radio;
+        if (feed.type === 'reddit') return MessageCircle; // Ensure MessageCircle is imported
         return Rss;
     };
     const Icon = getIcon();
+
+    const handleTypeChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        await db.feeds.update(feed.id, { type: e.target.value as any });
+    };
 
     return (
         <li className="flex items-center gap-3 px-4 py-3 border-t border-zinc-100 dark:border-zinc-800 first:border-t-0 group">
             <Icon size={16} className="text-zinc-400 shrink-0" />
             <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{feed.title}</p>
-                <p className="text-xs text-zinc-500 truncate">{feed.feedURL}</p>
+                <div className="flex items-center gap-2">
+                    <p className="text-xs text-zinc-500 truncate max-w-[200px]">{feed.feedURL}</p>
+                    <select
+                        value={feed.type || 'rss'}
+                        onChange={handleTypeChange}
+                        className="text-xs bg-zinc-100 dark:bg-zinc-800 border-none rounded px-1.5 py-0.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 focus:ring-0 cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <option value="rss">RSS</option>
+                        <option value="podcast">Podcast</option>
+                        <option value="youtube">YouTube</option>
+                        <option value="reddit">Reddit</option>
+                    </select>
+                </div>
             </div>
             <button onClick={onMove} className="p-2 text-zinc-400 hover:text-brand rounded-full hover:bg-brand/10 transition-colors" title="Move">
                 <MoveRight size={16} />
