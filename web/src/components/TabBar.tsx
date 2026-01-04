@@ -55,7 +55,7 @@ export function TabBar() {
     const tabs = [
         { name: 'Today', icon: Home, href: '/', count: counts.today },
         { name: 'All', icon: LayoutGrid, href: '/feeds/all', count: counts.all },
-        { name: 'Saved', icon: Bookmark, href: '/saved', count: counts.saved },
+        { name: 'Bookmarks', icon: Bookmark, href: '/saved', count: counts.saved },
     ];
 
     const menuLinks = [
