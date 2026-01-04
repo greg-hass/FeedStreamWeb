@@ -164,10 +164,10 @@ export function TabBar() {
             {/* Tab Bar */}
             <nav className={clsx(
                 "md:hidden fixed bottom-0 left-0 right-0 z-40",
-                "bg-white/85 dark:bg-black/85 backdrop-blur-xl border-t border-zinc-200/50 dark:border-zinc-800/50",
-                "pb-[env(safe-area-inset-bottom)] pt-2"
+                "bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-800/50",
+                "pb-[env(safe-area-inset-bottom)]"
             )}>
-                <div className="h-16 flex items-center justify-around border-t border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-lg pb-[env(safe-area-inset-bottom)]">
+                <div className="h-14 flex items-center justify-around">
                     <button
                         onClick={() => setIsMenuOpen(true)}
                         className="flex flex-col items-center justify-center w-16 h-full space-y-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
