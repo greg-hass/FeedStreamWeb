@@ -112,17 +112,33 @@ export class IconService {
      */
     static extractPodcastArtwork(feedData: any): string | null {
         try {
-            if (feedData.channel) {
-                const channel = feedData.channel;
+            // Handle various feed data structures
+            const channel = feedData?.rss?.channel || feedData?.channel || feedData?.feed || feedData;
 
+            if (channel) {
                 // Try itunes:image (most common for podcasts)
                 if (channel['itunes:image']?.['@_href']) {
                     return channel['itunes:image']['@_href'];
                 }
 
-                // Try image tag
+                // Try itunes:image as string (some parsers)
+                if (typeof channel['itunes:image'] === 'string') {
+                    return channel['itunes:image'];
+                }
+
+                // Try image tag with url property
                 if (channel.image?.url) {
                     return channel.image.url;
+                }
+
+                // Try image tag with href attribute
+                if (channel.image?.['@_href']) {
+                    return channel.image['@_href'];
+                }
+
+                // Try logo for Atom feeds
+                if (channel.logo) {
+                    return typeof channel.logo === 'string' ? channel.logo : channel.logo['#text'];
                 }
             }
         } catch (e) {
