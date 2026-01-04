@@ -60,16 +60,13 @@ export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved'
                 return [];
             }
 
+            const redditSet = new Set(redditFeedIds);
             return db.articles
-                .where('feedID')
-                .anyOf(redditFeedIds as string[])
+                .orderBy('publishedAt')
                 .reverse()
+                .filter(a => redditSet.has(a.feedID))
                 .limit(limit)
-                .toArray()
-                // Sort by date manually since using 'feedID' index
-                .then(articles => articles.sort((a, b) =>
-                    (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0)
-                ));
+                .toArray();
         } else if (view === 'rss') {
             // Generic RSS/Articles - exclude reddit, youtube, podcast feeds
             // Optimization: Find Allowed Feeds first
@@ -81,15 +78,13 @@ export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved'
                 return [];
             }
 
+            const allowedSet = new Set(allowedFeedIds);
             return db.articles
-                .where('feedID').anyOf(allowedFeedIds as string[])
+                .orderBy('publishedAt')
                 .reverse()
+                .filter(a => allowedSet.has(a.feedID))
                 .limit(limit)
-                .toArray()
-                // Sort by date manually since using 'feedID' index
-                .then(articles => articles.sort((a, b) =>
-                    (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0)
-                ));
+                .toArray();
         } else if (view === 'all') {
             return db.articles
                 .orderBy('publishedAt')
