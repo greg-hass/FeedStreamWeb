@@ -442,23 +442,20 @@ function SidebarLink({ href, label, icon: Icon, isActive, small, count }: {
         <Link
             href={href}
             className={clsx(
-                "flex items-center gap-3 rounded-lg transition-all duration-150 group",
-                small ? "px-2 py-1.5 text-xs" : "px-3 py-2 text-sm",
+                "flex items-center justify-between gap-3 rounded-lg transition-all duration-150",
+                small ? "px-2 py-1.5 text-xs" : "px-3 py-2.5 text-sm",
                 isActive
-                    ? "bg-zinc-800 text-white font-medium"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                    ? "bg-brand/10 text-brand font-medium"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
             )}
             title={label}
         >
-            <Icon size={small ? 14 : 16} className={clsx("shrink-0", isActive && "text-brand")} />
-            <span className="truncate flex-1">{label}</span>
+            <div className="flex items-center gap-3">
+                <Icon size={small ? 14 : 18} className="shrink-0" />
+                <span className="truncate">{label}</span>
+            </div>
             {count !== undefined && count > 0 && (
-                <span className={clsx(
-                    "text-xs font-semibold px-2 py-0.5 rounded-full transition-colors",
-                    isActive
-                        ? "bg-white/20 text-white"
-                        : "bg-zinc-800 text-zinc-500 group-hover:text-zinc-400"
-                )}>
+                <span className="text-sm font-mono text-brand font-semibold">
                     {count > 999 ? '999+' : count}
                 </span>
             )}
