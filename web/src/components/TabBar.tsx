@@ -19,22 +19,52 @@ export function TabBar() {
     const folders = useLiveQuery(() => db.folders.orderBy('position').toArray()) || [];
     const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
 
+    // Counters (Same as Sidebar)
+    const counts = useLiveQuery(async () => {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        const [today, all, saved] = await Promise.all([
+            db.articles.filter(a => a.publishedAt instanceof Date && a.publishedAt >= todayStart && a.isRead === false).count(),
+            db.articles.filter(a => a.isRead === false).count(),
+            db.articles.filter(a => Boolean(a.isBookmarked)).count(),
+        ]);
+
+        return { today, all, saved };
+    }) || { today: 0, all: 0, saved: 0 };
+
+    const mediaCounts = useLiveQuery(async () => {
+        const [youtube, podcast, reddit, rss] = await Promise.all([
+            db.articles.where('mediaKind').equals('youtube').count(),
+            db.articles.where('mediaKind').equals('podcast').count(),
+            db.feeds.where('type').equals('reddit').toArray().then(feeds => {
+                if (feeds.length === 0) return 0;
+                return db.articles.where('feedID').anyOf(feeds.map(f => f.id)).count();
+            }),
+            db.feeds.where('type').noneOf(['reddit', 'youtube', 'podcast']).primaryKeys().then(allowedIds => {
+                if (allowedIds.length === 0) return 0;
+                return db.articles.where('feedID').anyOf(allowedIds as string[]).count();
+            })
+        ]);
+        return { youtube, podcast, reddit, rss };
+    }) || { youtube: 0, podcast: 0, reddit: 0, rss: 0 };
+
     // Hide TabBar if Audio Player is full screen (expanded)
     if (isExpanded) return null;
 
     const tabs = [
-        { name: 'Today', icon: Home, href: '/' },
-        { name: 'All', icon: LayoutGrid, href: '/feeds/all' },
-        { name: 'Saved', icon: Bookmark, href: '/saved' },
+        { name: 'Today', icon: Home, href: '/', count: counts.today },
+        { name: 'All', icon: LayoutGrid, href: '/feeds/all', count: counts.all },
+        { name: 'Saved', icon: Bookmark, href: '/saved', count: counts.saved },
     ];
 
     const menuLinks = [
         { name: 'History', icon: Clock, href: '/history' },
         { name: 'Stats', icon: BarChart3, href: '/stats' },
-        { name: 'YouTube', icon: Youtube, href: '/folder/youtube' },
-        { name: 'Podcasts', icon: Mic, href: '/folder/podcasts' },
-        { name: 'Reddit', icon: MessageCircle, href: '/folder/reddit' },
-        { name: 'RSS', icon: Rss, href: '/folder/rss' },
+        { name: 'YouTube', icon: Youtube, href: '/folder/youtube', count: mediaCounts.youtube },
+        { name: 'Podcasts', icon: Mic, href: '/folder/podcasts', count: mediaCounts.podcast },
+        { name: 'Reddit', icon: MessageCircle, href: '/folder/reddit', count: mediaCounts.reddit },
+        { name: 'RSS', icon: Rss, href: '/folder/rss', count: mediaCounts.rss },
         { name: 'Settings', icon: Settings, href: '/settings' },
     ];
 
@@ -69,14 +99,21 @@ export function TabBar() {
                                     href={link.href}
                                     onClick={() => setIsMenuOpen(false)}
                                     className={clsx(
-                                        "flex items-center gap-3 px-4 py-3 rounded-lg transition-all",
+                                        "flex items-center justify-between px-4 py-3 rounded-lg transition-all",
                                         pathname === link.href
                                             ? "bg-brand/10 text-brand font-medium"
                                             : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
                                     )}
                                 >
-                                    <link.icon size={20} />
-                                    <span>{link.name}</span>
+                                    <div className="flex items-center gap-3">
+                                        <link.icon size={20} />
+                                        <span>{link.name}</span>
+                                    </div>
+                                    {link.count !== undefined && link.count > 0 && (
+                                        <span className="text-xs font-mono font-semibold bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded-full">
+                                            {link.count}
+                                        </span>
+                                    )}
                                 </Link>
                             ))}
 
@@ -130,27 +167,38 @@ export function TabBar() {
                 "bg-white/85 dark:bg-black/85 backdrop-blur-xl border-t border-zinc-200/50 dark:border-zinc-800/50",
                 "pb-[env(safe-area-inset-bottom)] pt-2"
             )}>
-                <div className="flex justify-around items-center h-12">
+                <div className="h-16 flex items-center justify-around border-t border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-lg pb-[env(safe-area-inset-bottom)]">
+                    <button
+                        onClick={() => setIsMenuOpen(true)}
+                        className="flex flex-col items-center justify-center w-16 h-full space-y-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    >
+                        <Menu size={24} />
+                        <span className="text-[10px] font-medium">Menu</span>
+                    </button>
+
                     {tabs.map((tab) => {
-                        const isActive = pathname === tab.href || (tab.href !== '/' && pathname.startsWith(tab.href));
+                        const Icon = tab.icon;
+                        const isActive = pathname === tab.href;
                         return (
                             <Link
                                 key={tab.name}
                                 href={tab.href}
                                 className={clsx(
-                                    "flex flex-col items-center justify-center w-full h-full space-y-[2px]",
-                                    "active:scale-90 transition-transform duration-200",
-                                    isActive ? "text-brand" : "text-zinc-400 dark:text-zinc-500"
+                                    "relative flex flex-col items-center justify-center w-16 h-full space-y-1 transition-colors",
+                                    isActive
+                                        ? "text-brand"
+                                        : "text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
                                 )}
                             >
-                                <tab.icon
-                                    size={24}
-                                    strokeWidth={isActive ? 2.5 : 2}
-                                    className={clsx(isActive && "drop-shadow-sm")}
-                                />
-                                <span className="text-[10px] font-medium tracking-tight">
-                                    {tab.name}
-                                </span>
+                                <div className="relative">
+                                    <Icon size={24} className={isActive ? "fill-current" : ""} />
+                                    {tab.count !== undefined && tab.count > 0 && (
+                                        <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full px-1 border-2 border-white dark:border-zinc-950">
+                                            {tab.count > 99 ? '99+' : tab.count}
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="text-[10px] font-medium">{tab.name}</span>
                             </Link>
                         );
                     })}
