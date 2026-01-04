@@ -58,9 +58,14 @@ export function ArticleItem({ article, feed, isSelected, onToggleRead, onToggleB
 
     const getPreviewText = () => {
         let text = article.summary || article.contentHTML || '';
-        // Strip HTML tags
+
+        // Strip HTML comments (like <!-- SC_OFF --> from Reddit)
+        text = text.replace(/<!--[\s\S]*?-->/g, '');
+
+        // Strip all HTML tags
         text = text.replace(/<[^>]*>/g, '');
-        // Decode HTML entities (including numeric like &#32;)
+
+        // Decode HTML entities (including numeric like &#32; and &#39;)
         text = text
             .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
             .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
@@ -70,6 +75,10 @@ export function ArticleItem({ article, feed, isSelected, onToggleRead, onToggleB
             .replace(/&quot;/g, '"')
             .replace(/&apos;/g, "'")
             .replace(/&nbsp;/g, ' ');
+
+        // Clean up excessive whitespace
+        text = text.replace(/\s+/g, ' ').trim();
+
         return text.slice(0, 160);
     };
 
