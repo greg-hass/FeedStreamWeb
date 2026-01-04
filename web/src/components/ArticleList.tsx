@@ -32,6 +32,10 @@ export function ArticleList({ articles }: ArticleListProps) {
         }
     };
 
+    const [atTop, setAtTop] = React.useState(true);
+    const [showNewItems, setShowNewItems] = React.useState(false);
+    const prevArticlesLength = useRef(articles?.length || 0);
+
     // Restore scroll position on mount
     useEffect(() => {
         const savedPosition = getScrollPosition(pathname);
@@ -39,18 +43,6 @@ export function ArticleList({ articles }: ArticleListProps) {
             virtuosoRef.current.scrollToIndex({ index: savedPosition, align: 'start' });
         }
     }, [pathname, getScrollPosition]);
-
-    if (!articles || articles.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center p-12 text-zinc-400">
-                <p>No articles found.</p>
-            </div>
-        )
-    }
-
-    const [atTop, setAtTop] = React.useState(true);
-    const [showNewItems, setShowNewItems] = React.useState(false);
-    const prevArticlesLength = useRef(articles?.length || 0);
 
     // Detect new items
     useEffect(() => {
@@ -64,13 +56,20 @@ export function ArticleList({ articles }: ArticleListProps) {
                     virtuosoRef.current?.scrollToIndex({ index: 0, align: 'start', behavior: 'smooth' });
                 }, 100);
             } else {
-                // Determine if the new count is significant? 
-                // Actually, if we are NOT at top, show a "New Articles" pill
+                // Show a "New Articles" pill
                 setShowNewItems(true);
             }
         }
         prevArticlesLength.current = articles.length;
     }, [articles, atTop]);
+
+    if (!articles || articles.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-zinc-400">
+                <p>No articles found.</p>
+            </div>
+        )
+    }
 
     return (
         <div className="h-full flex flex-col relative">
