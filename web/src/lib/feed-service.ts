@@ -5,6 +5,7 @@ import { FeverAPI } from './fever-api';
 import { useSettingsStore } from '@/store/settingsStore';
 import { md5, uuidv4 } from './utils';
 import { IconService } from './icon-service';
+import { RulesEngine } from './rules-engine';
 
 export class FeedService {
 
@@ -36,13 +37,18 @@ export class FeedService {
 
         // 3. Add Articles
         // Since it's new, we can just bulk add all
-        const articlesWithFeedId = normalized.articles.map(a => ({
+        let articlesWithFeedId = normalized.articles.map(a => ({
             ...a,
             feedID: feedId,
             isRead: false
         }));
 
-        await db.articles.bulkAdd(articlesWithFeedId);
+        // Apply Rules
+        articlesWithFeedId = await RulesEngine.applyRules(articlesWithFeedId);
+
+        if (articlesWithFeedId.length > 0) {
+            await db.articles.bulkAdd(articlesWithFeedId);
+        }
 
         // 4. Fetch and update feed icon
         const feed = await db.feeds.get(feedId);
@@ -213,12 +219,21 @@ export class FeedService {
     private static async mergeArticles(feedId: string, incoming: Article[]): Promise<number> {
         console.log(`[MergeArticles] Processing ${incoming.length} articles for feed ${feedId}`);
 
-        // 1. Get existing articles for this feed to check status
-        // Optimization: Just get IDs and their Read status if needed, 
-        // but Dexie bulkGet might be slower than just strict ID check if we have hash.
+        // Apply Rules FIRST
+        // This ensures we don't even check DB for items that are auto-deleted,
+        // and we correctly set isRead/isBookmarked before saving.
+        // BUT: we need to respect existing state for updates.
+        // Strategy: Apply rules to incoming. If rule says 'mark_read', incoming has isRead=true.
+        // When merging, if existing is read=true, we keep it. If existing is false, but incoming is true (due to rule), we take incoming.
+        
+        // Add feedID to incoming for rule matching
+        const mappedIncoming = incoming.map(a => ({ ...a, feedID: feedId }));
+        const processedIncoming = await RulesEngine.applyRules(mappedIncoming);
 
-        // We used `makeStableId` so IDs are deterministic based on URL/GUID.
-        const incomingIds = incoming.map(a => a.id);
+        // 1. Get existing articles for this feed to check status
+        const incomingIds = processedIncoming.map(a => a.id);
+        if (incomingIds.length === 0) return 0; // All filtered out
+
         const existingArticles = await db.articles.where('id').anyOf(incomingIds).toArray();
         const existingMap = new Map(existingArticles.map(a => [a.id, a]));
 
@@ -227,14 +242,11 @@ export class FeedService {
         const newArticles: Article[] = [];
         const updates: Article[] = [];
 
-        for (const item of incoming) {
+        for (const item of processedIncoming) {
             const existing = existingMap.get(item.id);
 
             if (!existing) {
-                newArticles.push({
-                    ...item,
-                    feedID: feedId
-                });
+                newArticles.push(item);
             } else {
                 // Only update if content has actually changed
                 const hasChanged =
@@ -246,22 +258,23 @@ export class FeedService {
                 if (hasChanged) {
                     updates.push({
                         ...item,
-                        feedID: feedId,
-                        isRead: existing.isRead,
-                        isBookmarked: existing.isBookmarked,
+                        // Persist user state unless rule forced it?
+                        // If rule forced isRead=true (item.isRead is true), we should probably respect it?
+                        // Or if user actively marked unread?
+                        // Simplest: OR logic. isRead = existing.isRead || item.isRead (from rule)
+                        isRead: existing.isRead || item.isRead,
+                        isBookmarked: existing.isBookmarked || item.isBookmarked,
                         playbackPosition: existing.playbackPosition,
                         downloadStatus: existing.downloadStatus,
                         contentPrefetchedAt: existing.contentPrefetchedAt
                     });
                 }
-                // If nothing changed, skip the update entirely
             }
         }
 
-        console.log(`[MergeArticles] Adding ${newArticles.length} new articles, updating ${updates.length} changed articles (skipped ${existingArticles.length - updates.length} unchanged)`);
+        console.log(`[MergeArticles] Adding ${newArticles.length} new articles, updating ${updates.length} changed articles`);
 
         if (newArticles.length > 0) {
-            // Use bulkPut to be safe, though bulkAdd is fine since we checked existence
             await db.articles.bulkPut(newArticles);
             console.log(`[MergeArticles] Successfully added ${newArticles.length} articles`);
         }

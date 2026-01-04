@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, LayoutGrid, Bookmark, Settings, List, ChevronRight, ChevronDown, FolderOpen, Rss, Youtube, Mic, MessageCircle, MoreVertical, Edit2, Trash2, FolderInput, Folder as FolderIcon, Clock, FileText, MoreHorizontal, MoveRight, GripVertical } from 'lucide-react';
+import { Calendar, LayoutGrid, Bookmark, Settings, List, ChevronRight, ChevronDown, FolderOpen, Rss, Youtube, Mic, MessageCircle, MoreVertical, Edit2, Trash2, FolderInput, Folder as FolderIcon, Clock, FileText, MoreHorizontal, MoveRight, GripVertical, BarChart3 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
@@ -97,6 +97,7 @@ export function Sidebar({ className }: SidebarProps) {
         { href: '/feeds/all', label: 'All Articles', icon: LayoutGrid, count: counts.all },
         { href: '/saved', label: 'Bookmarks', icon: Bookmark, count: counts.saved },
         { href: '/history', label: 'History', icon: Clock },
+        { href: '/stats', label: 'Stats', icon: BarChart3 },
     ];
 
     const smartFolders = [

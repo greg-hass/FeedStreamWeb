@@ -7,28 +7,35 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { md5 } from '@/lib/utils';
 import { OpmlService } from '@/lib/opml-service';
 import Link from 'next/link';
+import { Sparkles, Workflow } from 'lucide-react';
 
 export default function SettingsPage() {
-    const { syncEndpoint, syncUsername, syncApiKey, setSyncConfig, setSyncEnabled } = useSettingsStore();
+    const { syncEndpoint, syncUsername, syncApiKey, setSyncConfig, setSyncEnabled, openaiApiKey, setOpenaiApiKey, geminiApiKey, setGeminiApiKey } = useSettingsStore();
     const [endpoint, setEndpoint] = useState('');
     const [username, setUsername] = useState('');
     const [apiKey, setApiKey] = useState('');
+    const [aiKey, setAiKey] = useState('');
+    const [gKey, setGKey] = useState('');
     const [importProgress, setImportProgress] = useState<{ current: number, total: number, message: string } | null>(null);
 
     useEffect(() => {
         setEndpoint(syncEndpoint);
         setUsername(syncUsername);
         setApiKey(syncApiKey);
-    }, [syncEndpoint, syncUsername, syncApiKey]);
+        setAiKey(openaiApiKey);
+        setGKey(geminiApiKey);
+    }, [syncEndpoint, syncUsername, syncApiKey, openaiApiKey, geminiApiKey]);
 
     const handleSaveSync = async () => {
-        // If user provided raw password, compute md5
-        // Ideally UI should ask "Is this API Key or Password?"
-        // For Fever, standard is md5(username:password) -> apiKey
-        // We will save as is for now, assuming user knows Fever requires API Key usually.
         setSyncConfig(endpoint, username, apiKey);
         setSyncEnabled(true);
         alert('Sync Configured!');
+    };
+
+    const handleSaveAI = () => {
+        setOpenaiApiKey(aiKey);
+        setGeminiApiKey(gKey);
+        alert('AI Keys Saved!');
     };
 
     const handleReset = async () => {
@@ -59,11 +66,15 @@ export default function SettingsPage() {
                 </section>
 
                 <section className="space-y-4">
-                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Feeds</h2>
+                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Feeds & Automation</h2>
                     <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                         <Link href="/feeds/manage" className="flex items-center justify-between p-4 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition border-b border-zinc-200 dark:border-zinc-800">
                             <span className="text-sm font-medium">Manage Feeds</span>
                             <span className="text-xs text-zinc-500">Edit / Delete</span>
+                        </Link>
+                         <Link href="/settings/rules" className="flex items-center justify-between p-4 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition border-b border-zinc-200 dark:border-zinc-800">
+                            <span className="text-sm font-medium flex items-center gap-2"><Workflow size={16} /> Automation Rules</span>
+                            <span className="text-xs text-zinc-500">Filters</span>
                         </Link>
                         <button
                             onClick={async () => {
@@ -77,6 +88,48 @@ export default function SettingsPage() {
                         >
                             <span className="text-sm font-medium text-red-600">Delete All Feeds</span>
                             <span className="text-xs text-zinc-500">Master Reset</span>
+                        </button>
+                    </div>
+                </section>
+
+                <section className="space-y-4">
+                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">AI Intelligence</h2>
+                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                <Sparkles size={16} className="text-purple-500" /> OpenAI API
+                            </p>
+                        </div>
+                        <p className="text-xs text-zinc-500">
+                            Provide your API key to enable "Daily Briefings" and auto-summarization. Your key is stored locally in your browser.
+                        </p>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-xs text-zinc-500 mb-1">OpenAI Key (sk-...)</label>
+                                <input
+                                    type="password"
+                                    className="w-full text-sm p-2 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
+                                    value={aiKey}
+                                    onChange={(e) => setAiKey(e.target.value)}
+                                    placeholder="sk-..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-zinc-500 mb-1">Gemini Key (AIza...)</label>
+                                <input
+                                    type="password"
+                                    className="w-full text-sm p-2 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
+                                    value={gKey}
+                                    onChange={(e) => setGKey(e.target.value)}
+                                    placeholder="AIza..."
+                                />
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleSaveAI}
+                            className="w-full py-2 bg-purple-600 text-white rounded text-sm font-medium hover:brightness-110 transition-all"
+                        >
+                            Save AI Key
                         </button>
                     </div>
                 </section>

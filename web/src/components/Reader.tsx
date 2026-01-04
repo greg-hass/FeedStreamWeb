@@ -1,11 +1,11 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import { Article } from '@/lib/db';
 import { format } from 'date-fns';
-import { ExternalLink, BookOpen, ZoomIn, ZoomOut, Share, Palette, Moon, Sun } from 'lucide-react';
+import { ExternalLink, BookOpen, ZoomIn, ZoomOut, Share, Palette, Moon, Sun, Headphones, Square } from 'lucide-react';
 import { decodeHTMLEntities } from '@/lib/utils';
 import { db } from '@/lib/db';
 import { clsx } from 'clsx';
@@ -22,6 +22,10 @@ export function Reader({ article }: ReaderProps) {
     const [loading, setLoading] = useState(false);
     const [zoom, setZoom] = useState(100); // 100 = default, range 70-150
     const [theme, setTheme] = useState<ReaderTheme>('light');
+    
+    // TTS State
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
     // Load saved preferences if available (could be moved to store)
     useEffect(() => {
@@ -29,6 +33,13 @@ export function Reader({ article }: ReaderProps) {
         if (savedTheme) setTheme(savedTheme);
         const savedZoom = localStorage.getItem('reader-zoom');
         if (savedZoom) setZoom(parseInt(savedZoom));
+
+        // Cleanup speech on unmount
+        return () => {
+            if (speechRef.current) {
+                window.speechSynthesis.cancel();
+            }
+        };
     }, []);
 
     const handleThemeChange = (newTheme: ReaderTheme) => {
@@ -57,6 +68,32 @@ export function Reader({ article }: ReaderProps) {
             navigator.clipboard.writeText(article.url || window.location.href);
             alert('Link copied to clipboard');
         }
+    };
+
+    const handleSpeak = () => {
+        if (isSpeaking) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+            return;
+        }
+
+        const textToRead = document.querySelector('.reader-content')?.textContent || article.summary || '';
+        if (!textToRead) return;
+
+        const utterance = new SpeechSynthesisUtterance(textToRead);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        
+        // Try to select a good voice
+        const voices = window.speechSynthesis.getVoices();
+        // Prefer Google US English or native generic
+        const preferredVoice = voices.find(v => v.name.includes('Google US English')) || voices.find(v => v.lang === 'en-US');
+        if (preferredVoice) utterance.voice = preferredVoice;
+
+        speechRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
+        setIsSpeaking(true);
     };
 
 
@@ -232,6 +269,17 @@ export function Reader({ article }: ReaderProps) {
                         
                          <button onClick={handleShare} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Share Article">
                             <Share size={20} />
+                        </button>
+
+                         <button 
+                            onClick={handleSpeak} 
+                            className={clsx(
+                                "p-2 rounded-lg transition-colors",
+                                isSpeaking ? "bg-brand/20 text-brand" : "hover:bg-black/5 dark:hover:bg-white/10"
+                            )}
+                            title={isSpeaking ? "Stop Speaking" : "Listen to Article"}
+                        >
+                            {isSpeaking ? <Square size={20} className="fill-current" /> : <Headphones size={20} />}
                         </button>
                     </div>
                 </div>

@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, LayoutGrid, Bookmark, Menu, Settings, Clock, Youtube, Mic, MessageCircle, Rss, FolderOpen, X } from 'lucide-react';
+import { Home, LayoutGrid, Bookmark, Menu, Settings, Clock, Youtube, Mic, MessageCircle, Rss, FolderOpen, X, BarChart3 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAudioStore } from '@/store/audioStore';
 import { Drawer } from 'vaul';
@@ -30,6 +30,7 @@ export function TabBar() {
 
     const menuLinks = [
         { name: 'History', icon: Clock, href: '/history' },
+        { name: 'Stats', icon: BarChart3, href: '/stats' },
         { name: 'YouTube', icon: Youtube, href: '/folder/youtube' },
         { name: 'Podcasts', icon: Mic, href: '/folder/podcasts' },
         { name: 'Reddit', icon: MessageCircle, href: '/folder/reddit' },
