@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Plus, Search, X, Rss } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -63,6 +63,70 @@ export function AppHeader({
         return () => clearInterval(interval);
     }, [lastRefreshTime]);
 
+    const performSync = useCallback(async () => {
+        if (isSyncing) return;
+        setIsSyncing(true);
+
+        // Get relevant feeds to sync
+        const feedsToSync = feeds.filter(f =>
+            f.type === 'rss' || f.type === 'reddit' || f.type === 'youtube' || f.type === 'podcast'
+        );
+
+        setRefreshProgress({ current: 0, total: feedsToSync.length });
+
+        try {
+            await FeedService.syncWithFever();
+
+            // Parallel execution with concurrency limit
+            const CONCURRENCY_LIMIT = 5;
+            let completedCount = 0;
+            let currentIndex = 0;
+
+            const processNext = async (): Promise<void> => {
+                if (currentIndex >= feedsToSync.length) return;
+
+                const feed = feedsToSync[currentIndex];
+                currentIndex++;
+
+                // Update progress
+                setRefreshProgress(prev => ({
+                    current: completedCount,
+                    total: feedsToSync.length,
+                    feedName: `Syncing ${feed.title}...`
+                }));
+
+                try {
+                    await FeedService.refreshFeed(feed);
+                } catch (e) {
+                    console.error(`Failed to refresh ${feed.title}`, e);
+                } finally {
+                    completedCount++;
+                    setRefreshProgress(prev => ({
+                        current: completedCount,
+                        total: feedsToSync.length
+                    }));
+
+                    // Process next in queue
+                    await processNext();
+                }
+            };
+
+            // Start workers
+            const workers = Array(Math.min(CONCURRENCY_LIMIT, feedsToSync.length))
+                .fill(null)
+                .map(() => processNext());
+
+            await Promise.all(workers);
+
+            setLastRefreshTime(Date.now());
+        } catch (e) {
+            console.error('Sync failed:', e);
+        } finally {
+            setIsSyncing(false);
+            setTimeout(() => setRefreshProgress(null), 1000);
+        }
+    }, [isSyncing, feeds, setLastRefreshTime]); // Depend on isSyncing and feeds
+
     // Auto-refresh when timer reaches 0
     useEffect(() => {
         if (!showRefresh) return;
@@ -75,58 +139,17 @@ export function AppHeader({
 
             if (now >= nextRefresh) {
                 console.log('[AutoRefresh] Timer expired, triggering refresh...');
-                // Trigger refresh directly here instead of calling handleSync
-                setIsSyncing(true);
-                setRefreshProgress({ current: 0, total: feeds.length });
-
-                try {
-                    await FeedService.syncWithFever();
-
-                    for (let i = 0; i < feeds.length; i++) {
-                        setRefreshProgress({ current: i + 1, total: feeds.length, feedName: feeds[i].title });
-                        await FeedService.refreshFeed(feeds[i]);
-                    }
-
-                    setLastRefreshTime(Date.now());
-                } catch (error) {
-                    console.error('Auto-refresh failed:', error);
-                } finally {
-                    setIsSyncing(false);
-                    setTimeout(() => setRefreshProgress(null), 1000);
-                }
+                await performSync();
             }
         };
 
         const interval = setInterval(checkAutoRefresh, 10000); // Check every 10 seconds
         checkAutoRefresh(); // Also check immediately
         return () => clearInterval(interval);
-    }, [lastRefreshTime, isSyncing, showRefresh, feeds, setLastRefreshTime]);
+    }, [lastRefreshTime, isSyncing, showRefresh, feeds, performSync]); // Depend on performSync
 
-    const handleSync = async () => {
-        if (isSyncing) return;
-        setIsSyncing(true);
-        setRefreshProgress({ current: 0, total: feeds.length });
-
-        try {
-            await FeedService.syncWithFever();
-
-            for (let i = 0; i < feeds.length; i++) {
-                const feed = feeds[i];
-                setRefreshProgress({ current: i + 1, total: feeds.length, feedName: feed.title });
-
-                if (feed.type === 'rss' || feed.type === 'reddit' || feed.type === 'youtube' || feed.type === 'podcast') {
-                    await FeedService.refreshFeed(feed);
-                }
-            }
-
-            setLastRefreshTime(Date.now());
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setIsSyncing(false);
-            // Keep progress visible for 1 second before hiding
-            setTimeout(() => setRefreshProgress(null), 1000);
-        }
+    const handleSync = () => {
+        performSync();
     };
 
     return (
