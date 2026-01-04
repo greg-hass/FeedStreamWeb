@@ -81,6 +81,7 @@ export function AppHeader({
             const CONCURRENCY_LIMIT = 5;
             let completedCount = 0;
             let currentIndex = 0;
+            let totalNewArticles = 0;
 
             const processNext = async (): Promise<void> => {
                 if (currentIndex >= feedsToSync.length) return;
@@ -96,7 +97,10 @@ export function AppHeader({
                 }));
 
                 try {
-                    await FeedService.refreshFeed(feed);
+                    const newCount = await FeedService.refreshFeed(feed);
+                    if (typeof newCount === 'number') {
+                        totalNewArticles += newCount;
+                    }
                 } catch (e) {
                     console.error(`Failed to refresh ${feed.title}`, e);
                 } finally {
@@ -119,6 +123,23 @@ export function AppHeader({
             await Promise.all(workers);
 
             setLastRefreshTime(Date.now());
+
+            // Show summary notification
+            if (totalNewArticles > 0) {
+                // Ideally use a toast library if available, falling back to alert for now or just log for user clarity
+                // Since user sees console, a prominent log is good, but visual is better.
+                // Assuming no toast lib installed yet based on package.json (no sonner/toast), 
+                // we will rely on UI reactivity already fixed, but let's log it clearly.
+                console.log(`[Sync Complete] Refreshed ${feedsToSync.length} feeds. Found ${totalNewArticles} new articles.`);
+                // For now, let's alert ONLY if manually triggered (isSyncing check/context) or just always?
+                // Alert is intrusive. 
+                // Let's create a temporary status message in the header timeRemaining area?
+                setTimeRemaining(`${totalNewArticles} new`);
+                setTimeout(() => setTimeRemaining(''), 5000);
+            } else {
+                console.log(`[Sync Complete] Refreshed ${feedsToSync.length} feeds. No new articles.`);
+            }
+
         } catch (e) {
             console.error('Sync failed:', e);
         } finally {

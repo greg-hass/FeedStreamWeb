@@ -207,7 +207,7 @@ export class FeedService {
         await db.articles.bulkPut(articles as any);
     }
 
-    private static async mergeArticles(feedId: string, incoming: Article[]) {
+    private static async mergeArticles(feedId: string, incoming: Article[]): Promise<number> {
         console.log(`[MergeArticles] Processing ${incoming.length} articles for feed ${feedId}`);
 
         // 1. Get existing articles for this feed to check status
@@ -267,6 +267,8 @@ export class FeedService {
             await db.articles.bulkPut(updates);
             console.log(`[MergeArticles] Successfully updated ${updates.length} articles`);
         }
+
+        return newArticles.length;
     }
 
     static async deleteFeed(id: string) {
