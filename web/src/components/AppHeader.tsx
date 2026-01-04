@@ -11,6 +11,7 @@ import { FeedSearchModal } from './FeedSearchModal';
 import { RefreshProgress } from './RefreshProgress';
 import Link from 'next/link';
 
+
 interface AppHeaderProps {
     title?: string;
     icon?: React.ReactNode;
