@@ -78,6 +78,15 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
 
     const videoId = article.mediaKind === 'youtube' ? getYouTubeVideoId() : null;
 
+    // Handle article click - podcasts play instead of navigating
+    const handleArticleClick = (e: React.MouseEvent) => {
+        if (article.mediaKind === 'podcast' && article.enclosureURL) {
+            e.preventDefault();
+            handlePlay(e);
+        }
+        // For non-podcasts, let the Link navigate normally
+    };
+
     return (
         <ArticleSwipeRow
             isRead={article.isRead}
@@ -85,7 +94,7 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
             onSwipeRight={() => onToggleRead?.(article.id)}
             onSwipeLeft={() => onToggleBookmark?.(article.id)}
         >
-            <Link href={`/article/${article.id}`} className="block">
+            <Link href={`/article/${article.id}`} className="block" onClick={handleArticleClick}>
                 <article className={clsx(
                     "relative px-4 sm:px-6 py-4 transition-colors",
                     "hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50",
