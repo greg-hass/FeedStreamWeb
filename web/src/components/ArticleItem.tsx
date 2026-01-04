@@ -184,15 +184,18 @@ export function ArticleItem({ article, feed, isSelected, onToggleRead, onToggleB
 
                         {/* Image/Video - Full width on mobile, right side on desktop */}
                         {article.thumbnailPath && (
-                            <div className={clsx(
-                                "mt-3 md:mt-0 md:shrink-0 md:w-28 md:h-28",
-                                "relative group/thumb cursor-pointer"
-                            )}>
+                            <div
+                                className={clsx(
+                                    "mt-3 md:mt-0 md:shrink-0 md:w-28 md:h-28",
+                                    "relative group/thumb cursor-pointer"
+                                )}
+                                onClick={article.mediaKind === 'youtube' ? handleVideoClick : article.mediaKind === 'podcast' ? handlePlay : undefined}
+                            >
                                 {/* Show embedded video on mobile when playing */}
                                 {isVideoPlaying && videoId ? (
                                     <div className="w-full aspect-video md:hidden bg-black rounded-lg overflow-hidden">
                                         <iframe
-                                            src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+                                            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`}
                                             className="w-full h-full"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                             allowFullScreen
@@ -209,7 +212,6 @@ export function ArticleItem({ article, feed, isSelected, onToggleRead, onToggleB
                                             (article.mediaKind === 'podcast' || article.mediaKind === 'youtube') && "group-hover/thumb:brightness-75 transition-all"
                                         )}
                                         loading="lazy"
-                                        onClick={article.mediaKind === 'youtube' ? handleVideoClick : article.mediaKind === 'podcast' ? handlePlay : undefined}
                                         onError={(e) => {
                                             // Hide the entire thumbnail container when image fails to load
                                             const container = e.currentTarget.closest('.group\\/thumb');
@@ -220,7 +222,7 @@ export function ArticleItem({ article, feed, isSelected, onToggleRead, onToggleB
 
                                 {/* Play button overlay */}
                                 {!isVideoPlaying && (article.mediaKind === 'podcast' || article.mediaKind === 'youtube') && (
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-80 group-hover/thumb:opacity-100 transition-opacity">
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-80 group-hover/thumb:opacity-100 transition-opacity pointer-events-none">
                                         <div className="bg-white/90 dark:bg-black/80 rounded-full p-3 md:p-2 shadow-lg">
                                             <Play size={24} className="fill-current text-zinc-900 dark:text-zinc-100 ml-0.5 md:w-5 md:h-5" />
                                         </div>
