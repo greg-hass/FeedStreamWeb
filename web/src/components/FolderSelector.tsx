@@ -37,8 +37,9 @@ export function FolderSelector({ selectedFolderId, onChange, className }: Folder
 
     return (
         <div className={clsx('space-y-3', className)}>
-            <label className="block text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                📁 Add to folder
+            <label className="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                <FolderOpen size={18} className="text-amber-500" />
+                Add to folder
             </label>
 
             {!isCreating ? (
@@ -47,12 +48,12 @@ export function FolderSelector({ selectedFolderId, onChange, className }: Folder
                     <select
                         value={selectedFolderId || ''}
                         onChange={(e) => onChange(e.target.value || null)}
-                        className="w-full px-4 py-3 text-base bg-zinc-100 dark:bg-zinc-800 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 focus:border-brand focus:ring-2 focus:ring-brand/20 text-zinc-900 dark:text-zinc-100 font-medium"
+                        className="w-full px-4 py-4 text-base bg-zinc-100 dark:bg-zinc-800 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 focus:border-brand focus:ring-2 focus:ring-brand/20 text-zinc-900 dark:text-zinc-100 font-medium appearance-none cursor-pointer"
                     >
-                        <option value="">📂 No folder (Root)</option>
+                        <option value="">No folder (Root)</option>
                         {folders.map(folder => (
                             <option key={folder.id} value={folder.id}>
-                                📁 {folder.name}
+                                {folder.name}
                             </option>
                         ))}
                     </select>

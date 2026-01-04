@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FeedSearchService, FeedSearchResult } from '@/lib/feed-search-service';
-import { FeedType } from '@/lib/db';
-import { Search, Plus, Loader2, Rss, Youtube, Mic, Hash, X, Link as LinkIcon, List, Sparkles } from 'lucide-react';
+import { FeedType, db } from '@/lib/db';
+import { Search, Plus, Loader2, Rss, Youtube, Mic, Hash, X, Link as LinkIcon, List, Sparkles, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import { FeedService } from '@/lib/feed-service';
 import { FolderSelector } from './FolderSelector';
 import { URLDetector } from '@/lib/url-detector';
 import { FeedPreview } from './FeedPreview';
 import { FeedDiscovery } from '@/lib/feed-discovery';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 interface FeedSearchModalProps {
     isOpen: boolean;
@@ -38,6 +39,10 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
     const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [discoveredFeeds, setDiscoveredFeeds] = useState<{ url: string; count: number; title?: string }[]>([]);
+
+    // Get existing feeds to check if already added
+    const existingFeeds = useLiveQuery(() => db.feeds.toArray()) || [];
+    const existingFeedUrls = useMemo(() => new Set(existingFeeds.map(f => f.feedURL)), [existingFeeds]);
 
     // Reset on open
     useEffect(() => {
@@ -335,13 +340,20 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
                                                     <h3 className="font-medium truncate text-zinc-900 dark:text-zinc-100">{item.title}</h3>
                                                     <p className="text-xs text-zinc-500 truncate">{item.description || item.url}</p>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleAdd(item.url, item.title)}
-                                                    disabled={!!addingUrl}
-                                                    className="p-2 bg-brand text-white rounded-full hover:bg-brand/80 transition-colors"
-                                                >
-                                                    {addingUrl === item.url ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
-                                                </button>
+                                                {existingFeedUrls.has(item.url) ? (
+                                                    <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-sm font-medium rounded-full flex items-center gap-1">
+                                                        <Check size={14} />
+                                                        Added
+                                                    </span>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleAdd(item.url, item.title)}
+                                                        disabled={!!addingUrl}
+                                                        className="p-2 bg-brand text-white rounded-full hover:bg-brand/80 transition-colors"
+                                                    >
+                                                        {addingUrl === item.url ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
+                                                    </button>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
