@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Check, Bookmark, Youtube, Radio, Rss, Mic, Play, MessageCircle } from 'lucide-react';
@@ -16,8 +16,8 @@ interface ArticleItemProps {
 }
 
 export function ArticleItem({ article, onToggleRead, onToggleBookmark }: ArticleItemProps) {
-    // Look up feed title from database
     const feed = useLiveQuery(() => db.feeds.get(article.feedID), [article.feedID]);
+    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
     const getTypeIcon = () => {
         if (article.mediaKind === 'youtube') return Youtube;
@@ -44,11 +44,27 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
         }
     };
 
-    // Extract preview text
+    const handleVideoClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (article.mediaKind === 'youtube') {
+            setIsVideoPlaying(true);
+        }
+    };
+
     const getPreviewText = () => {
         const text = article.summary || article.contentHTML || '';
         return text.replace(/<[^>]*>/g, '').slice(0, 160);
     };
+
+    // Extract YouTube video ID from contentHTML or URL
+    const getYouTubeVideoId = (): string | null => {
+        if (!article.contentHTML) return null;
+        const match = article.contentHTML.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+        return match ? match[1] : null;
+    };
+
+    const videoId = article.mediaKind === 'youtube' ? getYouTubeVideoId() : null;
 
     return (
         <ArticleSwipeRow
@@ -63,29 +79,12 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                     "hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50",
                     "border-b border-zinc-100 dark:border-zinc-800/50"
                 )}>
-                    <div className="flex gap-4">
-                        {/* Left: Content */}
+                    {/* Mobile: Vertical Layout | Desktop: Horizontal Layout */}
+                    <div className="flex flex-col md:flex-row md:gap-4">
+                        {/* Content */}
                         <div className="flex-1 min-w-0 flex flex-col">
-                            {/* Title */}
-                            <h3 className={clsx(
-                                "text-[17px] font-semibold leading-snug line-clamp-2 tracking-tight flex items-start gap-2 mb-1",
-                                article.isRead
-                                    ? "text-zinc-500 dark:text-zinc-500"
-                                    : "text-zinc-900 dark:text-zinc-100"
-                            )}>
-                                {!article.isRead && (
-                                    <span className="shrink-0 w-2 h-2 rounded-full bg-emerald-500 mt-1.5" title="Unread" />
-                                )}
-                                {article.title}
-                            </h3>
-
-                            {/* Preview Text - Always visible, 2 lines */}
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed mb-2">
-                                {getPreviewText()}
-                            </p>
-
-                            {/* Meta Line */}
-                            <div className="flex items-center gap-2 text-sm text-zinc-500 mb-2">
+                            {/* Meta Line - Feed info ABOVE title on mobile */}
+                            <div className="flex items-center gap-2 text-sm text-zinc-500 mb-2 md:order-2 md:mt-0">
                                 {/* Feed Icon */}
                                 {feed?.iconURL && (
                                     <img
@@ -112,13 +111,30 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                                 <span className="text-zinc-300 dark:text-zinc-600">•</span>
                                 <time className="shrink-0 text-sm text-orange-500 dark:text-orange-400 font-medium flex items-center gap-1.5">
                                     {article.publishedAt ? formatDistanceToNow(article.publishedAt, { addSuffix: true }) : ''}
-                                    {/* Type Badge */}
                                     <TypeIcon size={14} className="text-zinc-400 dark:text-zinc-500" />
                                 </time>
                             </div>
 
-                            {/* Actions */}
-                            <div className="flex items-center gap-3">
+                            {/* Title */}
+                            <h3 className={clsx(
+                                "text-[17px] font-semibold leading-snug line-clamp-2 tracking-tight flex items-start gap-2 mb-2 md:order-1",
+                                article.isRead
+                                    ? "text-zinc-500 dark:text-zinc-500"
+                                    : "text-zinc-900 dark:text-zinc-100"
+                            )}>
+                                {!article.isRead && (
+                                    <span className="shrink-0 w-2 h-2 rounded-full bg-emerald-500 mt-1.5" title="Unread" />
+                                )}
+                                {article.title}
+                            </h3>
+
+                            {/* Preview Text - Desktop only */}
+                            <p className="hidden md:block text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed mb-2 md:order-3">
+                                {getPreviewText()}
+                            </p>
+
+                            {/* Actions - Desktop only */}
+                            <div className="hidden md:flex items-center gap-3 md:order-4">
                                 <button
                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleRead?.(article.id); }}
                                     className={clsx(
@@ -140,28 +156,69 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                             </div>
                         </div>
 
-                        {/* Right: Thumbnail */}
+                        {/* Image/Video - Full width on mobile, right side on desktop */}
                         {article.thumbnailPath && (
-                            <div className="shrink-0 relative group/thumb cursor-pointer w-24 h-24 sm:w-28 sm:h-28" onClick={article.mediaKind === 'podcast' ? handlePlay : undefined}>
-                                <img
-                                    src={article.thumbnailPath}
-                                    alt=""
-                                    className={clsx(
-                                        "w-full h-full object-cover rounded-lg",
-                                        "bg-zinc-200 dark:bg-zinc-800",
-                                        article.mediaKind === 'podcast' && "group-hover/thumb:brightness-75 transition-all"
-                                    )}
-                                    loading="lazy"
-                                />
-                                {article.mediaKind === 'podcast' && (
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity">
-                                        <div className="bg-white/90 dark:bg-black/80 rounded-full p-2 shadow-lg">
-                                            <Play size={20} className="fill-current text-zinc-900 dark:text-zinc-100 ml-0.5" />
+                            <div className={clsx(
+                                "mt-3 md:mt-0 md:shrink-0 md:w-28 md:h-28",
+                                "relative group/thumb cursor-pointer"
+                            )}>
+                                {/* Show embedded video on mobile when playing */}
+                                {isVideoPlaying && videoId ? (
+                                    <div className="w-full aspect-video md:hidden bg-black rounded-lg overflow-hidden">
+                                        <iframe
+                                            src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+                                            className="w-full h-full"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        />
+                                    </div>
+                                ) : (
+                                    <img
+                                        src={article.thumbnailPath}
+                                        alt=""
+                                        className={clsx(
+                                            "w-full object-cover rounded-lg bg-zinc-200 dark:bg-zinc-800",
+                                            "md:w-full md:h-full",
+                                            "aspect-video md:aspect-auto",
+                                            (article.mediaKind === 'podcast' || article.mediaKind === 'youtube') && "group-hover/thumb:brightness-75 transition-all"
+                                        )}
+                                        loading="lazy"
+                                        onClick={article.mediaKind === 'youtube' ? handleVideoClick : article.mediaKind === 'podcast' ? handlePlay : undefined}
+                                    />
+                                )}
+
+                                {/* Play button overlay */}
+                                {!isVideoPlaying && (article.mediaKind === 'podcast' || article.mediaKind === 'youtube') && (
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-80 group-hover/thumb:opacity-100 transition-opacity">
+                                        <div className="bg-white/90 dark:bg-black/80 rounded-full p-3 md:p-2 shadow-lg">
+                                            <Play size={24} className="fill-current text-zinc-900 dark:text-zinc-100 ml-0.5 md:w-5 md:h-5" />
                                         </div>
                                     </div>
                                 )}
                             </div>
                         )}
+                    </div>
+
+                    {/* Mobile Actions - Below image */}
+                    <div className="flex md:hidden items-center gap-3 mt-3">
+                        <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleRead?.(article.id); }}
+                            className={clsx(
+                                "p-1.5 rounded-full transition-colors",
+                                article.isRead ? "text-brand bg-brand/10" : "text-zinc-400 hover:text-brand hover:bg-brand/10"
+                            )}
+                        >
+                            <Check size={16} strokeWidth={2.5} />
+                        </button>
+                        <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleBookmark?.(article.id); }}
+                            className={clsx(
+                                "p-1.5 rounded-full transition-colors",
+                                article.isBookmarked ? "text-amber-500 bg-amber-500/10" : "text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10"
+                            )}
+                        >
+                            <Bookmark size={16} className={article.isBookmarked ? "fill-current" : ""} />
+                        </button>
                     </div>
                 </article>
             </Link>
