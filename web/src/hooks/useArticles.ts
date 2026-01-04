@@ -60,7 +60,7 @@ export function useArticles(
             // Dexie collections are immutable-ish chains, so we filter
             // Note: This is an in-memory filter on the results of the index scan.
             // For massive datasets, we'd need a full-text index.
-            collection = originalCollection.filter(a => {
+            collection = originalCollection.filter((a: Article) => {
                 const titleMatch = a.title?.toLowerCase().includes(lowerQuery);
                 const summaryMatch = a.summary?.toLowerCase().includes(lowerQuery);
                 return !!(titleMatch || summaryMatch);
