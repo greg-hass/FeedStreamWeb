@@ -1,13 +1,28 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Article } from "@/lib/db";
 
-export function useArticles(view: 'today' | 'all' | 'saved' | 'history' | 'youtube' | 'podcasts' | 'reddit' | string = 'all', limit = 100) {
+export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved' | 'history' | 'youtube' | 'podcasts' | 'reddit' | string = 'all', limit = 100) {
     return useLiveQuery(async () => {
+        const now = new Date();
+
         if (view === 'today') {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            return db.articles
+                .where('publishedAt').above(startOfDay)
+                .reverse()
+                .limit(limit)
+                .toArray();
+        } else if (view === 'last24h') {
+            const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
             return db.articles
                 .where('publishedAt').above(yesterday)
+                .reverse()
+                .limit(limit)
+                .toArray();
+        } else if (view === 'week') {
+            const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            return db.articles
+                .where('publishedAt').above(lastWeek)
                 .reverse()
                 .limit(limit)
                 .toArray();
@@ -35,9 +50,6 @@ export function useArticles(view: 'today' | 'all' | 'saved' | 'history' | 'youtu
                 .limit(limit)
                 .toArray();
         } else if (view === 'reddit') {
-            // 'reddit' is a feed type, but valid article mediaKind is usually 'none' or 'video'
-            // To filter by feed type, we need to join or find feeds first.
-            // Efficient way: Get Reddit Feed IDs, then query articles.
             const redditFeeds = await db.feeds.where('type').equals('reddit').keys();
             if (redditFeeds.length === 0) return [];
             return db.articles

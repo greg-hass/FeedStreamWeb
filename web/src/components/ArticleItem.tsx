@@ -69,11 +69,14 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
 
                             {/* Title */}
                             <h3 className={clsx(
-                                "text-[15px] font-semibold leading-snug line-clamp-2 tracking-tight",
+                                "text-[15px] font-semibold leading-snug line-clamp-2 tracking-tight flex items-start gap-2",
                                 article.isRead
                                     ? "text-zinc-500 dark:text-zinc-500"
                                     : "text-zinc-900 dark:text-zinc-100"
                             )}>
+                                {!article.isRead && (
+                                    <span className="shrink-0 w-2 h-2 rounded-full bg-emerald-500 mt-1.5" title="Unread" />
+                                )}
                                 {article.title}
                             </h3>
 
