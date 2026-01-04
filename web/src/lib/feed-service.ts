@@ -233,22 +233,29 @@ export class FeedService {
                     feedID: feedId
                 });
             } else {
-                // Update existing: Keep user state (isRead, isBookmarked)
-                // Update content, title, etc. in case of corrections
-                updates.push({
-                    ...item,
-                    feedID: feedId, // Ensure feedID is consistent
-                    isRead: existing.isRead,
-                    isBookmarked: existing.isBookmarked,
-                    // Preserve other local states
-                    playbackPosition: existing.playbackPosition,
-                    downloadStatus: existing.downloadStatus,
-                    contentPrefetchedAt: existing.contentPrefetchedAt
-                });
+                // Only update if content has actually changed
+                const hasChanged =
+                    existing.title !== item.title ||
+                    existing.summary !== item.summary ||
+                    existing.contentHTML !== item.contentHTML ||
+                    existing.url !== item.url;
+
+                if (hasChanged) {
+                    updates.push({
+                        ...item,
+                        feedID: feedId,
+                        isRead: existing.isRead,
+                        isBookmarked: existing.isBookmarked,
+                        playbackPosition: existing.playbackPosition,
+                        downloadStatus: existing.downloadStatus,
+                        contentPrefetchedAt: existing.contentPrefetchedAt
+                    });
+                }
+                // If nothing changed, skip the update entirely
             }
         }
 
-        console.log(`[MergeArticles] Adding ${newArticles.length} new articles, updating ${updates.length}`);
+        console.log(`[MergeArticles] Adding ${newArticles.length} new articles, updating ${updates.length} changed articles (skipped ${existingArticles.length - updates.length} unchanged)`);
 
         if (newArticles.length > 0) {
             // Use bulkPut to be safe, though bulkAdd is fine since we checked existence
