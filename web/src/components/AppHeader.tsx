@@ -80,7 +80,7 @@ export function AppHeader({
             await FeedService.syncWithFever();
 
             // Parallel execution with concurrency limit
-            const CONCURRENCY_LIMIT = 5;
+            const CONCURRENCY_LIMIT = 15;
             let completedCount = 0;
             let currentIndex = 0;
             let totalNewArticles = 0;
@@ -218,7 +218,7 @@ export function AppHeader({
                             </span>
                         )}
                         {onMarkAllRead && (
-                             <button
+                            <button
                                 onClick={onMarkAllRead}
                                 className="p-2 rounded-full text-zinc-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
                                 title="Mark all as read"

@@ -87,9 +87,11 @@ export class FeedService {
             });
 
             // Fetch icon if missing or using generic fallback (so we can retry better extraction)
+            // Fetch icon if missing or using generic fallback (so we can retry better extraction)
             const isMissingOrGeneric = !feed.iconURL || feed.iconURL.includes('google.com/s2/favicons');
             if (isMissingOrGeneric) {
-                await IconService.updateFeedIcon(feed, normalized.rawData);
+                // Non-blocking update
+                IconService.updateFeedIcon(feed, normalized.rawData).catch(console.error);
             }
 
             // Merge Articles
