@@ -73,27 +73,21 @@ export function ArticleList({ articles }: ArticleListProps) {
 
     return (
         <div className="h-full flex flex-col relative">
-            {/* Debug Status / New Items Indicator */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none">
-                {/* Debug Info (fades out) */}
-                <div className="px-3 py-1 text-[10px] text-zinc-500 bg-zinc-50/80 dark:bg-zinc-950/80 backdrop-blur-md rounded-full shadow-sm border border-zinc-200 dark:border-zinc-800 transition-opacity">
-                    {articles.length} articles
-                </div>
-
-                {/* New Articles Button */}
-                {showNewItems && (
+            {/* New Articles Button */}
+            {showNewItems && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
                     <button
                         onClick={() => {
                             virtuosoRef.current?.scrollToIndex({ index: 0, align: 'start', behavior: 'smooth' });
                             setShowNewItems(false);
                         }}
-                        className="pointer-events-auto px-4 py-2 bg-brand text-white text-sm font-medium rounded-full shadow-lg hover:brightness-110 active:scale-95 transition-all animate-in fade-in slide-in-from-top-4 flex items-center gap-2"
+                        className="px-4 py-2 bg-brand text-white text-sm font-medium rounded-full shadow-lg hover:brightness-110 active:scale-95 transition-all animate-in fade-in slide-in-from-top-4 flex items-center gap-2"
                     >
                         <span>New Articles</span>
                         <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
                     </button>
-                )}
-            </div>
+                </div>
+            )}
 
             <Virtuoso
                 ref={virtuosoRef}
