@@ -167,10 +167,10 @@ export function Reader({ article }: ReaderProps) {
                 </div>
 
                 {/* Hero Image */}
-                {article.image && (
+                {article.thumbnailPath && (
                     <div className="relative w-full aspect-video rounded-2xl overflow-hidden mb-8 shadow-sm">
                         <img
-                            src={article.image}
+                            src={article.thumbnailPath}
                             alt={article.title}
                             className="w-full h-full object-cover"
                         />
