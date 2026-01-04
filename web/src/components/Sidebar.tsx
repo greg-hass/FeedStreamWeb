@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, FolderOpen, Play, Radio, MoreHorizontal, Trash2, MoveRight, GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
+import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, FolderOpen, Play, Radio, MoreHorizontal, Trash2, MoveRight, GripVertical, ChevronDown, ChevronRight, Mic, Youtube, MessageCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
@@ -18,6 +18,34 @@ export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const folders = useLiveQuery(() => db.folders.orderBy('position').toArray()) || [];
     const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
+
+    // Sidebar counts
+    const counts = useLiveQuery(async () => {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        const [today, all, saved] = await Promise.all([
+            db.articles.where('publishedAt').above(startOfDay).count(),
+            db.articles.count(),
+            db.articles.where('isBookmarked').equals(1).count() // Dexie boolean index
+        ]);
+
+        return { today, all, saved };
+    }) || { today: 0, all: 0, saved: 0 };
+
+    // Smart Feed counts
+    const mediaCounts = useLiveQuery(async () => {
+        const [youtube, podcast, reddit] = await Promise.all([
+            db.articles.where('mediaKind').equals('youtube').count(),
+            db.articles.where('mediaKind').equals('podcast').count(),
+            // Reddit requires finding feeds first
+            db.feeds.where('type').equals('reddit').toArray().then(feeds => {
+                if (feeds.length === 0) return 0;
+                return db.articles.where('feedID').anyOf(feeds.map(f => f.id)).count();
+            })
+        ]);
+        return { youtube, podcast, reddit };
+    }) || { youtube: 0, podcast: 0, reddit: 0 };
 
     const { sidebarWidth, setSidebarWidth } = useScrollStore();
     const [isResizing, setIsResizing] = useState(false);
@@ -49,10 +77,16 @@ export function Sidebar({ className }: SidebarProps) {
     };
 
     const links = [
-        { href: '/', label: 'Today', icon: Calendar },
-        { href: '/feeds/all', label: 'All Articles', icon: LayoutGrid },
-        { href: '/saved', label: 'Bookmarks', icon: Bookmark },
+        { href: '/', label: 'Today', icon: Calendar, count: counts.today },
+        { href: '/feeds/all', label: 'All Articles', icon: LayoutGrid, count: counts.all },
+        { href: '/saved', label: 'Bookmarks', icon: Bookmark, count: counts.saved },
         { href: '/history', label: 'History', icon: Clock },
+    ];
+
+    const smartFolders = [
+        { href: '/folder/reddit', label: 'Reddit', icon: MessageCircle, count: mediaCounts.reddit },
+        { href: '/folder/youtube', label: 'YouTube', icon: Youtube, count: mediaCounts.youtube },
+        { href: '/folder/podcasts', label: 'Podcasts', icon: Mic, count: mediaCounts.podcast },
     ];
 
     const handleDeleteFeed = async (feedId: string) => {
@@ -157,6 +191,20 @@ export function Sidebar({ className }: SidebarProps) {
                         isActive={pathname === '/settings'}
                     />
                 </div>
+
+                {/* Smart Folders */}
+                <nav className="space-y-1 mt-6">
+                    <div className="px-3 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                        Smart Folders
+                    </div>
+                    {smartFolders.map(link => (
+                        <SidebarLink
+                            key={link.href}
+                            {...link}
+                            isActive={pathname === link.href}
+                        />
+                    ))}
+                </nav>
 
                 {/* Library Section */}
                 <div className="pt-4 mt-4 border-t border-zinc-800/50">
@@ -322,18 +370,19 @@ export function Sidebar({ className }: SidebarProps) {
     );
 }
 
-function SidebarLink({ href, label, icon: Icon, isActive, small }: {
+function SidebarLink({ href, label, icon: Icon, isActive, small, count }: {
     href: string;
     label: string;
     icon: any;
     isActive: boolean;
     small?: boolean;
+    count?: number;
 }) {
     return (
         <Link
             href={href}
             className={clsx(
-                "flex items-center gap-3 rounded-lg transition-all duration-150",
+                "flex items-center gap-3 rounded-lg transition-all duration-150 group",
                 small ? "px-2 py-1.5 text-xs" : "px-3 py-2 text-sm",
                 isActive
                     ? "bg-zinc-800 text-white font-medium"
@@ -342,7 +391,17 @@ function SidebarLink({ href, label, icon: Icon, isActive, small }: {
             title={label}
         >
             <Icon size={small ? 14 : 16} className={clsx("shrink-0", isActive && "text-brand")} />
-            <span className="truncate">{label}</span>
+            <span className="truncate flex-1">{label}</span>
+            {count !== undefined && count > 0 && (
+                <span className={clsx(
+                    "text-xs font-semibold px-2 py-0.5 rounded-full transition-colors",
+                    isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-zinc-800 text-zinc-500 group-hover:text-zinc-400"
+                )}>
+                    {count > 999 ? '999+' : count}
+                </span>
+            )}
         </Link>
     );
 }
@@ -354,7 +413,7 @@ function SidebarFeedItem({ feed, isActive, small, onContextMenu, onMenuClick }: 
     onContextMenu: (e: React.MouseEvent) => void;
     onMenuClick: (e: React.MouseEvent) => void;
 }) {
-    const Icon = feed.type === 'youtube' ? Play : (feed.type === 'podcast' ? Radio : Rss);
+    const Icon = feed.type === 'youtube' ? Youtube : (feed.type === 'podcast' ? Mic : Rss);
 
     return (
         <div className="group flex items-center" onContextMenu={onContextMenu}>

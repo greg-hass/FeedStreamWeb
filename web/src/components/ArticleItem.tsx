@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, Bookmark, Youtube, Radio, Rss } from 'lucide-react';
+import { Check, Bookmark, Youtube, Radio, Rss, Mic } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Article } from '@/lib/db';
 import { ArticleSwipeRow } from './ArticleSwipeRow';
@@ -57,10 +57,21 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                         <div className="flex-1 min-w-0 flex flex-col">
                             {/* Meta Line */}
                             <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
-                                {MediaIcon && <MediaIcon size={12} className="text-brand" />}
-                                <span className="font-medium text-zinc-600 dark:text-zinc-400 truncate">
-                                    {feed?.title || 'Loading...'}
-                                </span>
+                                {article.mediaKind === 'podcast' ? (
+                                    <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
+                                        <Mic size={12} />
+                                        <span className="font-medium text-zinc-600 dark:text-zinc-400 truncate max-w-[150px]">
+                                            {feed?.title || 'Unknown Feed'}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {MediaIcon && <MediaIcon size={12} className="text-brand shrink-0" />}
+                                        <span className="font-medium text-zinc-600 dark:text-zinc-400 truncate">
+                                            {feed?.title || 'Loading...'}
+                                        </span>
+                                    </>
+                                )}
                                 <span className="text-zinc-300 dark:text-zinc-700">•</span>
                                 <time className="shrink-0">
                                     {article.publishedAt ? formatDistanceToNow(article.publishedAt, { addSuffix: true }) : ''}
