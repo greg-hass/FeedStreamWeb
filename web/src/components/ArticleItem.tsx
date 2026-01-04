@@ -60,20 +60,20 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                                 {article.mediaKind === 'podcast' ? (
                                     <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
                                         <Mic size={12} />
-                                        <span className="font-medium text-zinc-600 dark:text-zinc-400 truncate max-w-[150px]">
+                                        <span className="font-medium text-purple-600 dark:text-purple-400 truncate max-w-[150px]">
                                             {feed?.title || 'Unknown Feed'}
                                         </span>
                                     </div>
                                 ) : (
                                     <>
                                         {MediaIcon && <MediaIcon size={12} className="text-brand shrink-0" />}
-                                        <span className="font-medium text-zinc-600 dark:text-zinc-400 truncate">
+                                        <span className="font-medium text-brand truncate max-w-[150px]">
                                             {feed?.title || 'Loading...'}
                                         </span>
                                     </>
                                 )}
-                                <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                                <time className="shrink-0">
+                                <span className="text-zinc-300 dark:text-zinc-600">•</span>
+                                <time className="shrink-0 text-zinc-400 dark:text-white">
                                     {article.publishedAt ? formatDistanceToNow(article.publishedAt, { addSuffix: true }) : ''}
                                 </time>
                             </div>
