@@ -6,14 +6,13 @@ import { uuidv4 } from './utils';
 
 export class OpmlService {
 
-    static async importOPML(xmlContent: string) {
+    static async importOPML(xmlContent: string, onProgress?: (current: number, total: number, message: string) => void) {
         const parser = new XMLParser({
             ignoreAttributes: false,
             attributeNamePrefix: ""
         });
 
         const result = parser.parse(xmlContent);
-        // Check for OPML root
         if (!result.opml && !result.OPML) throw new Error("Invalid OPML file: No <opml> tag found");
 
         const body = result.opml?.body || result.OPML?.body;
@@ -21,38 +20,62 @@ export class OpmlService {
 
         const outlines = Array.isArray(body.outline) ? body.outline : (body.outline ? [body.outline] : []);
 
-        await this.processOutlines(outlines);
+        // Count total feeds for progress
+        let totalFeeds = 0;
+        const count = (nodes: any[]) => {
+            for (const node of nodes) {
+                if (node.xmlUrl || node.xmlurl || node.url) {
+                    totalFeeds++;
+                } else if (node.outline) {
+                    const children = Array.isArray(node.outline) ? node.outline : [node.outline];
+                    count(children);
+                }
+            }
+        };
+        count(outlines);
+
+        let processed = 0;
+        const updateProgress = (name: string) => {
+            if (onProgress) {
+                onProgress(processed, totalFeeds, `Importing ${name}...`);
+            }
+        };
+
+        await this.processOutlines(outlines, undefined, (name) => {
+            processed++;
+            updateProgress(name);
+        });
     }
 
-    private static async processOutlines(outlines: any[], folderId?: string) {
+    private static async processOutlines(outlines: any[], folderId?: string, onFeedImported?: (name: string) => void) {
         for (const node of outlines) {
             if (!node) continue;
 
-            // Handle casing variations if necessary (fast-xml-parser usually respects case)
-            // But some OPMLs might use slightly different attribute names? Standard is xmlUrl.
             const feedUrl = node.xmlUrl || node.xmlurl || node.url;
+            const title = node.text || node.title || 'Untitled';
 
-            // Case 1: Subscription (has xmlUrl)
+            // Case 1: Subscription
             if (feedUrl) {
                 try {
                     await FeedService.addFeed(feedUrl, folderId);
+                    if (onFeedImported) onFeedImported(title);
                 } catch (e) {
-                    console.error(`Failed to import feed ${node.xmlUrl}`, e);
+                    console.error(`Failed to import feed ${feedUrl}`, e);
+                    // Still count as processed even if failed
+                    if (onFeedImported) onFeedImported(title + ' (Failed)');
                 }
             }
-            // Case 2: Folder (Nested outlines)
+            // Case 2: Folder
             else if (node.outline) {
-                // Create Folder
                 const newFolderId = uuidv4();
                 await db.folders.add({
                     id: newFolderId,
-                    name: node.text || node.title || 'Untitled Folder',
+                    name: title,
                     position: 0
                 });
 
-                // Recursively process children
                 const children = Array.isArray(node.outline) ? node.outline : [node.outline];
-                await this.processOutlines(children, newFolderId);
+                await this.processOutlines(children, newFolderId, onFeedImported);
             }
         }
     }

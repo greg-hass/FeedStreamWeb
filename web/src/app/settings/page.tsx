@@ -13,6 +13,7 @@ export default function SettingsPage() {
     const [endpoint, setEndpoint] = useState('');
     const [username, setUsername] = useState('');
     const [apiKey, setApiKey] = useState('');
+    const [importProgress, setImportProgress] = useState<{ current: number, total: number, message: string } | null>(null);
 
     useEffect(() => {
         setEndpoint(syncEndpoint);
@@ -87,23 +88,45 @@ export default function SettingsPage() {
                         {/* Import */}
                         <div>
                             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">Import OPML</p>
-                            <input
-                                type="file"
-                                accept=".opml,.xml"
-                                className="block w-full text-sm text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand file:text-white hover:file:bg-brand/90"
-                                onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (!file) return;
-                                    try {
-                                        const text = await file.text();
-                                        await OpmlService.importOPML(text);
-                                        alert('Import Successful!');
-                                    } catch (err: any) {
-                                        console.error(err);
-                                        alert('Import Failed: ' + (err.message || 'Unknown error'));
-                                    }
-                                }}
-                            />
+
+                            {importProgress ? (
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-xs text-zinc-500">
+                                        <span>{importProgress.message}</span>
+                                        <span>{Math.round((importProgress.current / importProgress.total) * 100)}%</span>
+                                    </div>
+                                    <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-brand transition-all duration-300 ease-out"
+                                            style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <input
+                                    type="file"
+                                    accept=".opml,.xml"
+                                    className="block w-full text-sm text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand file:text-white hover:file:bg-brand/90 cursor-pointer"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        try {
+                                            const text = await file.text();
+                                            await OpmlService.importOPML(text, (current, total, message) => {
+                                                setImportProgress({ current, total, message });
+                                            });
+                                            setImportProgress(null);
+                                            alert('Import Successful!');
+                                            // Reset input 
+                                            e.target.value = '';
+                                        } catch (err: any) {
+                                            console.error(err);
+                                            setImportProgress(null);
+                                            alert('Import Failed: ' + (err.message || 'Unknown error'));
+                                        }
+                                    }}
+                                />
+                            )}
                         </div>
 
                         <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
