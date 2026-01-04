@@ -53,8 +53,20 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
     };
 
     const getPreviewText = () => {
-        const text = article.summary || article.contentHTML || '';
-        return text.replace(/<[^>]*>/g, '').slice(0, 160);
+        let text = article.summary || article.contentHTML || '';
+        // Strip HTML tags
+        text = text.replace(/<[^>]*>/g, '');
+        // Decode HTML entities (including numeric like &#32;)
+        text = text
+            .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+            .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&nbsp;/g, ' ');
+        return text.slice(0, 160);
     };
 
     // Extract YouTube video ID from contentHTML or URL
@@ -184,6 +196,11 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                                         )}
                                         loading="lazy"
                                         onClick={article.mediaKind === 'youtube' ? handleVideoClick : article.mediaKind === 'podcast' ? handlePlay : undefined}
+                                        onError={(e) => {
+                                            // Hide the entire thumbnail container when image fails to load
+                                            const container = e.currentTarget.closest('.group\\/thumb');
+                                            if (container) (container as HTMLElement).style.display = 'none';
+                                        }}
                                     />
                                 )}
 
