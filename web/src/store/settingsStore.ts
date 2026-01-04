@@ -35,3 +35,8 @@ export const useSettingsStore = create<SettingsState>()(
             setGeminiApiKey: (key) => set({ geminiApiKey: key }), // NEW
             setLastRefreshTime: (time) => set({ lastRefreshTime: time }),
         }),
+        {
+            name: 'feedstream-settings',
+        }
+    )
+);
