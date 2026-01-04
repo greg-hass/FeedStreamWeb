@@ -119,20 +119,19 @@ export class FeedService {
         // Standard: api_key = md5(username + ":" + password)
         // We assume the user entered their "API Password" in the settings "API Key" field.
 
+        console.log(`[FeedService] Sync Config -> Endpoint: ${syncEndpoint}, User: ${syncUsername}, KeyLength: ${syncApiKey.length}`);
+
         let finalKey = syncApiKey;
 
         // If we have a username, we should try to hash it according to spec
         if (syncUsername && syncApiKey) {
-            // Check if it already looks like an MD5 hash (32 hex chars)
-            // Some users might input the hash directly, though unlikely. 
-            // Most will put their plaintext password.
-            // If it's NOT 32 hex chars, definitely hash it. 
-            // If it IS, it's ambiguous, but re-hashing a hash wouldn't work if it was meant to be raw.
-            // Safest bet for 'FreshRSS' style: input is 'password'.
+            // FreshRSS Fever API expects `api_key` to be MD5("username:api_password")
+            // We log the *inputs* (carefully) to debug mismatches
+            const inputString = `${syncUsername}:${syncApiKey}`;
+            console.log(`[FeedService] Hashing input: "${syncUsername}:***" (Length: ${inputString.length})`);
 
-            // We'll proceed with hashing.
-            finalKey = await md5(`${syncUsername}:${syncApiKey}`);
-            console.log(`[FeedService] Authenticating with MD5(${syncUsername}:***)`);
+            finalKey = await md5(inputString);
+            console.log(`[FeedService] Generated Hash: ${finalKey}`);
         }
 
         const api = new FeverAPI(syncEndpoint, finalKey);
