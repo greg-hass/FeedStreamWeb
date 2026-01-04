@@ -10,6 +10,8 @@ interface SettingsState {
 
     setSyncConfig: (endpoint: string, username: string, apiKey: string) => void;
     setSyncEnabled: (enabled: boolean) => void;
+    lastRefreshTime: number;
+    setLastRefreshTime: (time: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -19,9 +21,11 @@ export const useSettingsStore = create<SettingsState>()(
             syncApiKey: '',
             syncUsername: '',
             syncEnabled: false,
+            lastRefreshTime: 0,
 
             setSyncConfig: (endpoint, username, apiKey) => set({ syncEndpoint: endpoint, syncUsername: username, syncApiKey: apiKey }),
             setSyncEnabled: (enabled) => set({ syncEnabled: enabled }),
+            setLastRefreshTime: (time) => set({ lastRefreshTime: time }),
         }),
         {
             name: 'feedstream-settings',

@@ -10,6 +10,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { FeedSearchModal } from "@/components/FeedSearchModal";
 import { clsx } from "clsx";
+import { useSettingsStore } from '@/store/settingsStore';
 
 import { Search, X } from "lucide-react";
 
@@ -28,6 +29,32 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const { lastRefreshTime, setLastRefreshTime } = useSettingsStore();
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
+
+  // Update countdown every minute
+  useEffect(() => {
+    const updateTimer = () => {
+      if (!lastRefreshTime) {
+        setTimeRemaining('');
+        return;
+      }
+      const now = Date.now();
+      const nextRefresh = lastRefreshTime + 15 * 60 * 1000; // 15 minutes
+      const diff = nextRefresh - now;
+
+      if (diff <= 0) {
+        setTimeRemaining('Now');
+      } else {
+        const minutes = Math.ceil(diff / 60000);
+        setTimeRemaining(`${minutes}m`);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 60000); // 1 minute
+    return () => clearInterval(interval);
+  }, [lastRefreshTime]);
 
   const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
 
@@ -53,6 +80,7 @@ export default function HomePage() {
           await FeedService.refreshFeed(feed);
         }
       }
+      setLastRefreshTime(Date.now());
     } catch (e) {
       console.error(e);
     } finally {
@@ -109,6 +137,13 @@ export default function HomePage() {
                 </button>
               ))}
             </div>
+
+            {/* Refresh Timer */}
+            {timeRemaining && (
+              <span className="hidden sm:inline-block text-xs font-mono text-zinc-400 dark:text-zinc-600 tabular-nums">
+                {timeRemaining}
+              </span>
+            )}
 
             <button
               onClick={handleSync}
