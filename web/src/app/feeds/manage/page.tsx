@@ -26,9 +26,12 @@ export default function ManageFeedsPage() {
     };
 
     const handleDeleteFolder = async (folderId: string) => {
-        if (!confirm('Delete this folder? Feeds will be moved to root.')) return;
-        // Move feeds to root
-        await db.feeds.where('folderID').equals(folderId).modify({ folderID: undefined });
+        if (!confirm('Delete this folder and ALL feeds inside it? This cannot be undone.')) return;
+        const folderFeeds = await db.feeds.where('folderID').equals(folderId).toArray();
+        for (const feed of folderFeeds) {
+            await db.articles.where('feedID').equals(feed.id).delete();
+        }
+        await db.feeds.where('folderID').equals(folderId).delete();
         await db.folders.delete(folderId);
     };
 

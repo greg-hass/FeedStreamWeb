@@ -60,10 +60,23 @@ export default function SettingsPage() {
                 <section className="space-y-4">
                     <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Feeds</h2>
                     <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-                        <Link href="/feeds/manage" className="flex items-center justify-between p-4 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                        <Link href="/feeds/manage" className="flex items-center justify-between p-4 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition border-b border-zinc-200 dark:border-zinc-800">
                             <span className="text-sm font-medium">Manage Feeds</span>
                             <span className="text-xs text-zinc-500">Edit / Delete</span>
                         </Link>
+                        <button
+                            onClick={async () => {
+                                if (!confirm('Delete ALL feeds, folders, and articles? This cannot be undone!')) return;
+                                await db.articles.clear();
+                                await db.feeds.clear();
+                                await db.folders.clear();
+                                alert('All feeds deleted!');
+                            }}
+                            className="flex items-center justify-between p-4 w-full text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                        >
+                            <span className="text-sm font-medium text-red-600">Delete All Feeds</span>
+                            <span className="text-xs text-zinc-500">Master Reset</span>
+                        </button>
                     </div>
                 </section>
 

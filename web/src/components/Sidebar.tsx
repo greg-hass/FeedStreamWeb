@@ -41,8 +41,16 @@ export function Sidebar({ className }: SidebarProps) {
     };
 
     const handleDeleteFolder = async (folderId: string) => {
-        if (!confirm('Delete this folder? Feeds will be moved to root.')) return;
-        await db.feeds.where('folderID').equals(folderId).modify({ folderID: undefined });
+        if (!confirm('Delete this folder and ALL feeds inside it? This cannot be undone.')) return;
+        // Get all feeds in this folder
+        const folderFeeds = await db.feeds.where('folderID').equals(folderId).toArray();
+        // Delete all articles from these feeds
+        for (const feed of folderFeeds) {
+            await db.articles.where('feedID').equals(feed.id).delete();
+        }
+        // Delete all feeds in folder
+        await db.feeds.where('folderID').equals(folderId).delete();
+        // Delete folder
         await db.folders.delete(folderId);
         setContextMenu(null);
     };
