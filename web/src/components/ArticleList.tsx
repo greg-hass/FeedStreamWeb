@@ -49,23 +49,27 @@ export function ArticleList({ articles }: ArticleListProps) {
     }
 
     return (
-        <Virtuoso
-            ref={virtuosoRef}
-            data={articles}
-            itemContent={(index, article) => (
-                <ArticleItem
-                    key={article.id}
-                    article={article}
-                    onToggleRead={handleToggleRead}
-                    onToggleBookmark={handleToggleBookmark}
-                />
-            )}
-            rangeChanged={(range) => {
-                // Save scroll position when user scrolls
-                setScrollPosition(pathname, range.startIndex);
-            }}
-            className="w-full h-full"
-        />
-    );
+        <div className="h-full flex flex-col">
+            <div className="px-4 py-2 text-xs text-zinc-500 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10">
+                Showing {articles.length} articles
+            </div>
+            <Virtuoso
+                ref={virtuosoRef}
+                data={articles}
+                itemContent={(index, article) => (
+                    <ArticleItem
+                        key={article.id}
+                        article={article}
+                        onToggleRead={handleToggleRead}
+                        onToggleBookmark={handleToggleBookmark}
+                    />
+                )}
+                rangeChanged={(range) => {
+                    // Save scroll position when user scrolls
+                    setScrollPosition(pathname, range.startIndex);
+                }}
+                className="w-full h-full"
+            />
+            );
 }
 
