@@ -28,51 +28,67 @@ export class IconService {
      * Fetch YouTube channel icon from channel page or use video thumbnail as fallback
      */
     static async fetchYouTubeChannelIcon(feedURL: string, feedData?: any): Promise<string | null> {
+        console.log(`[IconService] Fetching YouTube icon for ${feedURL}`);
         try {
-            // Try to extract channel ID from feed URL
+            // 1. Try to extract channel ID from feed URL
             const channelIdMatch = feedURL.match(/channel_id=([a-zA-Z0-9_-]+)/);
 
             if (channelIdMatch) {
                 const channelId = channelIdMatch[1];
+                console.log(`[IconService] Detected YouTube Channel ID: ${channelId}`);
 
-                // Try to fetch channel page through our proxy to get the avatar
+                // 2. Try to fetch channel page through our proxy to get the avatar
                 try {
                     const proxyUrl = `/api/proxy?url=${encodeURIComponent(`https://www.youtube.com/channel/${channelId}`)}`;
                     const response = await fetch(proxyUrl);
 
                     if (response.ok) {
                         const html = await response.text();
-
                         // Look for avatar URL in the page (various patterns YouTube uses)
                         const avatarPatterns = [
                             /"avatar":\{"thumbnails":\[\{"url":"([^"]+)"/,
                             /"channelMetadataRenderer".*?"avatar".*?"url":"([^"]+)"/,
-                            /yt-img-shadow.*?src="(https:\/\/yt3\.googleusercontent\.com\/[^"]+)"/
+                            /yt-img-shadow.*?src="(https:\/\/yt3\.googleusercontent.com\/[^"]+)"/,
+                            /"width":\d+,"height":\d+,"src":"(https:\/\/yt3\.googleusercontent.com\/[^"]+)"/
                         ];
 
                         for (const pattern of avatarPatterns) {
                             const match = html.match(pattern);
                             if (match && match[1]) {
-                                // Clean up the URL (remove escape sequences, use larger size)
                                 let avatarUrl = match[1].replace(/\\u0026/g, '&');
                                 // Try to get a larger version
                                 avatarUrl = avatarUrl.replace(/=s\d+-/, '=s176-');
+                                console.log(`[IconService] Found YouTube avatar via scraping: ${avatarUrl}`);
                                 return avatarUrl;
                             }
                         }
+                        console.warn(`[IconService] Failed to scrape avatar from YouTube channel page`);
+                    } else {
+                        console.warn(`[IconService] Proxy request failed: ${response.status}`);
                     }
                 } catch (e) {
                     console.error('Error fetching YouTube channel page:', e);
                 }
             }
 
-            // Fallback: Try to extract from first video thumbnail (use channel avatar from feedData if available)
-            if (feedData?.feed?.author?.['media:thumbnail']?.['@_url']) {
-                return feedData.feed.author['media:thumbnail']['@_url'];
+            // 3. Fallback: Check feed author/thumbnail in XML data
+            // YouTube Atom feeds don't usually have author thumbnail, but let's check common places
+            if (feedData) {
+                // Check feed.author.thumbnail (some implementations)
+                const author = feedData.feed?.author || feedData.author;
+                if (author?.['media:thumbnail']?.['@_url']) {
+                    return author['media:thumbnail']['@_url'];
+                }
+
+                // Fallback to first video's thumbnail? (Maybe better than generic icon)
+                // const firstEntry = Array.isArray(feedData.feed?.entry) ? feedData.feed.entry[0] : feedData.feed?.entry;
+                // if (firstEntry?.['media:group']?.['media:thumbnail']?.['@_url']) {
+                //      return firstEntry['media:group']['media:thumbnail']['@_url'];
+                // }
             }
 
-            // Last resort: Use YouTube favicon
-            return 'https://www.google.com/s2/favicons?domain=youtube.com&sz=64';
+            // 4. Last resort: Use YouTube favicon (improved resolution)
+            return 'https://www.google.com/s2/favicons?domain=youtube.com&sz=128';
         } catch (e) {
             console.error('Error fetching YouTube icon:', e);
             return null;
@@ -111,36 +127,51 @@ export class IconService {
      * Extract podcast artwork from feed data
      */
     static extractPodcastArtwork(feedData: any): string | null {
+        console.log(`[IconService] Extracting Podcast artwork...`);
         try {
+            if (!feedData) return null;
+
             // Handle various feed data structures
-            const channel = feedData?.rss?.channel || feedData?.channel || feedData?.feed || feedData;
+            const channel = feedData.rss?.channel || feedData.channel || feedData.feed || feedData;
 
             if (channel) {
-                // Try itunes:image (most common for podcasts)
-                if (channel['itunes:image']?.['@_href']) {
-                    return channel['itunes:image']['@_href'];
+                // 1. Try itunes:image (standard)
+                // Note: fast-xml-parser usually handles namespaced tags by keeping the prefix if configured (which it is)
+                const itunesImage = channel['itunes:image'];
+                if (itunesImage) {
+                    if (typeof itunesImage === 'object' && itunesImage['@_href']) {
+                        console.log(`[IconService] Found Podcast icon (itunes:image object): ${itunesImage['@_href']}`);
+                        return itunesImage['@_href'];
+                    }
+                    if (typeof itunesImage === 'string') {
+                        console.log(`[IconService] Found Podcast icon (itunes:image string): ${itunesImage}`);
+                        return itunesImage;
+                    }
                 }
 
-                // Try itunes:image as string (some parsers)
-                if (typeof channel['itunes:image'] === 'string') {
-                    return channel['itunes:image'];
+                // 2. Try standard image tag
+                if (channel.image) {
+                    if (channel.image.url) {
+                        console.log(`[IconService] Found Podcast icon (image.url): ${channel.image.url}`);
+                        return channel.image.url;
+                    }
+                    if (channel.image['@_href']) {
+                        return channel.image['@_href'];
+                    }
                 }
 
-                // Try image tag with url property
-                if (channel.image?.url) {
-                    return channel.image.url;
+                // 3. Try googleplay:image
+                if (channel['googleplay:image']?.['@_href']) {
+                    return channel['googleplay:image']['@_href'];
                 }
 
-                // Try image tag with href attribute
-                if (channel.image?.['@_href']) {
-                    return channel.image['@_href'];
-                }
-
-                // Try logo for Atom feeds
+                // 4. Try logo for Atom feeds
                 if (channel.logo) {
                     return typeof channel.logo === 'string' ? channel.logo : channel.logo['#text'];
                 }
             }
+
+            console.warn(`[IconService] No podcast artwork found in feed data.`);
         } catch (e) {
             console.error('Error extracting podcast artwork:', e);
         }

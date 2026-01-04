@@ -107,7 +107,8 @@ async function parseJSONFeed(json: any, sourceURL: string): Promise<NormalizedFe
         title: json.title,
         site: json.home_page_url,
         kind,
-        articles
+        articles,
+        rawData: json
     };
 }
 

@@ -86,8 +86,9 @@ export class FeedService {
                 consecutiveFailures: 0,
             });
 
-            // Fetch icon if missing (for feeds imported via OPML/Fever sync)
-            if (!feed.iconURL) {
+            // Fetch icon if missing or using generic fallback (so we can retry better extraction)
+            const isMissingOrGeneric = !feed.iconURL || feed.iconURL.includes('google.com/s2/favicons');
+            if (isMissingOrGeneric) {
                 await IconService.updateFeedIcon(feed, normalized.rawData);
             }
 
@@ -225,7 +226,7 @@ export class FeedService {
         // BUT: we need to respect existing state for updates.
         // Strategy: Apply rules to incoming. If rule says 'mark_read', incoming has isRead=true.
         // When merging, if existing is read=true, we keep it. If existing is false, but incoming is true (due to rule), we take incoming.
-        
+
         // Add feedID to incoming for rule matching
         const mappedIncoming = incoming.map(a => ({ ...a, feedID: feedId }));
         const processedIncoming = await RulesEngine.applyRules(mappedIncoming);
@@ -350,7 +351,7 @@ export class FeedService {
         // 1. Local update
         const articles = await db.articles.where('feedID').equals(feedId).filter(a => !a.isRead).toArray();
         const ids = articles.map(a => a.id);
-        
+
         if (ids.length === 0) return;
 
         await db.articles.bulkUpdate(articles.map(a => ({ key: a.id, changes: { isRead: true } })));
@@ -376,7 +377,7 @@ export class FeedService {
 
         // Bulk update is faster
         await db.articles.bulkUpdate(unread.map(a => ({ key: a.id, changes: { isRead: true } })));
-        
+
         // 2. Sync
         const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
         if (syncEnabled && syncEndpoint && syncApiKey) {
