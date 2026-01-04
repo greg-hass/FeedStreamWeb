@@ -37,7 +37,6 @@ export function ArticleList({ articles }: ArticleListProps) {
 
     return (
         <Virtuoso
-            useWindowScroll
             data={articles}
             itemContent={(index, article) => (
                 <ArticleItem
@@ -47,7 +46,7 @@ export function ArticleList({ articles }: ArticleListProps) {
                     onToggleBookmark={handleToggleBookmark}
                 />
             )}
-            className="w-full"
+            className="w-full h-full"
         />
     );
 }
