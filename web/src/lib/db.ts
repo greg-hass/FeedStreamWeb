@@ -104,6 +104,11 @@ export class FeedStreamDB extends Dexie {
       playbackQueue: 'id, articleID, &position',
       feedCollectionMembership: 'id, [feedID+folderID], folderID'
     });
+
+    // Schema version 2: Add indices for sidebar counts (isBookmarked, mediaKind)
+    this.version(2).stores({
+      articles: 'id, feedID, [feedID+isRead+publishedAt], [isRead+publishedAt], publishedAt, url, &content_hash, [contentPrefetchedAt+isRead], isBookmarked, mediaKind'
+    });
   }
 }
 
