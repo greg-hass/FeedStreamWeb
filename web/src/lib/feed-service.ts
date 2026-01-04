@@ -109,7 +109,7 @@ export class FeedService {
         }
     }
     static async syncWithFever() {
-        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
+        const { syncEndpoint, syncUsername, syncApiKey, syncEnabled } = useSettingsStore.getState();
         if (!syncEnabled || !syncEndpoint || !syncApiKey) {
             console.log("Sync disabled or missing config");
             return;
