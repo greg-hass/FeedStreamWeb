@@ -85,10 +85,14 @@ export function Sidebar({ className }: SidebarProps) {
 
                         return (
                             <div key={folder.id} className="mt-3">
-                                <div className="px-3 py-1 flex items-center gap-2 text-xs font-medium text-zinc-400">
+                                <Link
+                                    href={`/folder/view/${folder.id}`}
+                                    className="px-3 py-1.5 flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors"
+                                >
                                     <FolderOpen size={14} />
-                                    <span className="truncate">{folder.name}</span>
-                                </div>
+                                    <span className="truncate flex-1">{folder.name}</span>
+                                    <span className="text-zinc-600">{folderFeeds.length}</span>
+                                </Link>
                                 <div className="mt-0.5 ml-3 pl-3 border-l border-zinc-800 space-y-0.5">
                                     {folderFeeds.map(feed => (
                                         <SidebarLink
