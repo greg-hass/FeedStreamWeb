@@ -7,6 +7,7 @@ import { ArticleItem } from './ArticleItem';
 import { db } from '@/lib/db';
 import { usePathname } from 'next/navigation';
 import { useScrollStore } from '@/store/scrollStore';
+import { FeedService } from '@/lib/feed-service';
 
 interface ArticleListProps {
     articles: Article[];
@@ -20,14 +21,14 @@ export function ArticleList({ articles }: ArticleListProps) {
     const handleToggleRead = async (id: string) => {
         const article = await db.articles.get(id);
         if (article) {
-            await db.articles.update(id, { isRead: !article.isRead });
+            await FeedService.toggleReadStatus(id, !article.isRead);
         }
     };
 
     const handleToggleBookmark = async (id: string) => {
         const article = await db.articles.get(id);
         if (article) {
-            await db.articles.update(id, { isBookmarked: !article.isBookmarked });
+            await FeedService.toggleBookmark(id, !article.isBookmarked);
         }
     };
 

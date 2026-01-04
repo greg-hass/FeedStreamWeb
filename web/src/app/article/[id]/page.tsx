@@ -8,6 +8,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect } from 'react';
+import { FeedService } from '@/lib/feed-service';
 
 export default function ArticlePage() {
     const { id } = useParams() as { id: string };
@@ -16,7 +17,7 @@ export default function ArticlePage() {
 
     useEffect(() => {
         if (article && !article.isRead) {
-            db.articles.update(id, { isRead: true });
+            FeedService.toggleReadStatus(id, true);
         }
     }, [article, id]);
 

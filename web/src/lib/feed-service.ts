@@ -275,4 +275,56 @@ export class FeedService {
             await db.feeds.delete(id);
         });
     }
+
+    static async toggleReadStatus(articleId: string, isRead: boolean) {
+        // 1. Optimistic Update Local
+        await db.articles.update(articleId, { isRead });
+
+        // 2. Sync with Fever if enabled
+        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
+        if (syncEnabled && syncEndpoint && syncApiKey) {
+            // Fever API expects numeric ID? Our IDs are strings (UUIDs or hashes). 
+            // If we synced FROM Fever, the ID is numeric string. 
+            // If we are Local-Only, we can't sync this item anyway.
+            // Check if ID is numeric-like (Fever assumption)
+            const numericId = parseInt(articleId);
+            if (!isNaN(numericId)) {
+                try {
+                    const api = new FeverAPI(syncEndpoint, syncApiKey);
+                    if (isRead) {
+                        await api.markItemRead(numericId);
+                    } else {
+                        await api.markItemUnread(numericId);
+                    }
+                } catch (e) {
+                    console.error('Failed to sync read status:', e);
+                    // Optionally revert local change if strictly required, 
+                    // but optimistic UI usually keeps local state and retries later.
+                }
+            }
+        }
+    }
+
+    static async toggleBookmark(articleId: string, isBookmarked: boolean) {
+        // 1. Optimistic Update Local
+        await db.articles.update(articleId, { isBookmarked });
+
+        // 2. Sync with Fever if enabled
+        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
+        if (syncEnabled && syncEndpoint && syncApiKey) {
+            const numericId = parseInt(articleId);
+            if (!isNaN(numericId)) {
+                try {
+                    const api = new FeverAPI(syncEndpoint, syncApiKey);
+                    if (isBookmarked) {
+                        await api.markItemSaved(numericId);
+                    } else {
+                        await api.markItemUnsaved(numericId);
+                    }
+                } catch (e) {
+                    console.error('Failed to sync bookmark status:', e);
+                }
+            }
+        }
+    }
 }
