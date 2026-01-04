@@ -270,7 +270,7 @@ export default function ManageFeedsPage() {
             </div>
         </div>
 
-            {/* Move Feed Modal */ }
+        {/* Move Feed Modal */ }
     {
         showMoveModal && selectedFeed && (
             <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
@@ -340,8 +340,8 @@ export default function ManageFeedsPage() {
             </div>
         )
     }
-        </div >
-    );
+    </div >
+  );
 }
 
 function FeedRow({ feed, onDelete, onMove }: { feed: Feed; onDelete: () => void; onMove: () => void }) {
