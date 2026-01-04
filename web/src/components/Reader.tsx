@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { Article } from '@/lib/db';
 import { format } from 'date-fns';
-import { ExternalLink, BookOpen } from 'lucide-react';
+import { ExternalLink, BookOpen, ZoomIn, ZoomOut } from 'lucide-react';
 import { decodeHTMLEntities } from '@/lib/utils';
 import { db } from '@/lib/db';
 
@@ -17,6 +17,8 @@ export function Reader({ article }: ReaderProps) {
     const [content, setContent] = useState<string>('');
     const [isReaderMode, setIsReaderMode] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [zoom, setZoom] = useState(100); // 100 = default, range 70-150
+
 
     // Helper to fetch and parse with Readability
     const fetchReaderContent = async () => {
@@ -143,6 +145,45 @@ export function Reader({ article }: ReaderProps) {
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-8 bg-white dark:bg-zinc-950 min-h-screen">
+            {/* Zoom Controls - Desktop Only */}
+            <div className="hidden md:flex items-center justify-end gap-3 mb-6 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+                <span className="text-sm text-zinc-500 font-medium">Text Size</span>
+                <button
+                    onClick={() => setZoom(Math.max(70, zoom - 10))}
+                    className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors disabled:opacity-50"
+                    disabled={zoom <= 70}
+                    title="Decrease text size"
+                >
+                    <ZoomOut size={18} />
+                </button>
+                <input
+                    type="range"
+                    min="70"
+                    max="150"
+                    value={zoom}
+                    onChange={(e) => setZoom(parseInt(e.target.value))}
+                    className="w-32 accent-brand"
+                />
+                <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400 w-12 text-center">
+                    {zoom}%
+                </span>
+                <button
+                    onClick={() => setZoom(Math.min(150, zoom + 10))}
+                    className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors disabled:opacity-50"
+                    disabled={zoom >= 150}
+                    title="Increase text size"
+                >
+                    <ZoomIn size={18} />
+                </button>
+                <button
+                    onClick={() => setZoom(100)}
+                    className="text-sm px-3 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors"
+                    title="Reset to 100%"
+                >
+                    Reset
+                </button>
+            </div>
+
             {/* Header / Hero Section */}
             <header className="mb-10 pb-6 border-b border-zinc-100 dark:border-zinc-800">
                 <h1 className="text-3xl md:text-5xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight leading-tight mb-6">
@@ -249,9 +290,12 @@ export function Reader({ article }: ReaderProps) {
                 }
             `}</style>
 
-            <article className="reader-content text-zinc-800 dark:text-zinc-200 max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: content }} />
-            </article>
+            {/* Content */}
+            <div
+                className="reader-content prose prose-zinc dark:prose-invert prose-lg max-w-none"
+                style={{ fontSize: `${zoom}%` }}
+                dangerouslySetInnerHTML={{ __html: content }}
+            />
 
             {
                 loading && (
