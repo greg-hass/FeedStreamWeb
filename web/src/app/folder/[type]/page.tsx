@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { List } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { useState } from "react";
+import { Article } from "@/lib/db";
 
 export default function FolderPage() {
     const { type } = useParams() as { type: string };
@@ -13,7 +14,7 @@ export default function FolderPage() {
     const articles = useArticles(type);
     const title = type === 'all' ? 'All Feeds' : type.charAt(0).toUpperCase() + type.slice(1);
 
-    const filteredArticles = articles?.filter(article => {
+    const filteredArticles = articles?.filter((article: Article) => {
         if (!searchQuery) return true;
         return article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             article.summary?.toLowerCase().includes(searchQuery.toLowerCase());
