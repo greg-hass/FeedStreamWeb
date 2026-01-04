@@ -78,14 +78,17 @@ export class FeedService {
                 lastSuccessfulSync: new Date(),
                 lastError: undefined,
                 consecutiveFailures: 0,
-                // Only update title if it was default or empty? Or always?
-                // iOS usually respects user edits, but here we assume sync logic.
-                // Let's keep existing title if present to avoid overwriting user rename (if we had rename)
             });
 
+            // Fetch icon if missing (for feeds imported via OPML/Fever sync)
+            if (!feed.iconURL) {
+                await IconService.updateFeedIcon(feed, normalized.rawData);
+            }
+
             // Merge Articles
-            await this.mergeArticles(feed.id, normalized.articles);
-            console.log(`[RefreshFeed] Completed refresh for ${feed.title}`);
+            const newCount = await this.mergeArticles(feed.id, normalized.articles);
+            console.log(`[RefreshFeed] Completed refresh for ${feed.title} (New: ${newCount})`);
+            return newCount;
 
         } catch (e: any) {
             console.error(`Failed to sync feed ${feed.title}`, e);
