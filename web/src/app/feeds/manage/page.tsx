@@ -281,7 +281,7 @@ export default function ManageFeedsPage() {
                     <ul className="p-2 max-h-64 overflow-y-auto">
                         <li>
                             <button
-                                onClick={() => handleMoveFeed(selectedFeed, null)}
+                                onClick={() => handleMoveFeed(selectedFeed!, null)}
                                 className="w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-3"
                             >
                                 <Rss size={16} className="text-zinc-400" />
@@ -291,7 +291,7 @@ export default function ManageFeedsPage() {
                         {folders.map(folder => (
                             <li key={folder.id}>
                                 <button
-                                    onClick={() => handleMoveFeed(selectedFeed, folder.id)}
+                                    onClick={() => handleMoveFeed(selectedFeed!, folder.id)}
                                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-3"
                                 >
                                     <FolderOpen size={16} className="text-amber-500" />
