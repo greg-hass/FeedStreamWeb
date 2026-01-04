@@ -72,7 +72,7 @@ export default function SettingsPage() {
                             <span className="text-sm font-medium">Manage Feeds</span>
                             <span className="text-xs text-zinc-500">Edit / Delete</span>
                         </Link>
-                         <Link href="/settings/rules" className="flex items-center justify-between p-4 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition border-b border-zinc-200 dark:border-zinc-800">
+                        <Link href="/settings/rules" className="flex items-center justify-between p-4 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition border-b border-zinc-200 dark:border-zinc-800">
                             <span className="text-sm font-medium flex items-center gap-2"><Workflow size={16} /> Automation Rules</span>
                             <span className="text-xs text-zinc-500">Filters</span>
                         </Link>
@@ -201,6 +201,78 @@ export default function SettingsPage() {
                             >
                                 Download OPML File
                             </button>
+                        </div>
+
+                        <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
+
+                        {/* Settings Backup */}
+                        <div>
+                            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">Backup Settings</p>
+                            <p className="text-xs text-zinc-500 mb-3">
+                                Export your API keys and sync config to restore on another device.
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        const settings = {
+                                            syncEndpoint,
+                                            syncUsername,
+                                            syncApiKey,
+                                            openaiApiKey,
+                                            geminiApiKey,
+                                            exportedAt: new Date().toISOString(),
+                                        };
+                                        const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = 'feedstream_settings.json';
+                                        a.click();
+                                        URL.revokeObjectURL(url);
+                                    }}
+                                    className="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 rounded text-sm font-medium hover:bg-zinc-300 dark:hover:bg-zinc-700 transition"
+                                >
+                                    Export Settings
+                                </button>
+                                <label className="px-4 py-2 bg-brand text-white rounded text-sm font-medium hover:brightness-110 transition cursor-pointer">
+                                    Import Settings
+                                    <input
+                                        type="file"
+                                        accept=".json"
+                                        className="hidden"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            try {
+                                                const text = await file.text();
+                                                const settings = JSON.parse(text);
+                                                if (settings.syncEndpoint !== undefined) {
+                                                    setSyncConfig(
+                                                        settings.syncEndpoint || '',
+                                                        settings.syncUsername || '',
+                                                        settings.syncApiKey || ''
+                                                    );
+                                                    setSyncEnabled(true);
+                                                }
+                                                if (settings.openaiApiKey) setOpenaiApiKey(settings.openaiApiKey);
+                                                if (settings.geminiApiKey) setGeminiApiKey(settings.geminiApiKey);
+
+                                                // Update local state
+                                                setEndpoint(settings.syncEndpoint || '');
+                                                setUsername(settings.syncUsername || '');
+                                                setApiKey(settings.syncApiKey || '');
+                                                setAiKey(settings.openaiApiKey || '');
+                                                setGKey(settings.geminiApiKey || '');
+
+                                                alert('Settings restored successfully!');
+                                                e.target.value = '';
+                                            } catch (err: any) {
+                                                alert('Failed to import: ' + (err.message || 'Invalid file'));
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </section>
