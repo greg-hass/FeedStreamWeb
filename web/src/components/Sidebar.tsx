@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, FolderOpen, Play, Radio, MoreHorizontal, Trash2, MoveRight, GripVertical, ChevronDown, ChevronRight, Mic, Youtube, MessageCircle } from 'lucide-react';
+import { LayoutGrid, Rss, Clock, Calendar, Bookmark, Settings, FolderOpen, Play, Radio, MoreHorizontal, Trash2, MoveRight, GripVertical, ChevronDown, ChevronRight, Mic, Youtube, MessageCircle, FileText } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
@@ -35,17 +35,22 @@ export function Sidebar({ className }: SidebarProps) {
 
     // Smart Feed counts
     const mediaCounts = useLiveQuery(async () => {
-        const [youtube, podcast, reddit] = await Promise.all([
+        const [youtube, podcast, reddit, rss] = await Promise.all([
             db.articles.where('mediaKind').equals('youtube').count(),
             db.articles.where('mediaKind').equals('podcast').count(),
             // Reddit requires finding feeds first
             db.feeds.where('type').equals('reddit').toArray().then(feeds => {
                 if (feeds.length === 0) return 0;
                 return db.articles.where('feedID').anyOf(feeds.map(f => f.id)).count();
+            }),
+            // RSS/Articles (generic) - counts NOT youtube/podcast
+            db.feeds.where('type').equals('rss').or('type').equals('').toArray().then(feeds => {
+                if (feeds.length === 0) return 0;
+                return db.articles.where('feedID').anyOf(feeds.map(f => f.id)).count();
             })
         ]);
-        return { youtube, podcast, reddit };
-    }) || { youtube: 0, podcast: 0, reddit: 0 };
+        return { youtube, podcast, reddit, rss };
+    }) || { youtube: 0, podcast: 0, reddit: 0, rss: 0 };
 
     const { sidebarWidth, setSidebarWidth } = useScrollStore();
     const [isResizing, setIsResizing] = useState(false);
@@ -94,6 +99,7 @@ export function Sidebar({ className }: SidebarProps) {
     ];
 
     const smartFolders = [
+        { href: '/folder/rss', label: 'Articles', icon: FileText, count: mediaCounts.rss },
         { href: '/folder/reddit', label: 'Reddit', icon: MessageCircle, count: mediaCounts.reddit },
         { href: '/folder/youtube', label: 'YouTube', icon: Youtube, count: mediaCounts.youtube },
         { href: '/folder/podcasts', label: 'Podcasts', icon: Mic, count: mediaCounts.podcast },
