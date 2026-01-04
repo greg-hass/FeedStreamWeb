@@ -1,59 +1,91 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: var(--color-lime-500);
-  --color-brand-foreground: var(--color-lime-950);
+  /* Premium Brand Colors - Rich Emerald */
+  --color-brand: #10b981;
+  --color-brand-foreground: #ffffff;
 
-  --color-sidebar: var(--color-zinc-900);
-  --color-sidebar-foreground: var(--color-zinc-400);
-  --color-sidebar-active: var(--color-zinc-800);
-  --color-sidebar-active-foreground: var(--color-zinc-100);
+  /* Dark Sidebar */
+  --color-sidebar: #0f0f0f;
+  --color-sidebar-foreground: #a1a1aa;
+  --color-sidebar-active: #18181b;
+  --color-sidebar-active-foreground: #ffffff;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  /* Premium Font Stack */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 :root {
-  --background: #fdfdfd;
-  --foreground: #171717;
-  --brand: #84cc16;
-
-  /* Premium Gradients */
-  --bg-gradient-from: #fdfdfd;
-  --bg-gradient-to: #f4f4f5;
-}
-
-/* iOS Safe Area & Native Feel */
-html {
-  -webkit-tap-highlight-color: transparent;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  --background: #fafafa;
+  --foreground: #09090b;
+  --brand: #10b981;
+  --card: #ffffff;
+  --border: #e4e4e7;
+  --muted: #71717a;
+  --accent: #f4f4f5;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #09090b;
-    --foreground: #ededed;
-
-    --bg-gradient-from: #09090b;
-    --bg-gradient-to: #18181b;
+    --foreground: #fafafa;
+    --card: #18181b;
+    --border: #27272a;
+    --muted: #a1a1aa;
+    --accent: #27272a;
   }
 }
 
+/* iOS Native Feel */
+html {
+  -webkit-tap-highlight-color: transparent;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
 body {
-  /* Subtle mesh gradient background */
-  background: linear-gradient(to bottom right, var(--bg-gradient-from), var(--bg-gradient-to));
-  background-attachment: fixed;
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss01" 1, "cv01" 1;
+  letter-spacing: -0.01em;
 }
 
-/* Glassmorphism Utilities */
-.glass-panel {
-  @apply bg-white/70 dark:bg-black/60 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-lg;
+/* Premium Glass Effect */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
-/* Premium Card Hover */
-.premium-card {
-  @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 border border-zinc-200/50 dark:border-zinc-800/50;
+@media (prefers-color-scheme: dark) {
+  .glass {
+    background: rgba(24, 24, 27, 0.72);
+  }
+}
+
+/* Card Styling */
+.card {
+  @apply bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60;
+  @apply shadow-sm hover:shadow-md transition-shadow duration-200;
+}
+
+/* Premium Button */
+.btn-primary {
+  @apply px-4 py-2 bg-brand text-white font-medium rounded-lg;
+  @apply hover:brightness-110 active:scale-[0.98] transition-all duration-150;
+}
+
+/* Native iOS Header */
+.header-blur {
+  background: rgba(250, 250, 250, 0.75);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .header-blur {
+    background: rgba(9, 9, 11, 0.75);
+  }
 }
