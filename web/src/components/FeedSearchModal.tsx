@@ -146,8 +146,8 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
                                     <button
                                         onClick={() => handleAdd(item)}
                                         disabled={!!addingUrl}
-                                        className="p-2 text-brand hover:bg-brand/10 rounded-full transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                        title="Add"
+                                        className="p-2 bg-brand text-white rounded-full hover:bg-brand/80 transition-colors"
+                                        title="Add Feed"
                                     >
                                         {addingUrl === item.url ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
                                     </button>
