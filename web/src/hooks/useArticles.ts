@@ -50,13 +50,28 @@ export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved'
                 .limit(limit)
                 .toArray();
         } else if (view === 'reddit') {
-            const redditFeeds = await db.feeds.where('type').equals('reddit').keys();
-            if (redditFeeds.length === 0) return [];
-            return db.articles
-                .where('feedID').anyOf(redditFeeds as string[])
+            // Get all Reddit feed IDs
+            const redditFeedIds = await db.feeds
+                .where('type')
+                .equals('reddit')
+                .primaryKeys();
+
+            console.log('[useArticles] Reddit feed IDs:', redditFeedIds);
+
+            if (redditFeedIds.length === 0) {
+                console.log('[useArticles] No Reddit feeds found');
+                return [];
+            }
+
+            const articles = await db.articles
+                .where('feedID')
+                .anyOf(redditFeedIds as string[])
                 .reverse()
                 .limit(limit)
                 .toArray();
+
+            console.log('[useArticles] Found', articles.length, 'Reddit articles');
+            return articles;
         } else if (view === 'rss') {
             // Generic RSS/Articles - exclude reddit, youtube, podcast feeds
             const excludedFeeds = await db.feeds
