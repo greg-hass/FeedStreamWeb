@@ -32,7 +32,7 @@ export default function HomePage() {
   const { lastRefreshTime, setLastRefreshTime } = useSettingsStore();
   const [timeRemaining, setTimeRemaining] = useState<string>('');
 
-  // Update countdown every minute
+  // Update countdown every second
   useEffect(() => {
     const updateTimer = () => {
       if (!lastRefreshTime) {
@@ -46,13 +46,14 @@ export default function HomePage() {
       if (diff <= 0) {
         setTimeRemaining('Now');
       } else {
-        const minutes = Math.ceil(diff / 60000);
-        setTimeRemaining(`${minutes}m`);
+        const minutes = Math.floor(diff / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        setTimeRemaining(`${minutes}m ${seconds.toString().padStart(2, '0')}s`);
       }
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 60000); // 1 minute
+    const interval = setInterval(updateTimer, 1000); // 1 second
     return () => clearInterval(interval);
   }, [lastRefreshTime]);
 

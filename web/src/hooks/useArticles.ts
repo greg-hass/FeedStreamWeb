@@ -58,11 +58,9 @@ export function useArticles(view: 'today' | 'last24h' | 'week' | 'all' | 'saved'
                 .limit(limit)
                 .toArray();
         } else if (view === 'rss') {
-            // Generic RSS/Articles - find feeds with type 'rss' or empty type
-            const rssFeeds = await db.feeds.where('type').equals('rss').or('type').equals('').keys();
-            if (rssFeeds.length === 0) return [];
+            // Generic RSS/Articles - articles where mediaKind is 'none' (not youtube/podcast)
             return db.articles
-                .where('feedID').anyOf(rssFeeds as string[])
+                .where('mediaKind').equals('none')
                 .reverse()
                 .limit(limit)
                 .toArray();

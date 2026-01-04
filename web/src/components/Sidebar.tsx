@@ -99,7 +99,7 @@ export function Sidebar({ className }: SidebarProps) {
     ];
 
     const smartFolders = [
-        { href: '/folder/rss', label: 'Articles', icon: FileText, count: mediaCounts.rss },
+        { href: '/folder/rss', label: 'RSS', icon: FileText, count: mediaCounts.rss },
         { href: '/folder/reddit', label: 'Reddit', icon: MessageCircle, count: mediaCounts.reddit },
         { href: '/folder/youtube', label: 'YouTube', icon: Youtube, count: mediaCounts.youtube },
         { href: '/folder/podcasts', label: 'Podcasts', icon: Mic, count: mediaCounts.podcast },

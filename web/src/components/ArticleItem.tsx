@@ -1,12 +1,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, Bookmark, Youtube, Radio, Rss, Mic } from 'lucide-react';
+import { Check, Bookmark, Youtube, Radio, Rss, Mic, Play } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Article } from '@/lib/db';
 import { ArticleSwipeRow } from './ArticleSwipeRow';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
+import { useAudioStore } from '@/store/audioStore';
 
 interface ArticleItemProps {
     article: Article;
@@ -24,6 +25,23 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
         return null;
     };
     const MediaIcon = getMediaIcon();
+    const { setTrack, play } = useAudioStore();
+
+    const handlePlay = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (article.enclosureURL) {
+            setTrack({
+                id: article.id,
+                url: article.enclosureURL,
+                title: article.title,
+                artist: feed?.title,
+                artwork: article.thumbnailPath,
+                duration: article.duration
+            });
+            play();
+        }
+    };
 
     return (
         <ArticleSwipeRow
@@ -41,16 +59,24 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                     <div className="flex gap-4">
                         {/* Thumbnail */}
                         {article.thumbnailPath && (
-                            <div className="shrink-0">
+                            <div className="shrink-0 relative group/thumb cursor-pointer" onClick={article.mediaKind === 'podcast' ? handlePlay : undefined}>
                                 <img
                                     src={article.thumbnailPath}
                                     alt=""
                                     className={clsx(
                                         "w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg",
-                                        "bg-zinc-200 dark:bg-zinc-800"
+                                        "bg-zinc-200 dark:bg-zinc-800",
+                                        article.mediaKind === 'podcast' && "group-hover/thumb:brightness-75 transition-all"
                                     )}
                                     loading="lazy"
                                 />
+                                {article.mediaKind === 'podcast' && (
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+                                        <div className="bg-white/90 dark:bg-black/80 rounded-full p-2 shadow-lg">
+                                            <Play size={20} className="fill-current text-zinc-900 dark:text-zinc-100 ml-0.5" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
