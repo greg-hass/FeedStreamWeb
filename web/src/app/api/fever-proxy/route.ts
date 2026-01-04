@@ -12,11 +12,17 @@ export async function POST(req: NextRequest) {
         // Parse the body
         const formData = await req.formData();
 
+        // Convert back to URLSearchParams to force application/x-www-form-urlencoded
+        // This is crucial for PHP backends like FreshRSS which may not handle multipart well from proxies
+        const forwardBody = new URLSearchParams();
+        formData.forEach((value, key) => {
+            forwardBody.append(key, value as string);
+        });
+
         // Forward the request to the actual Fever API
         const response = await fetch(url_param, {
             method: 'POST',
-            body: formData,
-            // We do NOT forward Origin/Referer to avoid CORS issues at the target
+            body: forwardBody,
         });
 
         const data = await response.json();
