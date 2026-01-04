@@ -167,15 +167,20 @@ export function TabBar() {
                 "bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-800/50",
                 "pb-[env(safe-area-inset-bottom)]"
             )}>
-                <div className="h-14 flex items-center justify-around">
+                <div className="h-14 flex items-center">
+                    {/* Menu Button */}
                     <button
                         onClick={() => setIsMenuOpen(true)}
-                        className="flex flex-col items-center justify-center w-16 h-full space-y-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                        className={clsx(
+                            "flex-1 flex flex-col items-center justify-center h-full space-y-1 transition-colors",
+                            isMenuOpen ? "text-brand" : "text-zinc-400"
+                        )}
                     >
                         <Menu size={24} />
                         <span className="text-[10px] font-medium">Menu</span>
                     </button>
 
+                    {/* Tab Links */}
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = pathname === tab.href;
@@ -184,16 +189,16 @@ export function TabBar() {
                                 key={tab.name}
                                 href={tab.href}
                                 className={clsx(
-                                    "relative flex flex-col items-center justify-center w-16 h-full space-y-1 transition-colors",
+                                    "flex-1 flex flex-col items-center justify-center h-full space-y-1 transition-colors",
                                     isActive
                                         ? "text-brand"
-                                        : "text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                        : "text-zinc-400"
                                 )}
                             >
                                 <div className="relative">
                                     <Icon size={24} className={isActive ? "fill-current" : ""} />
                                     {tab.count !== undefined && tab.count > 0 && (
-                                        <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full px-1 border-2 border-white dark:border-zinc-950">
+                                        <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full px-1 border-2 border-zinc-950">
                                             {tab.count > 99 ? '99+' : tab.count}
                                         </span>
                                     )}
@@ -202,19 +207,6 @@ export function TabBar() {
                             </Link>
                         );
                     })}
-
-                    {/* More Button - Opens Drawer */}
-                    <button
-                        onClick={() => setIsMenuOpen(true)}
-                        className={clsx(
-                            "flex flex-col items-center justify-center w-full h-full space-y-[2px]",
-                            "active:scale-90 transition-transform duration-200",
-                            isMenuOpen ? "text-brand" : "text-zinc-400 dark:text-zinc-500"
-                        )}
-                    >
-                        <Menu size={24} strokeWidth={2} />
-                        <span className="text-[10px] font-medium tracking-tight">More</span>
-                    </button>
                 </div>
             </nav>
         </>
