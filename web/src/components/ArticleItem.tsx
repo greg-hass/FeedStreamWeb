@@ -44,6 +44,11 @@ export function ArticleItem({ article, feed, isSelected, onToggleRead, onToggleB
     };
 
     const handleVideoClick = (e: React.MouseEvent) => {
+        // On desktop (md breakpoint), let the click bubble to the Link for navigation
+        if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+            return;
+        }
+
         e.preventDefault();
         e.stopPropagation();
         if (article.mediaKind === 'youtube') {

@@ -22,7 +22,7 @@ export function Reader({ article }: ReaderProps) {
     const [loading, setLoading] = useState(false);
     const [zoom, setZoom] = useState(100); // 100 = default, range 70-150
     const [theme, setTheme] = useState<ReaderTheme>('light');
-    
+
     // TTS State
     const [isSpeaking, setIsSpeaking] = useState(false);
     const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -84,7 +84,7 @@ export function Reader({ article }: ReaderProps) {
         utterance.onend = () => setIsSpeaking(false);
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
-        
+
         // Try to select a good voice
         const voices = window.speechSynthesis.getVoices();
         // Prefer Google US English or native generic
@@ -245,7 +245,7 @@ export function Reader({ article }: ReaderProps) {
 
                     {/* Zoom & Tools */}
                     <div className="flex items-center gap-3">
-                         <button
+                        <button
                             onClick={() => handleZoomChange(Math.max(70, zoom - 10))}
                             className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
                             disabled={zoom <= 70}
@@ -265,14 +265,14 @@ export function Reader({ article }: ReaderProps) {
                             <ZoomIn size={18} />
                         </button>
 
-                         <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-2" />
-                        
-                         <button onClick={handleShare} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Share Article">
+                        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-2" />
+
+                        <button onClick={handleShare} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Share Article">
                             <Share size={20} />
                         </button>
 
-                         <button 
-                            onClick={handleSpeak} 
+                        <button
+                            onClick={handleSpeak}
                             className={clsx(
                                 "p-2 rounded-lg transition-colors",
                                 isSpeaking ? "bg-brand/20 text-brand" : "hover:bg-black/5 dark:hover:bg-white/10"
@@ -307,8 +307,8 @@ export function Reader({ article }: ReaderProps) {
                         </div>
                     </div>
 
-                    {/* Hero Image */}
-                    {article.thumbnailPath && (
+                    {/* Hero Image - Hide for YouTube (video is in content) */}
+                    {article.thumbnailPath && article.mediaKind !== 'youtube' && (
                         <div className="relative w-full aspect-video rounded-2xl overflow-hidden mb-8 shadow-sm">
                             <img
                                 src={article.thumbnailPath}
