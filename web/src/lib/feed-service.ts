@@ -65,7 +65,7 @@ export class FeedService {
                     lastError: `HTTP ${response.status}`,
                     consecutiveFailures: (feed.consecutiveFailures || 0) + 1
                 });
-                return;
+                return 0;
             }
 
             const text = await response.text();
@@ -96,9 +96,9 @@ export class FeedService {
                 lastError: e.message || 'Unknown error',
                 consecutiveFailures: (feed.consecutiveFailures || 0) + 1
             });
+            return 0;
         }
     }
-
     static async syncWithFever() {
         const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
         if (!syncEnabled || !syncEndpoint || !syncApiKey) {
