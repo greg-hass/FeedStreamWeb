@@ -36,14 +36,14 @@ export class FeverAPI {
         // Use our local Proxy to bypass CORS
         const proxyUrl = `/api/fever-proxy?url=${encodeURIComponent(targetUrl.toString())}`;
 
-        // POST request with api_key
-        const formData = new FormData();
-        formData.append('api_key', this.apiKey);
+        // POST request with api_key using URLSearchParams (x-www-form-urlencoded)
+        const postData = new URLSearchParams();
+        postData.append('api_key', this.apiKey);
 
         try {
             const response = await fetch(proxyUrl, {
                 method: 'POST',
-                body: formData,
+                body: postData,
             });
 
             if (!response.ok) {
