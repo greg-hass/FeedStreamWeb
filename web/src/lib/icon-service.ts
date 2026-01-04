@@ -25,33 +25,58 @@ export class IconService {
     }
 
     /**
-     * Extract YouTube channel icon from feed data
+     * Fetch YouTube channel icon from channel page or use video thumbnail as fallback
      */
-    static extractYouTubeIcon(feedData: any): string | null {
+    static async fetchYouTubeChannelIcon(feedURL: string, feedData?: any): Promise<string | null> {
         try {
-            // YouTube feeds often have media:thumbnail or itunes:image
-            if (feedData.channel) {
-                const channel = feedData.channel;
+            // Try to extract channel ID from feed URL
+            const channelIdMatch = feedURL.match(/channel_id=([a-zA-Z0-9_-]+)/);
 
-                // Try itunes:image first
-                if (channel['itunes:image']?.['@_href']) {
-                    return channel['itunes:image']['@_href'];
-                }
+            if (channelIdMatch) {
+                const channelId = channelIdMatch[1];
 
-                // Try media:thumbnail
-                if (channel['media:thumbnail']?.['@_url']) {
-                    return channel['media:thumbnail']['@_url'];
-                }
+                // Try to fetch channel page through our proxy to get the avatar
+                try {
+                    const proxyUrl = `/api/proxy?url=${encodeURIComponent(`https://www.youtube.com/channel/${channelId}`)}`;
+                    const response = await fetch(proxyUrl);
 
-                // Try image tag
-                if (channel.image?.url) {
-                    return channel.image.url;
+                    if (response.ok) {
+                        const html = await response.text();
+
+                        // Look for avatar URL in the page (various patterns YouTube uses)
+                        const avatarPatterns = [
+                            /"avatar":\{"thumbnails":\[\{"url":"([^"]+)"/,
+                            /"channelMetadataRenderer".*?"avatar".*?"url":"([^"]+)"/,
+                            /yt-img-shadow.*?src="(https:\/\/yt3\.googleusercontent\.com\/[^"]+)"/
+                        ];
+
+                        for (const pattern of avatarPatterns) {
+                            const match = html.match(pattern);
+                            if (match && match[1]) {
+                                // Clean up the URL (remove escape sequences, use larger size)
+                                let avatarUrl = match[1].replace(/\\u0026/g, '&');
+                                // Try to get a larger version
+                                avatarUrl = avatarUrl.replace(/=s\d+-/, '=s176-');
+                                return avatarUrl;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error fetching YouTube channel page:', e);
                 }
             }
+
+            // Fallback: Try to extract from first video thumbnail (use channel avatar from feedData if available)
+            if (feedData?.feed?.author?.['media:thumbnail']?.['@_url']) {
+                return feedData.feed.author['media:thumbnail']['@_url'];
+            }
+
+            // Last resort: Use YouTube favicon
+            return 'https://www.google.com/s2/favicons?domain=youtube.com&sz=64';
         } catch (e) {
-            console.error('Error extracting YouTube icon:', e);
+            console.error('Error fetching YouTube icon:', e);
+            return null;
         }
-        return null;
     }
 
     /**
@@ -116,13 +141,7 @@ export class IconService {
 
             switch (feed.type) {
                 case 'youtube':
-                    if (feedData) {
-                        iconURL = this.extractYouTubeIcon(feedData);
-                    }
-                    // Fallback to favicon if no channel icon found
-                    if (!iconURL && feed.feedURL) {
-                        iconURL = await this.fetchFavicon(feed.feedURL);
-                    }
+                    iconURL = await this.fetchYouTubeChannelIcon(feed.feedURL, feedData);
                     break;
 
                 case 'reddit':
