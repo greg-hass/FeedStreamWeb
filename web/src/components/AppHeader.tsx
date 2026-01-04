@@ -145,6 +145,9 @@ export function AppHeader({
         } catch (e) {
             console.error('Sync failed:', e);
         } finally {
+            // ALWAYS update last refresh time to prevent infinite loops if sync fails
+            setLastRefreshTime(Date.now());
+
             setIsSyncing(false);
             setTimeout(() => setRefreshProgress(null), 1000);
         }
