@@ -181,7 +181,7 @@ export function AppHeader({
     return (
         <>
             <FeedSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
-            <header className="header-blur sticky top-0 z-30 border-b border-zinc-200/50 dark:border-zinc-800/50">
+            <header className="header-blur sticky top-0 z-30 border-b border-zinc-200/50 dark:border-zinc-800/50 pt-[env(safe-area-inset-top)]">
                 <div className="h-14 flex items-center gap-4 px-4 sm:px-6">
                     {/* Logo with FeedStream - Always on LEFT */}
                     <Link href="/" className="flex items-center gap-2 shrink-0">
