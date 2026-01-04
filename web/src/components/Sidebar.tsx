@@ -193,15 +193,27 @@ export function Sidebar({ className }: SidebarProps) {
             {/* Navigation */}
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
                 {links.map((link) => (
-                    <SidebarLink
+                    <Link
                         key={link.href}
                         href={link.href}
-                        label={link.label}
-                        icon={link.icon}
-                        isActive={pathname === link.href}
-                    />
+                        className={clsx(
+                            'flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg transition-all',
+                            pathname === link.href
+                                ? 'bg-brand/10 text-brand font-medium'
+                                : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100'
+                        )}
+                    >
+                        <div className="flex items-center gap-3">
+                            <link.icon size={20} />
+                            <span>{link.label}</span>
+                        </div>
+                        {link.count !== undefined && link.count > 0 && (
+                            <span className="text-sm font-mono text-brand font-semibold">
+                                {link.count}
+                            </span>
+                        )}
+                    </Link>
                 ))}
-
                 {/* Settings */}
                 <div className="pt-2 mt-2 border-t border-zinc-800/50">
                     <SidebarLink

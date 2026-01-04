@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Plus, Search, X } from 'lucide-react';
+import { RefreshCw, Plus, Search, X, Rss } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
@@ -9,6 +9,7 @@ import { FeedService } from '@/lib/feed-service';
 import { useSettingsStore } from '@/store/settingsStore';
 import { FeedSearchModal } from './FeedSearchModal';
 import { RefreshProgress } from './RefreshProgress';
+import Link from 'next/link';
 
 interface AppHeaderProps {
     title?: string;
@@ -107,8 +108,15 @@ export function AppHeader({
     return (
         <>
             <FeedSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
-            <header className="header-blur sticky top-0 z-30 border-b border-zinc-200/50 dark:border-zinc-800/50">
-                <div className="h-14 flex items-center justify-between px-4 sm:px-6 gap-4">
+            <header className="sticky top-0 z-50 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200/50 dark:border-zinc-800/50">
+                <div className="h-14 flex items-center gap-3 px-4 sm:px-6 max-w-screen-2xl mx-auto">
+                    {/* Logo */}
+                    <Link href="/" className="flex items-center gap-2 shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+                            <Rss className="text-white" size={18} />
+                        </div>
+                        <span className="font-bold text-lg hidden sm:block">FeedStream</span>
+                    </Link>
                     {showSearch ? (
                         <div className="flex-1 max-w-md relative group">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-brand transition-colors" size={16} />
