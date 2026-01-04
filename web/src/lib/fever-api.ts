@@ -23,22 +23,25 @@ export class FeverAPI {
     }
 
     private async fetch(params: Record<string, string | number | undefined> = {}): Promise<any> {
-        const url = new URL(this.endpoint);
-        url.searchParams.append('api', '');
+        // Construct the ACTUAL query string for the external API
+        const targetUrl = new URL(this.endpoint);
+        targetUrl.searchParams.append('api', '');
 
-        // Add params
         Object.entries(params).forEach(([key, value]) => {
             if (value !== undefined) {
-                url.searchParams.append(key, String(value));
+                targetUrl.searchParams.append(key, String(value));
             }
         });
+
+        // Use our local Proxy to bypass CORS
+        const proxyUrl = `/api/fever-proxy?url=${encodeURIComponent(targetUrl.toString())}`;
 
         // POST request with api_key
         const formData = new FormData();
         formData.append('api_key', this.apiKey);
 
         try {
-            const response = await fetch(url.toString(), {
+            const response = await fetch(proxyUrl, {
                 method: 'POST',
                 body: formData,
             });
@@ -48,6 +51,10 @@ export class FeverAPI {
             }
 
             const data = await response.json();
+
+            if (data.error) {
+                throw new Error(`Proxy Error: ${data.error}`);
+            }
 
             if (data.auth === 0) {
                 throw new Error("Fever API Authentication Failed");
