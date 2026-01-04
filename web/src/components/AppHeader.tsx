@@ -77,10 +77,11 @@ export function AppHeader({
         setRefreshProgress({ current: 0, total: feedsToSync.length });
 
         try {
-            await FeedService.syncWithFever();
+            // Run Fever sync in parallel (non-blocking) - don't await it
+            FeedService.syncWithFever().catch(e => console.warn('[Sync] Fever sync failed:', e));
 
-            // Parallel execution with concurrency limit
-            const CONCURRENCY_LIMIT = 15;
+            // Parallel execution with higher concurrency limit
+            const CONCURRENCY_LIMIT = 25;
             let completedCount = 0;
             let currentIndex = 0;
             let totalNewArticles = 0;
