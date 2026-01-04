@@ -16,7 +16,9 @@ const xmlParser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@_",
     textNodeName: "#text",
-    removeNSPrefix: false // Keep namespaces to distinguish content vs media
+    removeNSPrefix: false, // Keep namespaces to distinguish content vs media
+    processEntities: false, // Security: Disable entity replacement to prevent XXE/Billion Laughs
+    ignoreDeclaration: true // Security: Ignore DTD declarations
 });
 
 // Date helpers

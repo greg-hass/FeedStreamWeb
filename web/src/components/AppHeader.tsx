@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Plus, Search, X, Rss } from 'lucide-react';
+import { RefreshCw, Plus, Search, X, Rss, CheckCheck } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
@@ -20,6 +20,7 @@ interface AppHeaderProps {
     showSearch?: boolean;
     searchValue?: string;
     onSearchChange?: (value: string) => void;
+    onMarkAllRead?: () => void;
 }
 
 export function AppHeader({
@@ -29,7 +30,8 @@ export function AppHeader({
     showAddButton = true,
     showSearch = false,
     searchValue = '',
-    onSearchChange
+    onSearchChange,
+    onMarkAllRead
 }: AppHeaderProps) {
     const [isSyncing, setIsSyncing] = useState(false);
     const { lastRefreshTime, setLastRefreshTime } = useSettingsStore();
@@ -215,6 +217,15 @@ export function AppHeader({
                                 {timeRemaining}
                             </span>
                         )}
+                        {onMarkAllRead && (
+                             <button
+                                onClick={onMarkAllRead}
+                                className="p-2 rounded-full text-zinc-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                                title="Mark all as read"
+                            >
+                                <CheckCheck size={20} />
+                            </button>
+                        )}
                         {showRefresh && (
                             <button
                                 onClick={handleSync}
@@ -225,6 +236,7 @@ export function AppHeader({
                                     isSyncing && "opacity-50"
                                 )}
                                 title="Refresh Feeds"
+                                aria-label="Refresh Feeds"
                             >
                                 <RefreshCw size={20} className={isSyncing ? "animate-spin" : ""} />
                             </button>
@@ -234,6 +246,7 @@ export function AppHeader({
                                 onClick={() => setIsSearchOpen(true)}
                                 className="p-2 rounded-full bg-brand text-white hover:brightness-110 transition-all shadow-lg shadow-brand/20"
                                 title="Add Feed"
+                                aria-label="Add New Feed"
                             >
                                 <Plus size={20} />
                             </button>

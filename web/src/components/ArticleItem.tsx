@@ -3,20 +3,19 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Check, Bookmark, Youtube, Radio, Rss, Mic, Play, MessageCircle } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Article } from '@/lib/db';
+import { Article, Feed } from '@/lib/db';
 import { ArticleSwipeRow } from './ArticleSwipeRow';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/lib/db';
 import { useAudioStore } from '@/store/audioStore';
 
 interface ArticleItemProps {
     article: Article;
+    feed?: Feed;
+    isSelected?: boolean;
     onToggleRead?: (id: string) => void;
     onToggleBookmark?: (id: string) => void;
 }
 
-export function ArticleItem({ article, onToggleRead, onToggleBookmark }: ArticleItemProps) {
-    const feed = useLiveQuery(() => db.feeds.get(article.feedID), [article.feedID]);
+export function ArticleItem({ article, feed, isSelected, onToggleRead, onToggleBookmark }: ArticleItemProps) {
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
     const getTypeIcon = () => {
@@ -98,7 +97,8 @@ export function ArticleItem({ article, onToggleRead, onToggleBookmark }: Article
                 <article className={clsx(
                     "relative px-4 sm:px-6 py-4 transition-colors",
                     "hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50",
-                    "border-b border-zinc-100 dark:border-zinc-800/50"
+                    "border-b border-zinc-100 dark:border-zinc-800/50",
+                    isSelected && "bg-brand/5 dark:bg-brand/10 border-l-4 border-l-brand pl-3 sm:pl-5"
                 )}>
                     {/* Mobile: Vertical Layout | Desktop: Horizontal Layout */}
                     <div className="flex flex-col md:flex-row md:gap-4">

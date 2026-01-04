@@ -30,6 +30,12 @@ export default function FeedPage() {
         }
     };
 
+    const handleMarkAllRead = async () => {
+        if (confirm('Mark all articles in this feed as read?')) {
+            await FeedService.markFeedAsRead(feedId);
+        }
+    };
+
     const filteredArticles = articles?.filter(article => {
         if (!searchQuery) return true;
         return article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -50,6 +56,7 @@ export default function FeedPage() {
                 showRefresh
                 showSearch
                 onSearchChange={setSearchQuery}
+                onMarkAllRead={handleMarkAllRead}
             />
             <div className="flex-1 overflow-hidden">
                 {filteredArticles && filteredArticles.length > 0 ? (

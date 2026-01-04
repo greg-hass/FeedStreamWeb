@@ -332,4 +332,47 @@ export class FeedService {
             }
         }
     }
+
+    static async markFeedAsRead(feedId: string) {
+        // 1. Local update
+        const articles = await db.articles.where('feedID').equals(feedId).filter(a => !a.isRead).toArray();
+        const ids = articles.map(a => a.id);
+        
+        if (ids.length === 0) return;
+
+        await db.articles.bulkUpdate(articles.map(a => ({ key: a.id, changes: { isRead: true } })));
+
+        // 2. Sync (Basic Loop for now, ideally batch if API supported)
+        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
+        if (syncEnabled && syncEndpoint && syncApiKey) {
+            const api = new FeverAPI(syncEndpoint, syncApiKey);
+            for (const id of ids) {
+                const numericId = parseInt(id);
+                if (!isNaN(numericId)) {
+                    // Fire and forget to avoid blocking UI
+                    api.markItemRead(numericId).catch(console.error);
+                }
+            }
+        }
+    }
+
+    static async markAllAsRead() {
+        // 1. Local update: find all unread
+        const unread = await db.articles.where('isRead').equals(0).toArray(); // Index scan
+        if (unread.length === 0) return;
+
+        // Bulk update is faster
+        await db.articles.bulkUpdate(unread.map(a => ({ key: a.id, changes: { isRead: true } })));
+        
+        // 2. Sync
+        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
+        if (syncEnabled && syncEndpoint && syncApiKey) {
+            const api = new FeverAPI(syncEndpoint, syncApiKey);
+            // This could be heavy. Fever API usually has "mark group as read" or similar but our basic client might not.
+            // We'll limit to recent 50 to avoid flooding, or just accept the limitation.
+            // Better strategy: Just mark visible/fetched ones? 
+            // For now, we leave this as a "Best Effort" local action primarily.
+            console.warn("Syncing 'Mark All Read' for all items is not fully optimized for Fever yet.");
+        }
+    }
 }

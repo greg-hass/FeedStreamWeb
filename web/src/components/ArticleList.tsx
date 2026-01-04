@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Article } from '@/lib/db';
 import { ArticleItem } from './ArticleItem';
 import { db } from '@/lib/db';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useScrollStore } from '@/store/scrollStore';
 import { FeedService } from '@/lib/feed-service';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { useKeyboardNav } from '@/hooks/useKeyboardNav';
 
 interface ArticleListProps {
     articles: Article[];
@@ -15,8 +17,19 @@ interface ArticleListProps {
 
 export function ArticleList({ articles }: ArticleListProps) {
     const pathname = usePathname();
+    const router = useRouter();
     const virtuosoRef = useRef<VirtuosoHandle>(null);
     const { getScrollPosition, setScrollPosition } = useScrollStore();
+
+    // Optimization: Fetch feeds once and map them
+    const feeds = useLiveQuery(() => db.feeds.toArray());
+    const feedsMap = useMemo(() => {
+        const map = new Map();
+        if (feeds) {
+            feeds.forEach(f => map.set(f.id, f));
+        }
+        return map;
+    }, [feeds]);
 
     const handleToggleRead = async (id: string) => {
         const article = await db.articles.get(id);
@@ -31,6 +44,29 @@ export function ArticleList({ articles }: ArticleListProps) {
             await FeedService.toggleBookmark(id, !article.isBookmarked);
         }
     };
+
+    // Keyboard Navigation
+    const { selectedIndex } = useKeyboardNav({
+        count: articles?.length || 0,
+        onNext: (index) => {
+             virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
+        },
+        onPrev: (index) => {
+             virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
+        },
+        onSelect: (index) => {
+            const article = articles[index];
+            if (article) {
+                router.push(`/article/${article.id}`);
+            }
+        },
+        onMarkRead: (index) => {
+            const article = articles[index];
+            if (article) {
+                handleToggleRead(article.id);
+            }
+        }
+    });
 
     const [atTop, setAtTop] = React.useState(true);
     const [showNewItems, setShowNewItems] = React.useState(false);
@@ -97,6 +133,8 @@ export function ArticleList({ articles }: ArticleListProps) {
                     <ArticleItem
                         key={article.id}
                         article={article}
+                        feed={feedsMap.get(article.feedID)}
+                        isSelected={index === selectedIndex}
                         onToggleRead={handleToggleRead}
                         onToggleBookmark={handleToggleBookmark}
                     />

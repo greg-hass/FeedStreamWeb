@@ -115,6 +115,11 @@ export class FeedStreamDB extends Dexie {
     this.version(3).stores({
       feeds: 'id, folderID, type, &feedURL, isPaused, sortOrder, isFavorite, dateAdded, iconURL'
     });
+    
+    // Schema version 4: Add compound indexes for efficient filtering + sorting
+    this.version(4).stores({
+      articles: 'id, feedID, [feedID+isRead+publishedAt], [isRead+publishedAt], publishedAt, url, &content_hash, [contentPrefetchedAt+isRead], isBookmarked, mediaKind, [mediaKind+publishedAt], [isBookmarked+publishedAt]'
+    });
   }
 }
 

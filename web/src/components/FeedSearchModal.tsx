@@ -228,6 +228,18 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
                             <List size={16} />
                             Bulk
                         </button>
+                        <button
+                            onClick={() => setActiveTab('discover')}
+                            className={clsx(
+                                "px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
+                                activeTab === 'discover'
+                                    ? "border-brand text-brand"
+                                    : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                            )}
+                        >
+                            <Sparkles size={16} />
+                            Discover
+                        </button>
                     </div>
                 </div>
 
