@@ -112,20 +112,7 @@ export function Reader({ article }: ReaderProps) {
                 </div>
             </header>
 
-            {article.mediaKind === 'youtube' && (
-                <div className="mb-6 -mx-4 sm:mx-0">
-                    <div className="relative pt-[56.25%] bg-black">
-                        {/* We extract src from content if possible, or re-render if we had videoID stored. 
-                            Since we rely on contentHTML having the iframe, we can try to extract it or just let content handle it.
-                            But for "Inline Mobile" feel, a top player is best. 
-                            Let's trust the content flow for now if the user wants it inline with text, 
-                            BUT often feeds have text then video. 
-                            If the parser puts it in content, we might duplicate it. 
-                            Let's stick to content-based rendering first to avoid duplication.
-                        */}
-                    </div>
-                </div>
-            )}
+            {/* YouTube videos are rendered directly in the content via the iframe in contentHTML */}
 
             {/* 
               User Update: "inline on mobile" often means effectively maximizing the video width.
