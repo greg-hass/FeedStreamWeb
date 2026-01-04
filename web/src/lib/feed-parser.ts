@@ -116,7 +116,11 @@ async function parseXMLFeed(xmlData: string, sourceURL: string): Promise<Normali
         channel = parsed['rdf:RDF']; // RDF support
     }
 
-    const feedTitle = channel?.title || channel?.['dc:title'];
+    let feedTitle: any = channel?.title || channel?.['dc:title'];
+    // Handle complex XML nodes like { "#text": "title", "@_type": "html" }
+    if (typeof feedTitle === 'object' && feedTitle !== null) {
+        feedTitle = feedTitle['#text'] || feedTitle['#cdata'] || '';
+    }
     const feedLink = channel?.link || sourceURL;
 
     const isYouTube = sourceURL.includes('youtube.com') || (xmlData.includes('yt:videoId'));
@@ -129,7 +133,11 @@ async function parseXMLFeed(xmlData: string, sourceURL: string): Promise<Normali
     const articles: Article[] = [];
 
     for (const item of items) {
-        const titleRaw = item.title || item['dc:title'] || item.link || 'Untitled';
+        let titleRaw = item.title || item['dc:title'] || item.link || 'Untitled';
+        // Handle complex XML nodes like { "#text": "title", "@_type": "html" }
+        if (typeof titleRaw === 'object' && titleRaw !== null) {
+            titleRaw = titleRaw['#text'] || titleRaw['#cdata'] || JSON.stringify(titleRaw);
+        }
         const title = decodeHTMLEntities(String(titleRaw));
 
         const link = item.link && typeof item.link === 'string' ? item.link : (item.link?.['@_href'] || '');
