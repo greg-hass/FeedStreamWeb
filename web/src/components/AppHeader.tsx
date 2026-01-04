@@ -65,19 +65,42 @@ export function AppHeader({
 
     // Auto-refresh when timer reaches 0
     useEffect(() => {
-        if (!lastRefreshTime || !showRefresh) return;
+        if (!showRefresh) return;
 
-        const checkAutoRefresh = () => {
+        const checkAutoRefresh = async () => {
+            if (!lastRefreshTime || isSyncing) return;
+
             const now = Date.now();
             const nextRefresh = lastRefreshTime + 15 * 60 * 1000;
-            if (now >= nextRefresh && !isSyncing) {
-                handleSync();
+
+            if (now >= nextRefresh) {
+                console.log('[AutoRefresh] Timer expired, triggering refresh...');
+                // Trigger refresh directly here instead of calling handleSync
+                setIsSyncing(true);
+                setRefreshProgress({ current: 0, total: feeds.length });
+
+                try {
+                    await FeedService.syncWithFever();
+
+                    for (let i = 0; i < feeds.length; i++) {
+                        setRefreshProgress({ current: i + 1, total: feeds.length, feedName: feeds[i].title });
+                        await FeedService.refreshFeed(feeds[i]);
+                    }
+
+                    setLastRefreshTime(Date.now());
+                } catch (error) {
+                    console.error('Auto-refresh failed:', error);
+                } finally {
+                    setIsSyncing(false);
+                    setTimeout(() => setRefreshProgress(null), 1000);
+                }
             }
         };
 
         const interval = setInterval(checkAutoRefresh, 10000); // Check every 10 seconds
+        checkAutoRefresh(); // Also check immediately
         return () => clearInterval(interval);
-    }, [lastRefreshTime, isSyncing, showRefresh]);
+    }, [lastRefreshTime, isSyncing, showRefresh, feeds, setLastRefreshTime]);
 
     const handleSync = async () => {
         if (isSyncing) return;
