@@ -36,23 +36,23 @@ export function FolderSelector({ selectedFolderId, onChange, className }: Folder
     };
 
     return (
-        <div className={clsx('space-y-2', className)}>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Add to folder
+        <div className={clsx('space-y-3', className)}>
+            <label className="block text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                📁 Add to folder
             </label>
 
             {!isCreating ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                     {/* Folder dropdown */}
                     <select
                         value={selectedFolderId || ''}
                         onChange={(e) => onChange(e.target.value || null)}
-                        className="w-full px-3 py-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg border-none focus:ring-2 focus:ring-brand text-zinc-900 dark:text-zinc-100"
+                        className="w-full px-4 py-3 text-base bg-zinc-100 dark:bg-zinc-800 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 focus:border-brand focus:ring-2 focus:ring-brand/20 text-zinc-900 dark:text-zinc-100 font-medium"
                     >
-                        <option value="">No folder (Root)</option>
+                        <option value="">📂 No folder (Root)</option>
                         {folders.map(folder => (
                             <option key={folder.id} value={folder.id}>
-                                {folder.name}
+                                📁 {folder.name}
                             </option>
                         ))}
                     </select>
@@ -60,9 +60,9 @@ export function FolderSelector({ selectedFolderId, onChange, className }: Folder
                     {/* Create new folder button */}
                     <button
                         onClick={() => setIsCreating(true)}
-                        className="flex items-center gap-2 text-sm text-brand hover:text-brand/80 transition-colors"
+                        className="flex items-center gap-2 text-base text-brand hover:text-brand/80 transition-colors font-medium"
                     >
-                        <Plus size={16} />
+                        <Plus size={18} />
                         Create new folder
                     </button>
                 </div>

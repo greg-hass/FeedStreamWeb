@@ -54,11 +54,13 @@ export class FeedService {
     }
 
     static async refreshFeed(feed: Feed): Promise<void> {
+        console.log(`[RefreshFeed] Starting refresh for: ${feed.title}`);
         try {
             const proxyUrl = `/api/proxy?url=${encodeURIComponent(feed.feedURL)}`;
             const response = await fetch(proxyUrl);
 
             if (!response.ok) {
+                console.error(`[RefreshFeed] HTTP error ${response.status} for ${feed.title}`);
                 await db.feeds.update(feed.id, {
                     lastError: `HTTP ${response.status}`,
                     consecutiveFailures: (feed.consecutiveFailures || 0) + 1
@@ -67,7 +69,9 @@ export class FeedService {
             }
 
             const text = await response.text();
+            console.log(`[RefreshFeed] Fetched ${text.length} bytes for ${feed.title}`);
             const normalized = await parseFeed(text, feed.feedURL);
+            console.log(`[RefreshFeed] Parsed ${normalized.articles.length} articles for ${feed.title}`);
 
             // Update Feed Meta (if changed, optional, but good for title updates)
             await db.feeds.update(feed.id, {
@@ -81,6 +85,7 @@ export class FeedService {
 
             // Merge Articles
             await this.mergeArticles(feed.id, normalized.articles);
+            console.log(`[RefreshFeed] Completed refresh for ${feed.title}`);
 
         } catch (e: any) {
             console.error(`Failed to sync feed ${feed.title}`, e);
@@ -203,6 +208,8 @@ export class FeedService {
     }
 
     private static async mergeArticles(feedId: string, incoming: Article[]) {
+        console.log(`[MergeArticles] Processing ${incoming.length} articles for feed ${feedId}`);
+
         // 1. Get existing articles for this feed to check status
         // Optimization: Just get IDs and their Read status if needed, 
         // but Dexie bulkGet might be slower than just strict ID check if we have hash.
@@ -211,6 +218,8 @@ export class FeedService {
         const incomingIds = incoming.map(a => a.id);
         const existingArticles = await db.articles.where('id').anyOf(incomingIds).toArray();
         const existingMap = new Map(existingArticles.map(a => [a.id, a]));
+
+        console.log(`[MergeArticles] Found ${existingArticles.length} existing articles`);
 
         const newArticles: Article[] = [];
         const updates: Article[] = [];
@@ -239,13 +248,17 @@ export class FeedService {
             }
         }
 
+        console.log(`[MergeArticles] Adding ${newArticles.length} new articles, updating ${updates.length}`);
+
         if (newArticles.length > 0) {
             // Use bulkPut to be safe, though bulkAdd is fine since we checked existence
             await db.articles.bulkPut(newArticles);
+            console.log(`[MergeArticles] Successfully added ${newArticles.length} articles`);
         }
 
         if (updates.length > 0) {
             await db.articles.bulkPut(updates);
+            console.log(`[MergeArticles] Successfully updated ${updates.length} articles`);
         }
     }
 
