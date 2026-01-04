@@ -217,7 +217,7 @@ export function AppHeader({
                     {/* Action Buttons - Always on RIGHT */}
                     <div className="flex items-center gap-2 shrink-0 ml-auto">
                         {showRefresh && timeRemaining && (
-                            <span className="hidden sm:inline-block text-xs font-mono text-zinc-400 dark:text-zinc-600 tabular-nums">
+                            <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 tabular-nums">
                                 {timeRemaining}
                             </span>
                         )}
