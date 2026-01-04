@@ -456,7 +456,26 @@ function SidebarFeedItem({ feed, isActive, small, onContextMenu, onMenuClick }: 
     onContextMenu: (e: React.MouseEvent) => void;
     onMenuClick: (e: React.MouseEvent) => void;
 }) {
-    const Icon = feed.type === 'youtube' ? Youtube : (feed.type === 'podcast' ? Mic : Rss);
+    const getTypeIcon = () => {
+        switch (feed.type) {
+            case 'youtube': return Youtube;
+            case 'podcast': return Mic;
+            case 'reddit': return MessageCircle;
+            default: return Rss;
+        }
+    };
+
+    const getIconColor = () => {
+        switch (feed.type) {
+            case 'youtube': return 'text-red-500';
+            case 'podcast': return 'text-purple-500';
+            case 'reddit': return 'text-orange-500';
+            default: return isActive ? 'text-brand' : 'text-zinc-400';
+        }
+    };
+
+    const Icon = getTypeIcon();
+    const iconColor = getIconColor();
 
     return (
         <div className="group flex items-center" onContextMenu={onContextMenu}>
@@ -471,7 +490,7 @@ function SidebarFeedItem({ feed, isActive, small, onContextMenu, onMenuClick }: 
                 )}
                 title={feed.title}
             >
-                <Icon size={small ? 14 : 16} className={clsx("shrink-0", isActive && "text-brand")} />
+                <Icon size={small ? 14 : 16} className={clsx("shrink-0", iconColor)} />
                 <span className="truncate">{feed.title}</span>
             </Link>
             <button

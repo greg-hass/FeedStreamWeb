@@ -174,10 +174,23 @@ async function parseXMLFeed(xmlData: string, sourceURL: string): Promise<Normali
             else if (item['itunes:image']) thumbnailPath = item['itunes:image']['@_href'];
         }
 
-        // Reddit Logic (Simplified for brevity but effective)
-        if (isReddit && mediaKind === 'none') {
-            const previewImage = contentHTML.match(/https:\/\/preview\.redd\.it\/[a-zA-Z0-9]+\.(jpg|png)/);
-            if (previewImage) thumbnailPath = previewImage[0];
+        // Reddit Logic - Better image extraction
+        if (isReddit && !thumbnailPath) {
+            // Try multiple patterns for Reddit images
+            const patterns = [
+                /https:\/\/preview\.redd\.it\/[a-zA-Z0-9]+\.(jpg|png|gif)/,
+                /https:\/\/i\.redd\.it\/[a-zA-Z0-9]+\.(jpg|png|gif)/,
+                /https:\/\/external-preview\.redd\.it\/[^\s"'<>]+/,
+                /<img[^>]+src="([^"]+)"/
+            ];
+
+            for (const pattern of patterns) {
+                const match = contentHTML.match(pattern);
+                if (match) {
+                    thumbnailPath = match[1] || match[0];
+                    break;
+                }
+            }
         }
 
         articles.push({

@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { FeedService } from '@/lib/feed-service';
 import { useSettingsStore } from '@/store/settingsStore';
 import { FeedSearchModal } from './FeedSearchModal';
+import { RefreshProgress } from './RefreshProgress';
 
 interface AppHeaderProps {
     title?: string;
@@ -32,6 +33,7 @@ export function AppHeader({
     const { lastRefreshTime, setLastRefreshTime } = useSettingsStore();
     const [timeRemaining, setTimeRemaining] = useState<string>('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; feedName?: string } | null>(null);
     const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
 
     // Update countdown every second
@@ -59,21 +61,46 @@ export function AppHeader({
         return () => clearInterval(interval);
     }, [lastRefreshTime]);
 
+    // Auto-refresh when timer reaches 0
+    useEffect(() => {
+        if (!lastRefreshTime || !showRefresh) return;
+
+        const checkAutoRefresh = () => {
+            const now = Date.now();
+            const nextRefresh = lastRefreshTime + 15 * 60 * 1000;
+            if (now >= nextRefresh && !isSyncing) {
+                handleSync();
+            }
+        };
+
+        const interval = setInterval(checkAutoRefresh, 10000); // Check every 10 seconds
+        return () => clearInterval(interval);
+    }, [lastRefreshTime, isSyncing, showRefresh]);
+
     const handleSync = async () => {
         if (isSyncing) return;
         setIsSyncing(true);
+        setRefreshProgress({ current: 0, total: feeds.length });
+
         try {
             await FeedService.syncWithFever();
-            for (const feed of feeds) {
-                if (feed.type === 'rss') {
+
+            for (let i = 0; i < feeds.length; i++) {
+                const feed = feeds[i];
+                setRefreshProgress({ current: i + 1, total: feeds.length, feedName: feed.title });
+
+                if (feed.type === 'rss' || feed.type === 'reddit' || feed.type === 'youtube' || feed.type === 'podcast') {
                     await FeedService.refreshFeed(feed);
                 }
             }
+
             setLastRefreshTime(Date.now());
         } catch (e) {
             console.error(e);
         } finally {
             setIsSyncing(false);
+            // Keep progress visible for 1 second before hiding
+            setTimeout(() => setRefreshProgress(null), 1000);
         }
     };
 
@@ -139,6 +166,16 @@ export function AppHeader({
                     </div>
                 </div>
             </header>
+
+            {/* Refresh Progress Indicator */}
+            {refreshProgress && (
+                <RefreshProgress
+                    current={refreshProgress.current}
+                    total={refreshProgress.total}
+                    currentFeedName={refreshProgress.feedName}
+                    onDismiss={() => setRefreshProgress(null)}
+                />
+            )}
         </>
     );
 }
