@@ -8,6 +8,7 @@ import { clsx } from "clsx";
 import { Sparkles, Loader2, X } from 'lucide-react';
 import { AIService } from "@/lib/ai-service";
 import { useSettingsStore } from "@/store/settingsStore";
+import { Article } from "@/lib/db";
 
 function BriefingCard() {
   const { openaiApiKey } = useSettingsStore();
@@ -39,7 +40,7 @@ function BriefingCard() {
   return (
     <div className="mx-4 sm:mx-6 mt-4 mb-2">
       <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-900/30 rounded-xl border border-indigo-100 dark:border-indigo-800/50 p-4 relative overflow-hidden">
-        
+
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-semibold">
             <Sparkles size={18} className="text-indigo-600 dark:text-indigo-400" />
@@ -72,11 +73,11 @@ function BriefingCard() {
             </button>
           </div>
         )}
-        
+
         {error && (
-            <div className="mt-3 text-xs text-red-500 bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800">
-                {error}
-            </div>
+          <div className="mt-3 text-xs text-red-500 bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800">
+            {error}
+          </div>
         )}
       </div>
     </div>
@@ -89,7 +90,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter articles client-side based on search query
-  const filteredArticles = (articles || []).filter(article => {
+  const filteredArticles = (articles || []).filter((article: Article) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
