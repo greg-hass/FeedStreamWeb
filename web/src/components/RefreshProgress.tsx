@@ -14,7 +14,7 @@ export function RefreshProgress({ current, total, currentFeedName, onDismiss }: 
     const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
 
     return (
-        <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-28 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 animate-in slide-in-from-bottom-4">
             <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-2xl p-4">
                 <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">

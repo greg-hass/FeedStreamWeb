@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Article } from '@/lib/db';
 import { ArticleItem } from './ArticleItem';
@@ -10,16 +10,75 @@ import { useScrollStore } from '@/store/scrollStore';
 import { FeedService } from '@/lib/feed-service';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useKeyboardNav } from '@/hooks/useKeyboardNav';
+import { Loader2, ArrowDown } from 'lucide-react';
+import { clsx } from 'clsx';
 
 interface ArticleListProps {
     articles: Article[];
+    onLoadMore?: () => void;
 }
 
-export function ArticleList({ articles }: ArticleListProps) {
+export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
     const pathname = usePathname();
     const router = useRouter();
     const virtuosoRef = useRef<VirtuosoHandle>(null);
     const { getScrollPosition, setScrollPosition } = useScrollStore();
+
+    // Pull to Refresh State
+    const [pullDistance, setPullDistance] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const touchStartY = useRef(0);
+    const isDragging = useRef(false);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (atTop && !isRefreshing) {
+            touchStartY.current = e.touches[0].clientY;
+            isDragging.current = true;
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isDragging.current || isRefreshing || !atTop) return;
+        
+        const currentY = e.touches[0].clientY;
+        const delta = currentY - touchStartY.current;
+
+        if (delta > 0) {
+            // Add resistance
+            const damped = Math.min(delta * 0.5, 120); 
+            setPullDistance(damped);
+        } else {
+            setPullDistance(0);
+        }
+    };
+
+    const handleTouchEnd = async () => {
+        if (!isDragging.current) return;
+        isDragging.current = false;
+
+        if (pullDistance > 60) {
+            // Trigger Refresh
+            setIsRefreshing(true);
+            setPullDistance(60); // Snap to loading position
+            try {
+                // Determine if we should Sync (Fever) or Refresh All (Local)
+                // For now, we assume Sync is the primary action if configured
+                await FeedService.syncWithFever();
+                // We could also trigger a re-query of local feeds here if needed
+            } catch (e) {
+                console.error("Refresh failed", e);
+            } finally {
+                setTimeout(() => {
+                    setIsRefreshing(false);
+                    setPullDistance(0);
+                }, 500); // Min showing time
+            }
+        } else {
+            setPullDistance(0);
+        }
+    };
+
+    // Optimization: Fetch feeds once and map them
 
     // Optimization: Fetch feeds once and map them
     const feeds = useLiveQuery(() => db.feeds.toArray());
@@ -108,7 +167,32 @@ export function ArticleList({ articles }: ArticleListProps) {
     }
 
     return (
-        <div className="h-full flex flex-col relative">
+        <div 
+            className="h-full flex flex-col relative overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+        >
+            {/* Pull Indicator */}
+            <div 
+                className="absolute top-0 left-0 right-0 flex items-center justify-center h-16 -mt-16 pointer-events-none z-10"
+                style={{ 
+                    transform: `translateY(${pullDistance}px)`,
+                    opacity: pullDistance > 0 ? 1 : 0,
+                    transition: isDragging.current ? 'none' : 'all 0.3s ease-out'
+                }}
+            >
+                {isRefreshing ? (
+                    <div className="bg-white dark:bg-zinc-800 rounded-full p-2 shadow-lg border border-zinc-200 dark:border-zinc-700">
+                        <Loader2 className="animate-spin text-brand" size={20} />
+                    </div>
+                ) : (
+                    <div className="bg-white dark:bg-zinc-800 rounded-full p-2 shadow-lg border border-zinc-200 dark:border-zinc-700" style={{ transform: `rotate(${pullDistance * 2}deg)` }}>
+                        <ArrowDown className={clsx("text-zinc-500", pullDistance > 60 && "text-brand")} size={20} />
+                    </div>
+                )}
+            </div>
+
             {/* New Articles Button */}
             {showNewItems && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
@@ -125,31 +209,37 @@ export function ArticleList({ articles }: ArticleListProps) {
                 </div>
             )}
 
-            <Virtuoso
-                ref={virtuosoRef}
-                data={articles}
-                atTopStateChange={setAtTop}
-                itemContent={(index, article) => (
-                    <ArticleItem
-                        key={article.id}
-                        article={article}
-                        feed={feedsMap.get(article.feedID)}
-                        isSelected={index === selectedIndex}
-                        onToggleRead={handleToggleRead}
-                        onToggleBookmark={handleToggleBookmark}
-                    />
-                )}
-                rangeChanged={(range) => {
-                    // Save scroll position when user scrolls
-                    setScrollPosition(pathname, range.startIndex);
-
-                    // Hide "New Items" if we scroll to top manually
-                    if (range.startIndex === 0) {
-                        setShowNewItems(false);
-                    }
+            <div 
+                className="h-full w-full"
+                style={{ 
+                    transform: `translateY(${pullDistance}px)`,
+                    transition: isDragging.current ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
                 }}
-                className="w-full h-full"
-            />
+            >
+                <Virtuoso
+                    ref={virtuosoRef}
+                    data={articles}
+                    atTopStateChange={setAtTop}
+                    endReached={onLoadMore}
+                    itemContent={(index, article) => (
+                        <ArticleItem
+                            key={article.id}
+                            article={article}
+                            feed={feedsMap.get(article.feedID)}
+                            isSelected={index === selectedIndex}
+                            onToggleRead={handleToggleRead}
+                            onToggleBookmark={handleToggleBookmark}
+                        />
+                    )}
+                    rangeChanged={(range) => {
+                        setScrollPosition(pathname, range.startIndex);
+                        if (range.startIndex === 0) {
+                            setShowNewItems(false);
+                        }
+                    }}
+                    className="w-full h-full"
+                />
+            </div>
         </div>
     );
 }

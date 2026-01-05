@@ -71,13 +71,16 @@ export function Sidebar({ className }: SidebarProps) {
     };
 
     // Collapsible folder state - persisted in localStorage
-    const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => {
+    const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('feedstream-collapsed-folders');
-            return saved ? new Set(JSON.parse(saved)) : new Set();
+            if (saved) {
+                setCollapsedFolders(new Set(JSON.parse(saved)));
+            }
         }
-        return new Set();
-    });
+    }, []);
 
     const toggleFolderCollapse = (folderId: string) => {
         setCollapsedFolders(prev => {

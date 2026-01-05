@@ -4,7 +4,7 @@ import Dexie from "dexie";
 
 export function useArticles(
     view: 'today' | 'last24h' | 'week' | 'all' | 'saved' | 'history' | 'youtube' | 'podcasts' | 'reddit' | string = 'all',
-    limit = 2000,
+    limit = 100,
     searchQuery: string = ''
 ) {
     return useLiveQuery(async () => {
@@ -67,11 +67,26 @@ export function useArticles(
             });
         }
 
-        // 3. Finalize Query (Reverse + Limit + Execute)
-        // Note: reverse() usually applies to the index order.
-        // If we used a 'where' clause that supports reverse, it works.
-        // Some collections (like .filter()) return a Collection that supports reverse().
-        return collection.reverse().limit(limit).toArray();
+        // 3. Finalize Query & Optimization
+        // We reduce the limit to avoid blocking the main thread.
+        // We also manually map the results to exclude massive 'contentHTML' strings 
+        // to save React memory diffing costs.
+        const results = await collection.reverse().limit(limit).toArray();
+        
+        return results.map((a: Article) => ({
+            id: a.id,
+            feedID: a.feedID,
+            title: a.title,
+            summary: a.summary,
+            // Exclude contentHTML and readerHTML
+            publishedAt: a.publishedAt,
+            isRead: a.isRead,
+            isBookmarked: a.isBookmarked,
+            mediaKind: a.mediaKind,
+            thumbnailPath: a.thumbnailPath,
+            author: a.author,
+            feed: a.feed // Preserving existing potential joins if any, though usually undefined here
+        })) as Article[];
 
     }, [view, limit, searchQuery]);
 }

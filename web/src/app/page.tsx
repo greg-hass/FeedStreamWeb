@@ -11,7 +11,7 @@ import { useSettingsStore } from "@/store/settingsStore";
 import { Article } from "@/lib/db";
 
 function BriefingCard() {
-  const { openaiApiKey } = useSettingsStore();
+  const { openaiApiKey, geminiApiKey } = useSettingsStore();
   const [briefing, setBriefing] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ function BriefingCard() {
     AIService.getTodayBriefing().then(setBriefing);
   }, []);
 
-  if (!openaiApiKey || !isVisible) return null;
+  if ((!openaiApiKey && !geminiApiKey) || !isVisible) return null;
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -86,8 +86,14 @@ function BriefingCard() {
 
 export default function HomePage() {
   const [view, setView] = useState('today');
-  const articles = useArticles(view);
+  const [limit, setLimit] = useState(100);
+  const articles = useArticles(view, limit);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Reset limit when view changes
+  useEffect(() => {
+    setLimit(100);
+  }, [view]);
 
   // Filter articles client-side based on search query
   const filteredArticles = (articles || []).filter((article: Article) => {
@@ -99,6 +105,10 @@ export default function HomePage() {
       (article.contentHTML && article.contentHTML.toLowerCase().includes(q))
     );
   });
+
+  const handleLoadMore = () => {
+    setLimit(prev => prev + 100);
+  };
 
   return (
     <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
@@ -134,7 +144,10 @@ export default function HomePage() {
       {/* Content Area */}
       <div className="flex-1 overflow-hidden">
         {filteredArticles ? (
-          <ArticleList articles={filteredArticles} />
+          <ArticleList 
+            articles={filteredArticles} 
+            onLoadMore={handleLoadMore}
+          />
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="animate-pulse text-zinc-400">Loading...</div>

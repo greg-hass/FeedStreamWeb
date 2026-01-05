@@ -8,12 +8,17 @@ import { FeedService } from "@/lib/feed-service";
 
 export default function AllFeedsPage() {
     const [searchQuery, setSearchQuery] = useState('');
-    const articles = useArticles('all', 2000, searchQuery);
+    const [limit, setLimit] = useState(100);
+    const articles = useArticles('all', limit, searchQuery);
 
     const handleMarkAllRead = async () => {
         if (confirm('Mark ALL articles as read? This cannot be undone.')) {
             await FeedService.markAllAsRead();
         }
+    };
+
+    const handleLoadMore = () => {
+        setLimit(prev => prev + 100);
     };
 
     return (
@@ -26,7 +31,12 @@ export default function AllFeedsPage() {
                 onMarkAllRead={handleMarkAllRead} 
             />
             <div className="flex-1 overflow-hidden">
-                {articles ? <ArticleList articles={articles} /> : (
+                {articles ? (
+                    <ArticleList 
+                        articles={articles} 
+                        onLoadMore={handleLoadMore}
+                    />
+                ) : (
                     <div className="flex items-center justify-center h-full">
                         <div className="animate-pulse text-zinc-400">Loading...</div>
                     </div>

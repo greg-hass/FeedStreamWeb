@@ -75,6 +75,7 @@ export function AudioPlayer() {
 
             <div className={clsx(
                 "fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 shadow-lg transition-all duration-300 z-50",
+                "pb-[env(safe-area-inset-bottom)]", // Respect Home Indicator
                 isExpanded ? "h-full md:h-96" : "h-20" // simple expandable logic
             )}>
                 {/* Progress Bar (Mini) */}

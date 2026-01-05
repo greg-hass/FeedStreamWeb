@@ -17,11 +17,13 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
     const contentRef = useRef<HTMLDivElement>(null);
     const [offset, setOffset] = useState(0);
     const touchStartX = useRef<number | null>(null);
+    const touchStartY = useRef<number | null>(null);
     const currentX = useRef(0);
     const isDragging = useRef(false);
 
     const handleTouchStart = (e: React.TouchEvent) => {
         touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
         isDragging.current = true;
         if (contentRef.current) {
             contentRef.current.style.transition = 'none';
@@ -29,9 +31,20 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
-        if (touchStartX.current === null || !isDragging.current) return;
+        if (touchStartX.current === null || touchStartY.current === null || !isDragging.current) return;
 
         const deltaX = e.touches[0].clientX - touchStartX.current;
+        const deltaY = e.touches[0].clientY - touchStartY.current;
+
+        // Vertical Scroll Lock: If moving more vertically than horizontally, ignore swipe
+        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+            return;
+        }
+
+        // Lock vertical scroll if we are definitely swiping horizontally
+        if (e.cancelable) {
+             // e.preventDefault(); // React synthetic events might complain, but usually needed for native feel
+        }
         
         // Lock vertical scroll if dragging horizontal? 
         // Simple logic: limit drag to reasonable bounds (-150 to 150)
@@ -48,12 +61,6 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
         if (contentRef.current) {
             contentRef.current.style.transform = `translateX(${resistedX}px)`;
         }
-        
-        // Update state for background opacity occasionally or use CSS vars?
-        // Using React state during drag causes lag. We use raw DOM for move.
-        // We can use a CSS variable for opacity if needed, but for now simple color bg is enough.
-        // To show icons: We can just use the z-index stack.
-        // The backgrounds are static, the content moves on top.
     };
 
     const handleTouchEnd = () => {
