@@ -6,8 +6,9 @@ import { db } from '@/lib/db';
 import { useSettingsStore } from '@/store/settingsStore';
 import { md5 } from '@/lib/utils';
 import { OpmlService } from '@/lib/opml-service';
+import { FeverAPI } from '@/lib/fever-api';
 import Link from 'next/link';
-import { Sparkles, Workflow } from 'lucide-react';
+import { Sparkles, Workflow, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function SettingsPage() {
     const { syncEndpoint, syncUsername, syncApiKey, setSyncConfig, setSyncEnabled, openaiApiKey, setOpenaiApiKey, geminiApiKey, setGeminiApiKey } = useSettingsStore();
@@ -17,6 +18,8 @@ export default function SettingsPage() {
     const [aiKey, setAiKey] = useState('');
     const [gKey, setGKey] = useState('');
     const [importProgress, setImportProgress] = useState<{ current: number, total: number, message: string } | null>(null);
+    const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+    const [testMessage, setTestMessage] = useState('');
 
     useEffect(() => {
         setEndpoint(syncEndpoint);
@@ -30,6 +33,36 @@ export default function SettingsPage() {
         setSyncConfig(endpoint, username, apiKey);
         setSyncEnabled(true);
         alert('Sync Configured!');
+    };
+
+    const handleTestSync = async () => {
+        if (!endpoint || !username || !apiKey) {
+            setTestStatus('error');
+            setTestMessage('Please fill in all fields');
+            return;
+        }
+
+        setTestStatus('testing');
+        setTestMessage('');
+
+        try {
+            const inputString = `${username}:${apiKey}`;
+            const finalKey = await md5(inputString);
+            const api = new FeverAPI(endpoint, finalKey);
+            
+            await api.getGroups(); // Simple fetch to verify auth
+            setTestStatus('success');
+            setTestMessage('Connection Successful!');
+            
+            // Auto-clear success after 3s
+            setTimeout(() => {
+                if (testStatus === 'success') setTestStatus('idle');
+            }, 3000);
+
+        } catch (e: any) {
+            setTestStatus('error');
+            setTestMessage(e.message || 'Connection Failed');
+        }
     };
 
     const handleSaveAI = () => {
@@ -334,12 +367,28 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        <button
-                            onClick={handleSaveSync}
-                            className="w-full py-2 bg-brand text-white rounded text-sm font-medium hover:brightness-110 transition-all"
-                        >
-                            Save & Enable Sync
-                        </button>
+                        {testMessage && (
+                            <div className={`text-sm p-3 rounded flex items-center gap-2 ${testStatus === 'success' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                                {testStatus === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                                {testMessage}
+                            </div>
+                        )}
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleTestSync}
+                                disabled={testStatus === 'testing' || !endpoint || !username || !apiKey}
+                                className="flex-1 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {testStatus === 'testing' ? <Loader2 className="animate-spin" size={16} /> : 'Test Connection'}
+                            </button>
+                            <button
+                                onClick={handleSaveSync}
+                                className="flex-1 py-2 bg-brand text-white rounded text-sm font-medium hover:brightness-110 transition-all"
+                            >
+                                Save & Enable Sync
+                            </button>
+                        </div>
                     </div>
                 </section>
 
