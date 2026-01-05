@@ -15,12 +15,26 @@ function BriefingCard() {
   const [briefing, setBriefing] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(false); // Default false to prevent flash
 
   useEffect(() => {
-    // Check if we have a briefing for today
-    AIService.getTodayBriefing().then(setBriefing);
+    // Check dismissal state
+    const today = new Date().toISOString().split('T')[0];
+    const key = `briefing-dismissed-${today}`;
+    const isDismissed = localStorage.getItem(key) === 'true';
+    
+    if (!isDismissed) {
+        setIsVisible(true);
+        // Check if we have a briefing content for today
+        AIService.getTodayBriefing().then(setBriefing);
+    }
   }, []);
+
+  const handleDismiss = () => {
+      setIsVisible(false);
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem(`briefing-dismissed-${today}`, 'true');
+  };
 
   if ((!openaiApiKey && !geminiApiKey) || !isVisible) return null;
 
@@ -46,7 +60,7 @@ function BriefingCard() {
             <Sparkles size={18} className="text-indigo-600 dark:text-indigo-400" />
             Daily Briefing
           </div>
-          <button onClick={() => setIsVisible(false)} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-200">
+          <button onClick={handleDismiss} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-200">
             <X size={16} />
           </button>
         </div>

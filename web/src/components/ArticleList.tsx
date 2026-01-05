@@ -163,14 +163,6 @@ export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
     const [showNewItems, setShowNewItems] = React.useState(false);
     const prevArticlesLength = useRef(articles?.length || 0);
 
-    // Restore scroll position on mount
-    useEffect(() => {
-        const savedPosition = getScrollPosition(pathname);
-        if (savedPosition > 0 && virtuosoRef.current) {
-            virtuosoRef.current.scrollToIndex({ index: savedPosition, align: 'start' });
-        }
-    }, [pathname, getScrollPosition]);
-
     // Detect new items
     useEffect(() => {
         if (!articles) return;
@@ -252,6 +244,7 @@ export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
                     ref={virtuosoRef}
                     data={articles}
                     atTopStateChange={setAtTop}
+                    initialTopMostItemIndex={getScrollPosition(pathname)}
                     endReached={onLoadMore}
                     itemContent={(index, article) => (
                         <ArticleItem
