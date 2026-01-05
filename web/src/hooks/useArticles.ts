@@ -85,7 +85,6 @@ export function useArticles(
             mediaKind: a.mediaKind,
             thumbnailPath: a.thumbnailPath,
             author: a.author,
-            feed: a.feed // Preserving existing potential joins if any, though usually undefined here
         })) as Article[];
 
     }, [view, limit, searchQuery]);
