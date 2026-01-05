@@ -211,20 +211,24 @@ async function parseXMLFeed(xmlData: string, sourceURL: string): Promise<Normali
             else if (item['itunes:image']) thumbnailPath = item['itunes:image']['@_href'];
         }
 
-        // Reddit Logic - Better image extraction
+        // Reddit Logic - Better image extraction (High Res Priority)
         if (isReddit && !thumbnailPath) {
-            // Try multiple patterns for Reddit images
+            // Prioritize direct links to i.redd.it (full quality) over preview images
             const patterns = [
-                /https:\/\/preview\.redd\.it\/[a-zA-Z0-9]+\.(jpg|png|gif)/,
-                /https:\/\/i\.redd\.it\/[a-zA-Z0-9]+\.(jpg|png|gif)/,
-                /https:\/\/external-preview\.redd\.it\/[^\s"'<>]+/,
-                /<img[^>]+src="([^"]+)"/
+                // 1. Direct link to i.redd.it in anchor tag (Source)
+                /href="(https:\/\/i\.redd\.it\/[a-zA-Z0-9]+\.(?:jpg|png|gif))"/,
+                // 2. Direct i.redd.it image source
+                /src="(https:\/\/i\.redd\.it\/[a-zA-Z0-9]+\.(?:jpg|png|gif))"/,
+                // 3. Preview image (best available fallback)
+                /src="(https:\/\/preview\.redd\.it\/[^"]+)"/,
+                // 4. External preview
+                /src="(https:\/\/external-preview\.redd\.it\/[^"]+)"/
             ];
 
             for (const pattern of patterns) {
                 const match = contentHTML.match(pattern);
-                if (match) {
-                    thumbnailPath = match[1] || match[0];
+                if (match && match[1]) {
+                    thumbnailPath = match[1].replace(/&amp;/g, '&');
                     break;
                 }
             }
