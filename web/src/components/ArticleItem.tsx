@@ -152,7 +152,10 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                     </span>
                                 )}
                                 <span className="text-zinc-300 dark:text-zinc-600">•</span>
-                                <time className="shrink-0 text-sm text-orange-500 dark:text-orange-400 font-medium flex items-center gap-1.5">
+                                <time 
+                                    className="shrink-0 text-sm text-orange-500 dark:text-orange-400 font-medium flex items-center gap-1.5"
+                                    suppressHydrationWarning
+                                >
                                     {article.publishedAt ? formatDistanceToNow(article.publishedAt, { addSuffix: true }) : ''}
                                     <TypeIcon size={14} className="text-zinc-400 dark:text-zinc-500" />
                                 </time>
