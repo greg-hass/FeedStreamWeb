@@ -13,6 +13,8 @@ import { useKeyboardNav } from '@/hooks/useKeyboardNav';
 import { Loader2, ArrowDown } from 'lucide-react';
 import { clsx } from 'clsx';
 
+import { RefreshProgress } from './RefreshProgress';
+
 interface ArticleListProps {
     articles: Article[];
     onLoadMore?: () => void;
@@ -40,9 +42,14 @@ export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
                 console.log("[AutoSync] Triggering background sync...");
                 lastSyncTime.current = now;
                 try {
+                    setIsRefreshing(true); // Show progress during auto-sync too? Maybe subtle.
+                    // Actually, for auto-sync, maybe we don't want the full modal unless user pulled.
+                    // But for pull-to-refresh (which sets isRefreshing), we definitely want it.
                     await FeedService.syncWithFever();
                 } catch (e) {
                     console.error("[AutoSync] Failed", e);
+                } finally {
+                    setIsRefreshing(false);
                 }
             }
         };
@@ -99,11 +106,6 @@ export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
                 // We could also trigger a re-query of local feeds here if needed
             } catch (e) {
                 console.error("Refresh failed", e);
-            } finally {
-                setTimeout(() => {
-                    setIsRefreshing(false);
-                    setPullDistance(0);
-                }, 500); // Min showing time
             }
         } else {
             setPullDistance(0);
@@ -197,6 +199,15 @@ export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
         >
+            {/* Refresh Progress Modal */}
+            {isRefreshing && (
+                <RefreshProgress 
+                    current={1} 
+                    total={1} 
+                    currentFeedName="Syncing with Server..." 
+                />
+            )}
+
             {/* Pull Indicator */}
             <div 
                 className="absolute top-0 left-0 right-0 flex items-center justify-center h-16 -mt-16 pointer-events-none z-10"
