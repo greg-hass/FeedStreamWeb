@@ -107,6 +107,9 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                 // We could also trigger a re-query of local feeds here if needed
             } catch (e) {
                 console.error("Refresh failed", e);
+            } finally {
+                setIsRefreshing(false);
+                setPullDistance(0);
             }
         } else {
             setPullDistance(0);
