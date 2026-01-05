@@ -9,6 +9,12 @@ import { Article, Feed } from '@/lib/db';
 import { ArticleSwipeRow } from './ArticleSwipeRow';
 import { useAudioStore } from '@/store/audioStore';
 
+const YOUTUBE_PATTERNS = [
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+];
+
+const HTML_TAG_PATTERN = /<[^>]*>?/gm;
+
 interface ArticleItemProps {
     article: Article;
     feed?: Feed;
@@ -50,13 +56,9 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
 
     // Extract YouTube video ID from contentHTML or URL
     const getYouTubeVideoId = (): string | null => {
-        const patterns = [
-            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
-        ];
-
         // 1. Check contentHTML
         if (article.contentHTML) {
-            for (const pattern of patterns) {
+            for (const pattern of YOUTUBE_PATTERNS) {
                 const match = article.contentHTML.match(pattern);
                 if (match) return match[1];
             }
@@ -64,7 +66,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
 
         // 2. Check Article URL
         if (article.url) {
-             for (const pattern of patterns) {
+             for (const pattern of YOUTUBE_PATTERNS) {
                 const match = article.url.match(pattern);
                 if (match) return match[1];
             }
@@ -74,8 +76,8 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
     };
 
     const getPreviewText = () => {
-        if (article.summary) return article.summary.replace(/<[^>]*>?/gm, '');
-        if (article.contentHTML) return article.contentHTML.replace(/<[^>]*>?/gm, '').slice(0, 200);
+        if (article.summary) return article.summary.replace(HTML_TAG_PATTERN, '');
+        if (article.contentHTML) return article.contentHTML.replace(HTML_TAG_PATTERN, '').slice(0, 200);
         return '';
     };
 
@@ -107,7 +109,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
         >
             <Link href={`/article/${article.id}`} className="block" onClick={handleArticleClick}>
                 <article className={clsx(
-                    "relative px-4 sm:px-6 py-4 transition-colors",
+                    "relative px-4 sm:px-6 py-4 transition-colors select-none",
                     "hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50",
                     "border-b border-zinc-100 dark:border-zinc-800/50",
                     isSelected && "bg-brand/5 dark:bg-brand/10 border-l-4 border-l-brand pl-3 sm:pl-5"
@@ -125,6 +127,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                         alt=""
                                         className="w-4 h-4 rounded object-cover shrink-0 bg-zinc-200 dark:bg-zinc-800"
                                         loading="lazy"
+                                        decoding="async"
                                         onError={(e) => e.currentTarget.style.display = 'none'}
                                     />
                                 )}
@@ -222,6 +225,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                             (article.mediaKind === 'podcast' || article.mediaKind === 'youtube') && "group-hover/thumb:brightness-75 transition-all"
                                         )}
                                         loading="lazy"
+                                        decoding="async"
                                         onError={(e) => {
                                             // Hide the entire thumbnail container when image fails to load
                                             const container = e.currentTarget.closest('.group\\/thumb');

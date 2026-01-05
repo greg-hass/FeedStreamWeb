@@ -126,7 +126,7 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className="relative bg-white dark:bg-black z-10 touch-pan-y"
+                className="relative bg-white dark:bg-black z-10 touch-pan-y will-change-transform"
             >
                 {children}
             </div>

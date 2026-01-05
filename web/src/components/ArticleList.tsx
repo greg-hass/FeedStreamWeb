@@ -194,7 +194,7 @@ export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
 
     return (
         <div 
-            className="h-full flex flex-col relative overflow-hidden"
+            className="h-full flex flex-col relative overflow-hidden touch-pan-y"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}

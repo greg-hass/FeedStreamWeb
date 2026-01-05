@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: 'FeedStream',
   description: 'Your RSS Feed Reader',
   manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'FeedStream',
+  },
 };
 
 export const viewport: Viewport = {
@@ -16,6 +21,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fafafa' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
 };
 
 export default function RootLayout({
