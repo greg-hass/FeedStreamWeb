@@ -37,9 +37,34 @@ async function makeStableId(feedURL: string, entryId: string): Promise<string> {
 
 // Extraction helpers
 function extractYouTubeVideoID(url: string): string | null {
-    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[7].length == 11) ? match[7] : null;
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname.replace('www.', '');
+
+        if (hostname === 'youtu.be') {
+            return urlObj.pathname.slice(1);
+        }
+
+        if (hostname === 'youtube.com' || hostname === 'm.youtube.com') {
+            // v=ID
+            const v = urlObj.searchParams.get('v');
+            if (v) return v;
+
+            // /embed/ID
+            if (urlObj.pathname.startsWith('/embed/')) {
+                return urlObj.pathname.split('/')[2];
+            }
+
+            // /v/ID
+            if (urlObj.pathname.startsWith('/v/')) {
+                return urlObj.pathname.split('/')[2];
+            }
+        }
+    } catch (e) {
+        // Fallback for partial URLs if necessary, but Feed URLs are usually absolute.
+        // If it fails, ignore.
+    }
+    return null;
 }
 
 function youTubeEmbedHTML(videoID: string): string {

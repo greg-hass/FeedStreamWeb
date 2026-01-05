@@ -25,7 +25,10 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
         return Rss;
     };
     const TypeIcon = getTypeIcon();
-    const { setTrack, play } = useAudioStore();
+    
+    // Selector optimization to prevent re-renders on audio progress
+    const setTrack = useAudioStore((s) => s.setTrack);
+    const play = useAudioStore((s) => s.play);
 
     const handlePlay = (e: React.MouseEvent) => {
         e.preventDefault();

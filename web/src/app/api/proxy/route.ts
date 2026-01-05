@@ -72,24 +72,60 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Missing URL parameter' }, { status: 400 });
     }
 
-    const validation = await validateUrl(url);
-    if (!validation.valid) {
-        return NextResponse.json({ error: validation.error }, { status: 403 });
-    }
-
     try {
-        const response = await fetch(url, {
-            headers: {
-                // Use a browser-like User-Agent for better compatibility with sites
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-            },
-            redirect: 'follow',
-        });
+        // Initial Validation
+        const validation = await validateUrl(url);
+        if (!validation.valid) {
+            return NextResponse.json({ error: validation.error }, { status: 403 });
+        }
+
+        // Fetch with manual redirect handling to prevent SSRF via redirects
+        let currentUrl = url;
+        let response: Response | null = null;
+        let redirects = 5;
+
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        };
+
+        while (redirects > 0) {
+            response = await fetch(currentUrl, {
+                headers,
+                redirect: 'manual', // CRITICAL: Stop auto-following
+            });
+
+            if (response.status >= 300 && response.status < 400) {
+                const location = response.headers.get('location');
+                if (!location) {
+                    return NextResponse.json({ error: 'Redirect missing location' }, { status: 500 });
+                }
+
+                // Resolve relative URLs
+                const nextUrl = new URL(location, currentUrl).toString();
+
+                // Validate the NEXT URL
+                const nextValidation = await validateUrl(nextUrl);
+                if (!nextValidation.valid) {
+                    return NextResponse.json({ error: `Redirect blocked: ${nextValidation.error}` }, { status: 403 });
+                }
+
+                currentUrl = nextUrl;
+                redirects--;
+                continue;
+            }
+
+            // Not a redirect, break loop
+            break;
+        }
+
+        if (!response || redirects === 0) {
+             return NextResponse.json({ error: 'Too many redirects or fetch failed' }, { status: 502 });
+        }
 
         if (!response.ok) {
             return NextResponse.json(
@@ -101,11 +137,12 @@ export async function GET(request: NextRequest) {
         const contentType = response.headers.get('content-type') || 'text/html';
         const text = await response.text();
 
-        const headers = new Headers();
-        headers.set('Content-Type', contentType);
-        headers.set('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+        const responseHeaders = new Headers();
+        responseHeaders.set('Content-Type', contentType);
+        responseHeaders.set('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
 
-        return new NextResponse(text, { headers });
+        return new NextResponse(text, { headers: responseHeaders });
+
     } catch (error) {
         console.error('Proxy fetch error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

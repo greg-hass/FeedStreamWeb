@@ -235,13 +235,6 @@ export class FeedService {
         console.log(`[MergeArticles] Processing ${incoming.length} articles for feed ${feedId}`);
 
         // Apply Rules FIRST
-        // This ensures we don't even check DB for items that are auto-deleted,
-        // and we correctly set isRead/isBookmarked before saving.
-        // BUT: we need to respect existing state for updates.
-        // Strategy: Apply rules to incoming. If rule says 'mark_read', incoming has isRead=true.
-        // When merging, if existing is read=true, we keep it. If existing is false, but incoming is true (due to rule), we take incoming.
-
-        // Add feedID to incoming for rule matching
         const mappedIncoming = incoming.map(a => ({ ...a, feedID: feedId }));
         const processedIncoming = await RulesEngine.applyRules(mappedIncoming);
 
@@ -249,57 +242,57 @@ export class FeedService {
         const incomingIds = processedIncoming.map(a => a.id);
         if (incomingIds.length === 0) return 0; // All filtered out
 
-        const existingArticles = await db.articles.where('id').anyOf(incomingIds).toArray();
-        const existingMap = new Map(existingArticles.map(a => [a.id, a]));
+        return await db.transaction('rw', db.articles, async () => {
+            const existingArticles = await db.articles.where('id').anyOf(incomingIds).toArray();
+            const existingMap = new Map(existingArticles.map(a => [a.id, a]));
 
-        console.log(`[MergeArticles] Found ${existingArticles.length} existing articles`);
+            console.log(`[MergeArticles] Found ${existingArticles.length} existing articles`);
 
-        const newArticles: Article[] = [];
-        const updates: Article[] = [];
+            const newArticles: Article[] = [];
+            const updates: Article[] = [];
 
-        for (const item of processedIncoming) {
-            const existing = existingMap.get(item.id);
+            for (const item of processedIncoming) {
+                const existing = existingMap.get(item.id);
 
-            if (!existing) {
-                newArticles.push(item);
-            } else {
-                // Only update if content has actually changed
-                const hasChanged =
-                    existing.title !== item.title ||
-                    existing.summary !== item.summary ||
-                    existing.contentHTML !== item.contentHTML ||
-                    existing.url !== item.url;
+                if (!existing) {
+                    newArticles.push(item);
+                } else {
+                    // Only update if content has actually changed
+                    const hasChanged =
+                        existing.title !== item.title ||
+                        existing.summary !== item.summary ||
+                        existing.contentHTML !== item.contentHTML ||
+                        existing.url !== item.url;
 
-                if (hasChanged) {
-                    updates.push({
-                        ...item,
-                        // Persist user state unless rule forced it?
-                        // If rule forced isRead=true (item.isRead is true), we should probably respect it?
-                        // Or if user actively marked unread?
-                        // Simplest: OR logic. isRead = existing.isRead || item.isRead (from rule)
-                        isRead: existing.isRead || item.isRead,
-                        isBookmarked: existing.isBookmarked || item.isBookmarked,
-                        playbackPosition: existing.playbackPosition,
-                        downloadStatus: existing.downloadStatus,
-                        contentPrefetchedAt: existing.contentPrefetchedAt
-                    });
+                    if (hasChanged) {
+                        updates.push({
+                            ...item,
+                            // Persist user state unless rule forced it?
+                            // Simplest: OR logic. isRead = existing.isRead || item.isRead (from rule)
+                            isRead: existing.isRead || item.isRead,
+                            isBookmarked: existing.isBookmarked || item.isBookmarked,
+                            playbackPosition: existing.playbackPosition,
+                            downloadStatus: existing.downloadStatus,
+                            contentPrefetchedAt: existing.contentPrefetchedAt
+                        });
+                    }
                 }
             }
-        }
 
-        console.log(`[MergeArticles] Adding ${newArticles.length} new articles, updating ${updates.length} changed articles`);
+            console.log(`[MergeArticles] Adding ${newArticles.length} new articles, updating ${updates.length} changed articles`);
 
-        if (newArticles.length > 0) {
-            await db.articles.bulkPut(newArticles);
-            console.log(`[MergeArticles] Successfully added ${newArticles.length} articles`);
-        }
+            if (newArticles.length > 0) {
+                await db.articles.bulkPut(newArticles);
+                console.log(`[MergeArticles] Successfully added ${newArticles.length} articles`);
+            }
 
-        if (updates.length > 0) {
-            await db.articles.bulkPut(updates);
-            console.log(`[MergeArticles] Successfully updated ${updates.length} articles`);
-        }
+            if (updates.length > 0) {
+                await db.articles.bulkPut(updates);
+                console.log(`[MergeArticles] Successfully updated ${updates.length} articles`);
+            }
 
-        return newArticles.length;
+            return newArticles.length;
+        });
     }
 
     static async deleteFeed(id: string) {

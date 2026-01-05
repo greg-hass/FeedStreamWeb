@@ -1,6 +1,7 @@
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { secureStorage } from '@/lib/secure-storage';
 
 interface SettingsState {
     syncEndpoint: string;
@@ -37,6 +38,7 @@ export const useSettingsStore = create<SettingsState>()(
         }),
         {
             name: 'feedstream-settings',
+            storage: createJSONStorage(() => secureStorage),
         }
     )
 );
