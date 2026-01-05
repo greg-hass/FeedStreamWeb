@@ -18,9 +18,10 @@ import { RefreshProgress } from './RefreshProgress';
 interface ArticleListProps {
     articles: Article[];
     onLoadMore?: () => void;
+    header?: React.ReactNode;
 }
 
-export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
+export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) {
     const pathname = usePathname();
     const router = useRouter();
     const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -254,6 +255,7 @@ export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
                 <Virtuoso
                     ref={virtuosoRef}
                     data={articles}
+                    components={{ Header: () => <>{header}</> }}
                     atTopStateChange={setAtTop}
                     initialTopMostItemIndex={getScrollPosition(pathname)}
                     endReached={onLoadMore}
