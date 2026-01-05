@@ -129,6 +129,19 @@ export class FeedStreamDB extends Dexie {
       briefings: 'id, date, generatedAt'
     });
   }
+
+  async search(query: string, limit: number = 50): Promise<Article[]> {
+    const q = query.toLowerCase();
+    return this.articles
+      .filter(a => 
+        (a.title && a.title.toLowerCase().includes(q)) || 
+        (a.summary && a.summary.toLowerCase().includes(q)) ||
+        (a.contentHTML && a.contentHTML.toLowerCase().includes(q) || false)
+      )
+      .limit(limit)
+      .reverse() // Newest first usually implies higher id/insertion order, or we should sort by publishedAt
+      .sortBy('publishedAt');
+  }
 }
 
 export interface AutomationRule {

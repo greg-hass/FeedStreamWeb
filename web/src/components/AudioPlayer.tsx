@@ -1,19 +1,20 @@
 
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useAudioStore } from '@/store/audioStore';
-import { Play, Pause, X, ChevronUp, ChevronDown, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, X, ChevronUp, ChevronDown, SkipBack, SkipForward, Moon } from 'lucide-react';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 
 export function AudioPlayer() {
     const {
-        currentTrack, isPlaying, progress, duration, currentTime,
-        play, pause, setProgress, setDuration, close, toggleExpand, isExpanded
+        currentTrack, isPlaying, progress, duration, currentTime, playbackRate, sleepTimerEndTime,
+        play, pause, setProgress, setDuration, setPlaybackRate, setSleepTimer, cancelSleepTimer, close, toggleExpand, isExpanded
     } = useAudioStore();
 
     const audioRef = useRef<HTMLAudioElement>(null);
+    const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
     // Handle Play/Pause
     useEffect(() => {
@@ -30,11 +31,41 @@ export function AudioPlayer() {
     useEffect(() => {
         if (audioRef.current && currentTrack) {
             audioRef.current.src = currentTrack.url;
-            // Restore position if persisting? For now start fresh or handled by onTimeUpdate initial seek if complex.
-            // Simple: just play.
+            audioRef.current.playbackRate = playbackRate; // Apply persisted rate
             if (isPlaying) audioRef.current.play();
         }
     }, [currentTrack]);
+
+    // Handle Playback Rate Change
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.playbackRate = playbackRate;
+        }
+    }, [playbackRate]);
+
+    // Sleep Timer Logic
+    useEffect(() => {
+        if (!sleepTimerEndTime) {
+            setTimeLeft(null);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const diff = sleepTimerEndTime - now;
+
+            if (diff <= 0) {
+                pause();
+                cancelSleepTimer();
+                setTimeLeft(null);
+            } else {
+                const minutes = Math.ceil(diff / 60000);
+                setTimeLeft(`${minutes}m`);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [sleepTimerEndTime, pause, cancelSleepTimer]);
 
     const handleTimeUpdate = () => {
         if (audioRef.current) {
@@ -52,6 +83,27 @@ export function AudioPlayer() {
             const newTime = (Number(e.target.value) / 100) * duration;
             audioRef.current.currentTime = newTime;
             setProgress(Number(e.target.value), newTime);
+        }
+    };
+
+    const toggleSpeed = () => {
+        const speeds = [0.5, 1, 1.25, 1.5, 2];
+        const nextIndex = (speeds.indexOf(playbackRate) + 1) % speeds.length;
+        setPlaybackRate(speeds[nextIndex]);
+    };
+
+    const toggleSleepTimer = () => {
+        // Cycle: Off -> 15 -> 30 -> 45 -> 60 -> Off
+        if (!sleepTimerEndTime) {
+            setSleepTimer(15);
+        } else {
+            const now = Date.now();
+            const currentDurationMinutes = Math.round((sleepTimerEndTime - now) / 60000);
+            
+            if (currentDurationMinutes <= 15) setSleepTimer(30);
+            else if (currentDurationMinutes <= 30) setSleepTimer(45);
+            else if (currentDurationMinutes <= 45) setSleepTimer(60);
+            else cancelSleepTimer();
         }
     };
 
@@ -161,7 +213,26 @@ export function AudioPlayer() {
                             </div>
 
                             {/* Controls */}
-                            <div className="flex items-center gap-12">
+                            <div className="flex items-center gap-12 relative">
+                                {/* Speed Control (Left) */}
+                                <button 
+                                    onClick={toggleSpeed}
+                                    className="absolute -left-16 md:-left-24 text-xs font-bold text-zinc-500 hover:text-brand bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded w-12 text-center transition"
+                                >
+                                    {playbackRate}x
+                                </button>
+
+                                {/* Sleep Timer (Right) */}
+                                <button 
+                                    onClick={toggleSleepTimer}
+                                    className={clsx(
+                                        "absolute -right-16 md:-right-24 text-xs font-bold px-2 py-1 rounded w-12 text-center transition flex items-center justify-center",
+                                        timeLeft ? "text-brand bg-brand/10" : "text-zinc-500 hover:text-brand bg-zinc-100 dark:bg-zinc-800"
+                                    )}
+                                >
+                                    {timeLeft || <Moon size={16} />}
+                                </button>
+
                                 <button onClick={() => audioRef.current && (audioRef.current.currentTime -= 15)} className="p-4 text-zinc-600 dark:text-zinc-400 hover:text-brand transition">
                                     <SkipBack size={32} />
                                 </button>

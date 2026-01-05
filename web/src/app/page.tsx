@@ -8,7 +8,7 @@ import { clsx } from "clsx";
 import { Sparkles, Loader2, X } from 'lucide-react';
 import { AIService } from "@/lib/ai-service";
 import { useSettingsStore } from "@/store/settingsStore";
-import { Article } from "@/lib/db";
+import { Article, db } from "@/lib/db";
 
 function BriefingCard() {
   const { openaiApiKey, geminiApiKey } = useSettingsStore();
@@ -103,22 +103,28 @@ export default function HomePage() {
   const [limit, setLimit] = useState(100);
   const articles = useArticles(view, limit);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Article[] | null>(null);
 
   // Reset limit when view changes
   useEffect(() => {
     setLimit(100);
   }, [view]);
 
-  // Filter articles client-side based on search query
-  const filteredArticles = (articles || []).filter((article: Article) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      article.title.toLowerCase().includes(q) ||
-      article.summary?.toLowerCase().includes(q) ||
-      (article.contentHTML && article.contentHTML.toLowerCase().includes(q))
-    );
-  });
+  // Handle Search
+  useEffect(() => {
+    if (!searchQuery) {
+        setSearchResults(null);
+        return;
+    }
+
+    const timer = setTimeout(() => {
+        db.search(searchQuery).then(setSearchResults);
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const displayArticles = searchQuery ? (searchResults || []) : (articles || []);
 
   const handleLoadMore = () => {
     setLimit(prev => prev + 100);
@@ -154,11 +160,11 @@ export default function HomePage() {
 
       {/* Content Area */}
       <div className="flex-1 overflow-hidden">
-        {filteredArticles ? (
+        {displayArticles ? (
           <ArticleList 
-            articles={filteredArticles} 
+            articles={displayArticles} 
             onLoadMore={handleLoadMore}
-            header={view === 'today' ? <BriefingCard /> : null}
+            header={view === 'today' && !searchQuery ? <BriefingCard /> : null}
           />
         ) : (
           <div className="flex items-center justify-center h-full">
