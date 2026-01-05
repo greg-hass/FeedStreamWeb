@@ -29,6 +29,38 @@ export function ArticleList({ articles, onLoadMore }: ArticleListProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const touchStartY = useRef(0);
     const isDragging = useRef(false);
+    const lastSyncTime = useRef<number>(0);
+
+    // Auto-Sync on App Open / Visibility Change
+    useEffect(() => {
+        const attemptSync = async () => {
+            const now = Date.now();
+            // Sync if it's been more than 10 minutes since last sync
+            if (now - lastSyncTime.current > 10 * 60 * 1000) {
+                console.log("[AutoSync] Triggering background sync...");
+                lastSyncTime.current = now;
+                try {
+                    await FeedService.syncWithFever();
+                } catch (e) {
+                    console.error("[AutoSync] Failed", e);
+                }
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                attemptSync();
+            }
+        };
+
+        // Listen for visibility changes (tab switching, app open from background)
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        // Try once on mount
+        attemptSync();
+
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
 
     const handleTouchStart = (e: React.TouchEvent) => {
         if (atTop && !isRefreshing) {
