@@ -46,55 +46,29 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
         }
     };
 
-    const handleVideoClick = (e: React.MouseEvent) => {
-        // On desktop (md breakpoint), let the click bubble to the Link for navigation
-        if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-            return;
-        }
-
-        e.preventDefault();
-        e.stopPropagation();
-        if (article.mediaKind === 'youtube') {
-            setIsVideoPlaying(true);
-        }
-    };
-
-    const getPreviewText = () => {
-        let text = article.summary || article.contentHTML || '';
-
-        // Step 1: Decode HTML entities FIRST (handles double-encoded content like &lt;table&gt;)
-        const decodeEntities = (str: string) => str
-            .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
-            .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&apos;/g, "'")
-            .replace(/&nbsp;/g, ' ');
-
-        text = decodeEntities(text);
-
-        // Step 2: Strip HTML comments (like <!-- SC_OFF --> from Reddit)
-        text = text.replace(/<!--[\s\S]*?-->/g, '');
-
-        // Step 3: Strip all HTML tags
-        text = text.replace(/<[^>]*>/g, '');
-
-        // Step 4: Decode again in case there were nested entities
-        text = decodeEntities(text);
-
-        // Step 5: Clean up excessive whitespace
-        text = text.replace(/\s+/g, ' ').trim();
-
-        return text.slice(0, 160);
-    };
-
     // Extract YouTube video ID from contentHTML or URL
     const getYouTubeVideoId = (): string | null => {
-        if (!article.contentHTML) return null;
-        const match = article.contentHTML.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
-        return match ? match[1] : null;
+        const patterns = [
+            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+        ];
+
+        // 1. Check contentHTML
+        if (article.contentHTML) {
+            for (const pattern of patterns) {
+                const match = article.contentHTML.match(pattern);
+                if (match) return match[1];
+            }
+        }
+
+        // 2. Check Article URL
+        if (article.url) {
+             for (const pattern of patterns) {
+                const match = article.url.match(pattern);
+                if (match) return match[1];
+            }
+        }
+        
+        return null;
     };
 
     const videoId = article.mediaKind === 'youtube' ? getYouTubeVideoId() : null;
@@ -106,6 +80,14 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
             handlePlay(e);
         }
         // For non-podcasts, let the Link navigate normally
+    };
+
+    const handleVideoClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (article.mediaKind === 'youtube') {
+            setIsVideoPlaying(true);
+        }
     };
 
     return (
