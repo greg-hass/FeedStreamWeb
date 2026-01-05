@@ -139,22 +139,30 @@ export class FeedService {
         try {
             console.log("Starting Sync...");
 
-            // 1. Sync Groups (Folders)
-            const groupsData = await api.getGroups();
+            // 1. Parallel Fetch: Groups, Feeds, Unread, Saved
+            const [groupsData, feedsData, unreadData, savedData] = await Promise.all([
+                api.getGroups(),
+                api.getFeeds(),
+                api.getUnreadItemIds(),
+                api.getSavedItemIds()
+            ]);
+
+            // 2. Process Groups (Folders)
             if (groupsData.groups) {
                 await db.transaction('rw', db.folders, async () => {
+                    // Clear existing folders first? Or merge? Fever source of truth usually implies sync.
+                    // For now, upsert.
                     for (const g of groupsData.groups) {
                         await db.folders.put({
                             id: String(g.id),
                             name: g.title,
-                            position: 0 // Fever doesn't strictly give position in basic response
+                            position: 0
                         });
                     }
                 });
             }
 
-            // 2. Sync Feeds
-            const feedsData = await api.getFeeds();
+            // 3. Process Feeds
             if (feedsData.feeds) {
                 await db.transaction('rw', db.feeds, async () => {
                     for (const f of feedsData.feeds) {
@@ -162,11 +170,11 @@ export class FeedService {
                             id: String(f.id),
                             title: f.title,
                             feedURL: f.url,
-                            siteURL: f.site_url, // Changed from link to siteURL to match DB schema
+                            siteURL: f.site_url,
                             folderID: String(f.group_id),
                             isFaviconLoaded: false,
-                            type: 'rss', // Assume RSS default
-                            dateAdded: new Date(f.last_updated_on_time * 1000), // Fever uses unix timestamp
+                            type: 'rss', // TODO: Infer from metadata if possible
+                            dateAdded: new Date(f.last_updated_on_time * 1000),
                             consecutiveFailures: 0,
                             isPaused: false,
                             sortOrder: 0,
@@ -176,23 +184,23 @@ export class FeedService {
                 });
             }
 
-            // 3. Sync Unread Status
-            // Fever gives list of unread item IDs "1,2,3"
-            const unreadData = await api.getUnreadItemIds();
+            // 4. Sync Read/Saved Status
+            // This is critical. We need to update local state based on these ID lists.
             if (unreadData.unread_item_ids) {
-                const unreadIds = new Set(unreadData.unread_item_ids.split(',').map(String));
-                // Mark local articles as read if NOT in this list?
-                // Or just ensure these are unread.
-                // Usually we mark everything older than X as read, and specific IDs as unread.
-                // For simplicity: We trust server. If server says X is unread, we mark unread.
-                // If server implies read (implied by absence?), strictly speaking only if we have full history.
-
-                // Getting all unread items from API
-                // Note: Fever doesn't give content in 'unread_item_ids', just IDs.
-                // We need to fetch the items if we don't have them.
+                const unreadIds = unreadData.unread_item_ids.split(',').map(String);
+                // Mark these as unread
+                await db.articles.where('id').anyOf(unreadIds).modify({ isRead: false });
+                
+                // Implicitly, anything NOT in this list (and older than sync time) *could* be read.
+                // But safer to just process the "unread" list for now.
             }
 
-            // 4. Fetch Items (Articles)
+            if (savedData.saved_item_ids) {
+                const savedIds = savedData.saved_item_ids.split(',').map(String);
+                await db.articles.where('id').anyOf(savedIds).modify({ isBookmarked: true });
+            }
+
+            // 5. Fetch Items (Articles)
             // We fetch latest 50 items for now.
             const itemsData = await api.getItems();
             if (itemsData.items) {

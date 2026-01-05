@@ -1,13 +1,15 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Article } from "@/lib/db";
 import Dexie from "dexie";
+import { useState, useEffect } from "react";
 
 export function useArticles(
     view: 'today' | 'last24h' | 'week' | 'all' | 'saved' | 'history' | 'youtube' | 'podcasts' | 'reddit' | string = 'all',
     limit = 100,
     searchQuery: string = ''
 ) {
-    return useLiveQuery(async () => {
+    // Raw live query - updates on every DB change
+    const liveArticles = useLiveQuery(async () => {
         let collection: any; // Use any to avoid Dexie's complex generic type issues
         const now = new Date();
 
@@ -88,4 +90,19 @@ export function useArticles(
         })) as Article[];
 
     }, [view, limit, searchQuery]);
+
+    // Debounce to prevent flickering during rapid sync updates
+    const [debouncedArticles, setDebouncedArticles] = useState<Article[] | undefined>(undefined);
+
+    useEffect(() => {
+        // If liveArticles is undefined (loading), wait.
+        // If we already have articles and get a new update, wait 500ms.
+        const handler = setTimeout(() => {
+            setDebouncedArticles(liveArticles);
+        }, 500);
+
+        return () => clearTimeout(handler);
+    }, [liveArticles]);
+
+    return debouncedArticles;
 }
