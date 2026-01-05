@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
@@ -69,6 +71,12 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
         }
         
         return null;
+    };
+
+    const getPreviewText = () => {
+        if (article.summary) return article.summary.replace(/<[^>]*>?/gm, '');
+        if (article.contentHTML) return article.contentHTML.replace(/<[^>]*>?/gm, '').slice(0, 200);
+        return '';
     };
 
     const videoId = article.mediaKind === 'youtube' ? getYouTubeVideoId() : null;
