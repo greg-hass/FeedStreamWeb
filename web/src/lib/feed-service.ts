@@ -63,7 +63,24 @@ export class FeedService {
         console.log(`[RefreshFeed] Starting refresh for: ${feed.title}`);
         try {
             const proxyUrl = `/api/proxy?url=${encodeURIComponent(feed.feedURL)}`;
-            const response = await fetch(proxyUrl);
+
+            // Build headers with conditional caching
+            const headers: Record<string, string> = {};
+            if (feed.etag) headers['If-None-Match'] = feed.etag;
+            if (feed.lastModified) headers['If-Modified-Since'] = feed.lastModified;
+
+            const response = await fetch(proxyUrl, { headers });
+
+            // Handle 304 Not Modified - feed unchanged, skip parsing
+            if (response.status === 304) {
+                console.log(`[RefreshFeed] ${feed.title} unchanged (304)`);
+                await db.feeds.update(feed.id, {
+                    lastSuccessfulSync: new Date(),
+                    lastError: undefined,
+                    consecutiveFailures: 0,
+                });
+                return 0;
+            }
 
             if (!response.ok) {
                 console.error(`[RefreshFeed] HTTP error ${response.status} for ${feed.title}`);
@@ -73,6 +90,10 @@ export class FeedService {
                 });
                 return 0;
             }
+
+            // Store cache headers for next request
+            const newEtag = response.headers.get('etag');
+            const newLastModified = response.headers.get('last-modified');
 
             const text = await response.text();
             console.log(`[RefreshFeed] Fetched ${text.length} bytes for ${feed.title}`);
@@ -84,9 +105,10 @@ export class FeedService {
                 lastSuccessfulSync: new Date(),
                 lastError: undefined,
                 consecutiveFailures: 0,
+                ...(newEtag && { etag: newEtag }),
+                ...(newLastModified && { lastModified: newLastModified }),
             });
 
-            // Fetch icon if missing or using generic fallback (so we can retry better extraction)
             // Fetch icon if missing or using generic fallback (so we can retry better extraction)
             const isMissingOrGeneric = !feed.iconURL || feed.iconURL.includes('google.com/s2/favicons');
             if (isMissingOrGeneric) {

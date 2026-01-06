@@ -8,7 +8,7 @@ function isPrivateIP(ip: string): boolean {
         // IPv4
         const a = parseInt(parts[0], 10);
         const b = parseInt(parts[1], 10);
-        
+
         // 127.0.0.0/8 (Loopback)
         if (a === 127) return true;
         // 10.0.0.0/8 (Private)
@@ -21,7 +21,7 @@ function isPrivateIP(ip: string): boolean {
         if (a === 169 && b === 254) return true;
         // 0.0.0.0/8 (Current network)
         if (a === 0) return true;
-        
+
         return false;
     } else if (ip.includes(':')) {
         // IPv6
@@ -32,7 +32,7 @@ function isPrivateIP(ip: string): boolean {
         if (lowerIP.startsWith('fc') || lowerIP.startsWith('fd')) return true;
         // Link-local (fe80::/10)
         if (lowerIP.startsWith('fe80')) return true;
-        
+
         return false;
     }
     return false;
@@ -41,7 +41,7 @@ function isPrivateIP(ip: string): boolean {
 async function validateUrl(urlStr: string): Promise<{ valid: boolean; error?: string }> {
     try {
         const url = new URL(urlStr);
-        
+
         if (url.protocol !== 'http:' && url.protocol !== 'https:') {
             return { valid: false, error: 'Invalid protocol' };
         }
@@ -84,13 +84,18 @@ export async function GET(request: NextRequest) {
         let response: Response | null = null;
         let redirects = 5;
 
-        const headers = {
+        // Build headers - include conditional headers for smart caching
+        const headers: Record<string, string> = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json,image/avif,image/webp,image/apng,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
         };
+
+        // Pass through conditional headers for smart feed refresh
+        const ifNoneMatch = request.headers.get('if-none-match');
+        const ifModifiedSince = request.headers.get('if-modified-since');
+        if (ifNoneMatch) headers['If-None-Match'] = ifNoneMatch;
+        if (ifModifiedSince) headers['If-Modified-Since'] = ifModifiedSince;
 
         while (redirects > 0) {
             response = await fetch(currentUrl, {
@@ -98,22 +103,21 @@ export async function GET(request: NextRequest) {
                 redirect: 'manual', // CRITICAL: Stop auto-following
             });
 
+            // Check for redirect status codes
             if (response.status >= 300 && response.status < 400) {
                 const location = response.headers.get('location');
-                if (!location) {
-                    return NextResponse.json({ error: 'Redirect missing location' }, { status: 500 });
+                if (!location) break;
+
+                // Resolve relative redirects
+                const resolvedUrl = new URL(location, currentUrl).toString();
+
+                // CRITICAL: Validate the redirect destination
+                const redirectValidation = await validateUrl(resolvedUrl);
+                if (!redirectValidation.valid) {
+                    return NextResponse.json({ error: 'Redirect to private resource blocked' }, { status: 403 });
                 }
 
-                // Resolve relative URLs
-                const nextUrl = new URL(location, currentUrl).toString();
-
-                // Validate the NEXT URL
-                const nextValidation = await validateUrl(nextUrl);
-                if (!nextValidation.valid) {
-                    return NextResponse.json({ error: `Redirect blocked: ${nextValidation.error}` }, { status: 403 });
-                }
-
-                currentUrl = nextUrl;
+                currentUrl = resolvedUrl;
                 redirects--;
                 continue;
             }
@@ -123,7 +127,14 @@ export async function GET(request: NextRequest) {
         }
 
         if (!response || redirects === 0) {
-             return NextResponse.json({ error: 'Too many redirects or fetch failed' }, { status: 502 });
+            return NextResponse.json({ error: 'Too many redirects or fetch failed' }, { status: 502 });
+        }
+
+        // Handle 304 Not Modified - pass through for smart caching
+        if (response.status === 304) {
+            const responseHeaders = new Headers();
+            responseHeaders.set('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+            return new NextResponse(null, { status: 304, headers: responseHeaders });
         }
 
         if (!response.ok) {
@@ -139,6 +150,12 @@ export async function GET(request: NextRequest) {
         const responseHeaders = new Headers();
         responseHeaders.set('Content-Type', contentType);
         responseHeaders.set('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+
+        // Preserve caching headers for smart feed refresh
+        const etag = response.headers.get('etag');
+        const lastModified = response.headers.get('last-modified');
+        if (etag) responseHeaders.set('ETag', etag);
+        if (lastModified) responseHeaders.set('Last-Modified', lastModified);
 
         return new NextResponse(text, { headers: responseHeaders });
 
