@@ -128,7 +128,11 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
 
     useEffect(() => {
         const handler = setTimeout(() => {
-            setFeeds(rawFeeds);
+            setFeeds(current => {
+                // Prevent unnecessary updates if data hasn't actually changed
+                if (JSON.stringify(current) === JSON.stringify(rawFeeds)) return current;
+                return rawFeeds;
+            });
         }, 1000); // 1 second debounce for feed metadata updates (icons, lastSync, etc)
 
         return () => clearTimeout(handler);
@@ -189,18 +193,14 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
 
         // If we have MORE articles than before
         if (articles.length > prevArticlesLength.current) {
-            if (atTop) {
-                // If at top, scroll to top to show new items
-                setTimeout(() => {
-                    virtuosoRef.current?.scrollToIndex({ index: 0, align: 'start', behavior: 'smooth' });
-                }, 100);
-            } else {
-                // Show a "New Articles" pill
-                setShowNewItems(true);
-            }
+            // Don't auto-scroll as it causes flickering/jumping.
+            // Just show the pill if we aren't at the very top (or even if we are, to be safe)
+            // Actually, if we are at top, Virtuoso might shift us down.
+            // Let's just always show the pill for manual user action.
+            setShowNewItems(true);
         }
         prevArticlesLength.current = articles.length;
-    }, [articles, atTop]);
+    }, [articles]);
 
     if (!articles || articles.length === 0) {
         return (
