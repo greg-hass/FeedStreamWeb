@@ -141,11 +141,11 @@ export default function SettingsPage() {
                     <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800 space-y-4">
                         <div className="flex items-center justify-between">
                             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-                                <Sparkles size={16} className="text-purple-500" /> OpenAI API
+                                <Sparkles size={16} className="text-purple-500" /> AI Services
                             </p>
                         </div>
                         <p className="text-xs text-zinc-500">
-                            Provide your API key to enable "Daily Briefings" and auto-summarization. Your key is stored locally in your browser.
+                            Configure OpenAI or Gemini to enable "Daily Briefings" and auto-summarization. Keys are stored locally and included in Master Backups.
                         </p>
                         <div className="space-y-3">
                             <div>
@@ -275,7 +275,7 @@ export default function SettingsPage() {
                         <div>
                             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">Master Backup</p>
                             <p className="text-xs text-zinc-500 mb-3">
-                                Comprehensive backup: Includes all feeds, folders, bookmarks, read status, and API keys. Use this to move to a new device or protect your data.
+                                Comprehensive backup: Includes all feeds, folders, bookmarks, read status, and <strong>AI API Keys</strong>. Use this to move to a new device or protect your data.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-2">
                                 <button
