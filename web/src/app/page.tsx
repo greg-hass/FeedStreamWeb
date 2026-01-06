@@ -22,18 +22,18 @@ function BriefingCard() {
     const today = new Date().toISOString().split('T')[0];
     const key = `briefing-dismissed-${today}`;
     const isDismissed = localStorage.getItem(key) === 'true';
-    
+
     if (!isDismissed) {
-        setIsVisible(true);
-        // Check if we have a briefing content for today
-        AIService.getTodayBriefing().then(setBriefing);
+      setIsVisible(true);
+      // Check if we have a briefing content for today
+      AIService.getTodayBriefing().then(setBriefing);
     }
   }, []);
 
   const handleDismiss = () => {
-      setIsVisible(false);
-      const today = new Date().toISOString().split('T')[0];
-      localStorage.setItem(`briefing-dismissed-${today}`, 'true');
+    setIsVisible(false);
+    const today = new Date().toISOString().split('T')[0];
+    localStorage.setItem(`briefing-dismissed-${today}`, 'true');
   };
 
   if ((!openaiApiKey && !geminiApiKey) || !isVisible) return null;
@@ -113,18 +113,18 @@ export default function HomePage() {
   // Handle Search
   useEffect(() => {
     if (!searchQuery) {
-        setSearchResults(null);
-        return;
+      setSearchResults(null);
+      return;
     }
 
     const timer = setTimeout(() => {
-        db.search(searchQuery).then(setSearchResults);
+      db.search(searchQuery).then(setSearchResults);
     }, 300); // 300ms debounce
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const displayArticles = searchQuery ? (searchResults || []) : (articles || []);
+  const displayArticles = searchQuery ? (searchResults || []) : articles;
 
   const handleLoadMore = () => {
     setLimit(prev => prev + 100);
@@ -161,8 +161,8 @@ export default function HomePage() {
       {/* Content Area */}
       <div className="flex-1 overflow-hidden">
         {displayArticles ? (
-          <ArticleList 
-            articles={displayArticles} 
+          <ArticleList
+            articles={displayArticles}
             onLoadMore={handleLoadMore}
             header={view === 'today' && !searchQuery ? <BriefingCard /> : null}
           />

@@ -18,7 +18,7 @@ import { RefreshProgress } from './RefreshProgress';
 import { ArticleSkeleton } from './ArticleSkeleton';
 
 interface ArticleListProps {
-    articles: Article[];
+    articles: Article[] | undefined;
     onLoadMore?: () => void;
     header?: React.ReactNode;
 }
@@ -178,13 +178,13 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
             virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
         },
         onSelect: (index) => {
-            const article = articles[index];
+            const article = articles?.[index];
             if (article) {
                 router.push(`/article/${article.id}`);
             }
         },
         onMarkRead: (index) => {
-            const article = articles[index];
+            const article = articles?.[index];
             if (article) {
                 handleToggleRead(article.id);
             }
@@ -210,7 +210,25 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
         prevArticlesLength.current = articles.length;
     }, [articles]);
 
-    if (!articles || articles.length === 0) {
+    // Show skeletons if articles are loading
+    if (articles === undefined) {
+        return (
+            <div className="flex-1 overflow-hidden">
+                <ArticleSkeleton count={6} />
+            </div>
+        );
+    }
+
+    if (articles.length === 0) {
+        // If we are currently syncing, don't show the "empty" message yet as it causes flickering
+        if (isSyncing) {
+            return (
+                <div className="flex-1 overflow-hidden">
+                    <ArticleSkeleton count={6} />
+                </div>
+            );
+        }
+
         return (
             <div className="flex flex-col items-center justify-center p-12 text-zinc-400">
                 <p>No articles found.</p>

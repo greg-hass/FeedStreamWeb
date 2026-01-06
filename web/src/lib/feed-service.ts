@@ -249,20 +249,18 @@ export class FeedService {
             }
 
             // 4. Sync Read/Saved Status
-            // This is critical. We need to update local state based on these ID lists.
-            if (unreadData.unread_item_ids) {
-                const unreadIds = unreadData.unread_item_ids.split(',').map(String);
-                // Mark these as unread
-                await db.articles.where('id').anyOf(unreadIds).modify({ isRead: false });
+            // Use transaction to batch these updates and prevent UI flickering
+            await db.transaction('rw', db.articles, async () => {
+                if (unreadData.unread_item_ids) {
+                    const unreadIds = unreadData.unread_item_ids.split(',').map(String);
+                    await db.articles.where('id').anyOf(unreadIds).modify({ isRead: false });
+                }
 
-                // Implicitly, anything NOT in this list (and older than sync time) *could* be read.
-                // But safer to just process the "unread" list for now.
-            }
-
-            if (savedData.saved_item_ids) {
-                const savedIds = savedData.saved_item_ids.split(',').map(String);
-                await db.articles.where('id').anyOf(savedIds).modify({ isBookmarked: true });
-            }
+                if (savedData.saved_item_ids) {
+                    const savedIds = savedData.saved_item_ids.split(',').map(String);
+                    await db.articles.where('id').anyOf(savedIds).modify({ isBookmarked: true });
+                }
+            });
 
             // 5. Fetch Items (Articles) - Delta Sync with pagination
             // Get last synced item ID from localStorage for incremental sync
@@ -311,7 +309,7 @@ export class FeedService {
 
     private static async processFeverItems(items: any[]) {
         const YOUTUBE_PATTERNS = [
-            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|live|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
         ];
 
         const extractYouTubeVideoID = (url: string): string | null => {
