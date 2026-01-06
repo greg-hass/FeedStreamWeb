@@ -1,4 +1,5 @@
 import { db } from './db';
+import Dexie from 'dexie';
 
 export interface FeedStats {
     totalArticles: number;
@@ -17,16 +18,17 @@ export class StatsService {
         const unreadArticles = totalArticles - readArticles;
         const bookmarkedArticles = await db.articles.where('isBookmarked').equals(1).count();
 
-        // Top Feeds (Most Read) - This is heavy, optimization: Sample or separate counter table
-        // For now, we do a somewhat expensive query but limited to 'isRead'
-        // Actually, 'most active' might be better (most articles published recently)
-        // Let's do "Most Active Feeds (Last 30 Days)"
+        // 1. Top Feeds (Most Active in last 30 days) - Memory Efficient
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        const recentArticles = await db.articles.where('publishedAt').above(thirtyDaysAgo).toArray();
-        
         const feedCounts = new Map<string, number>();
-        recentArticles.forEach(a => {
-            feedCounts.set(a.feedID, (feedCounts.get(a.feedID) || 0) + 1);
+        
+        // Use each() to avoid loading all objects into memory
+        await db.articles.where('publishedAt').above(thirtyDaysAgo).each(a => {
+            // We only need feedID, but 'each' gives full object. 
+            // Dexie optimization: if we used 'keys()' we wouldn't get feedID easily without compound index.
+            // But 'each' is better than 'toArray'.
+            const fid = a.feedID;
+            feedCounts.set(fid, (feedCounts.get(fid) || 0) + 1);
         });
 
         const feeds = await db.feeds.toArray();
@@ -41,42 +43,29 @@ export class StatsService {
             .sort((a, b) => b.count - a.count)
             .slice(0, 5);
 
-        // Ghost Feeds (No posts in 90 days)
+        // 2. Ghost Feeds (No posts in 90 days) - Optimized with Index
         const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-        const ghostFeeds = feeds
-            .filter(f => {
-                // If we have no articles for this feed newer than 90 days
-                // This check is a bit tricky without doing N queries.
-                // Simple heuristic: Check 'lastSuccessfulSync' or sortOrder? 
-                // Better: We iterate feeds, and for each check if it has recent articles.
-                // Given N feeds is usually small (<100), it's okay.
-                return true; 
-            })
-            .filter(f => {
-                // Filter logic handled in async map below to use DB
-                return true;
-            });
-            
-        // Refined Ghost check
         const realGhosts = [];
+        
         for (const feed of feeds) {
+            // Use [feedID+publishedAt] index to get just the latest article
             const latest = await db.articles
-                .where('feedID').equals(feed.id)
-                .reverse()
-                .sortBy('publishedAt');
+                .where('[feedID+publishedAt]')
+                .between([feed.id, Dexie.minKey], [feed.id, Dexie.maxKey])
+                .last();
             
-            if (latest.length > 0) {
-                const lastDate = latest[0].publishedAt;
-                if (lastDate && lastDate < ninetyDaysAgo) {
+            if (latest) {
+                if (latest.publishedAt && latest.publishedAt < ninetyDaysAgo) {
                     realGhosts.push({
                         id: feed.id,
                         title: feed.title,
-                        lastPostDate: lastDate
+                        lastPostDate: latest.publishedAt
                     });
                 }
             } else {
-                // Never posted?
-                // realGhosts.push({ id: feed.id, title: feed.title, lastPostDate: new Date(0) });
+                // Never posted or cleared?
+                // Treat as ghost if added > 90 days ago? 
+                // For now, ignore purely empty feeds to avoid clutter
             }
         }
 

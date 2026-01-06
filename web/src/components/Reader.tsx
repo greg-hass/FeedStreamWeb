@@ -10,6 +10,42 @@ import { decodeHTMLEntities } from '@/lib/utils';
 import { db } from '@/lib/db';
 import { clsx } from 'clsx';
 
+// Whitelist for iframe domains
+export const ALLOWED_IFRAME_DOMAINS = [
+    'www.youtube.com',
+    'youtube.com',
+    'youtu.be',
+    'www.youtube-nocookie.com',
+    'player.vimeo.com',
+];
+
+export const getSanitizeOptions = () => {
+    // We use a hook to strictly validate iframe sources
+    DOMPurify.removeHook('beforeSanitizeElements');
+    DOMPurify.addHook('beforeSanitizeElements', (node) => {
+        if (node instanceof Element && node.tagName === 'IFRAME') {
+            const src = node.getAttribute('src');
+            if (src) {
+                try {
+                    const url = new URL(src, window.location.origin);
+                    if (!ALLOWED_IFRAME_DOMAINS.includes(url.hostname)) {
+                        node.remove();
+                    }
+                } catch (e) {
+                    node.remove();
+                }
+            } else {
+                node.remove();
+            }
+        }
+    });
+
+    return {
+        ADD_TAGS: ['iframe'],
+        ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style'],
+    };
+};
+
 interface ReaderProps {
     article: Article;
 }
@@ -115,7 +151,7 @@ export function Reader({ article }: ReaderProps) {
             const parsed = reader.parse();
 
             if (parsed && parsed.content) {
-                const cleanHtml = DOMPurify.sanitize(parsed.content, { ADD_TAGS: ['iframe', 'img'] });
+                const cleanHtml = DOMPurify.sanitize(parsed.content, getSanitizeOptions());
                 // Cache in DB
                 await db.articles.update(article.id, { readerHTML: cleanHtml });
                 return cleanHtml;
@@ -127,11 +163,6 @@ export function Reader({ article }: ReaderProps) {
     };
 
     useEffect(() => {
-        const sanitizeOptions = {
-            ADD_TAGS: ['iframe'],
-            ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style']
-        };
-
         // For RSS articles (not youtube/podcast), auto-invoke Readability
         const shouldAutoReader = article.mediaKind !== 'youtube' && article.mediaKind !== 'podcast';
 
@@ -145,9 +176,9 @@ export function Reader({ article }: ReaderProps) {
 
             // Set initial content from RSS
             if (article.contentHTML) {
-                setContent(DOMPurify.sanitize(article.contentHTML, sanitizeOptions));
+                setContent(DOMPurify.sanitize(article.contentHTML, getSanitizeOptions()));
             } else if (article.summary) {
-                setContent(DOMPurify.sanitize(article.summary, sanitizeOptions));
+                setContent(DOMPurify.sanitize(article.summary, getSanitizeOptions()));
             }
 
             // Auto-fetch reader content for RSS feeds
@@ -206,7 +237,7 @@ export function Reader({ article }: ReaderProps) {
     const toggleReaderMode = async () => {
         if (isReaderMode) {
             // Revert to RSS content
-            setContent(DOMPurify.sanitize(article.contentHTML || article.summary || ''));
+            setContent(DOMPurify.sanitize(article.contentHTML || article.summary || '', getSanitizeOptions()));
             setIsReaderMode(false);
             return;
         }
@@ -238,7 +269,7 @@ export function Reader({ article }: ReaderProps) {
             const parsed = reader.parse();
 
             if (parsed && parsed.content) {
-                const cleanHtml = DOMPurify.sanitize(parsed.content, { ADD_TAGS: ['iframe', 'img'] });
+                const cleanHtml = DOMPurify.sanitize(parsed.content, getSanitizeOptions());
                 setContent(cleanHtml);
                 setIsReaderMode(true);
 

@@ -19,32 +19,42 @@ export function Sidebar({ className }: SidebarProps) {
     const folders = useLiveQuery(() => db.folders.orderBy('position').toArray()) || [];
     const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
 
-    // Sidebar counts
+    // Sidebar counts - Optimized with Indexes
     const counts = useLiveQuery(async () => {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         const [today, all, saved] = await Promise.all([
-            db.articles.filter(a => a.publishedAt instanceof Date && a.publishedAt >= todayStart && a.isRead === false).count(),
-            db.articles.filter(a => a.isRead === false).count(),
-            db.articles.filter(a => Boolean(a.isBookmarked)).count(),
+            // [isRead+publishedAt] index usage
+            db.articles.where('[isRead+publishedAt]')
+                .between([0, todayStart], [0, new Date(Date.now() + 86400000)]) // 0=false (unread)
+                .count(),
+            // Simple index
+            db.articles.where('isRead').equals(0).count(),
+            // Simple index
+            db.articles.where('isBookmarked').equals(1).count(),
         ]);
 
         return { today, all, saved };
     }) || { today: 0, all: 0, saved: 0 };
 
-    // Smart Feed counts
+    // Smart Feed counts - Optimized
     const mediaCounts = useLiveQuery(async () => {
         const [youtube, podcast, reddit, rss] = await Promise.all([
+            // Simple index
             db.articles.where('mediaKind').equals('youtube').count(),
             db.articles.where('mediaKind').equals('podcast').count(),
             // Reddit requires finding feeds first
             db.feeds.where('type').equals('reddit').toArray().then(feeds => {
                 if (feeds.length === 0) return 0;
+                // Optimization: If many feeds, this is still slow. 
+                // Better would be a compound index [feedID+isRead] but we want TOTAL items here? 
+                // Actually the UI usually implies 'All Items' in smart folders, not just unread.
+                // If we want UNREAD only, we need to change logic. 
+                // Assuming "Smart Folders" show ALL items for now based on current UI.
                 return db.articles.where('feedID').anyOf(feeds.map(f => f.id)).count();
             }),
-            // RSS/Articles (generic) - counts articles NOT from reddit/youtube/podcast feeds
-            // Optimization: Find Allowed Feeds first, avoiding full table scan/load
+            // RSS/Articles (generic)
             db.feeds.where('type').noneOf(['reddit', 'youtube', 'podcast']).primaryKeys().then(allowedIds => {
                 if (allowedIds.length === 0) return 0;
                 return db.articles.where('feedID').anyOf(allowedIds as string[]).count();

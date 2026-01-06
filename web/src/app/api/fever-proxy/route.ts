@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { validateUrl } from '@/lib/server-network';
 
 export async function POST(req: NextRequest) {
     try {
@@ -7,6 +8,13 @@ export async function POST(req: NextRequest) {
 
         if (!url_param) {
             return NextResponse.json({ error: 'Missing target URL' }, { status: 400 });
+        }
+
+        // Validate URL to prevent SSRF
+        const validation = await validateUrl(url_param);
+        if (!validation.valid) {
+            console.error(`[FeverProxy] SSRF blocked: ${url_param} (${validation.error})`);
+            return NextResponse.json({ error: validation.error }, { status: 403 });
         }
 
         // Robustly handle the body

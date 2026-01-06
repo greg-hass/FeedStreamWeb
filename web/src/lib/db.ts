@@ -128,6 +128,11 @@ export class FeedStreamDB extends Dexie {
       rules: 'id, name, isActive', // Simple index, full scan is fine for rules (usually < 50)
       briefings: 'id, date, generatedAt'
     });
+
+    // Schema version 6: Performance Indexes
+    this.version(6).stores({
+        articles: 'id, feedID, [feedID+isRead+publishedAt], [isRead+publishedAt], publishedAt, url, &content_hash, [contentPrefetchedAt+isRead], isBookmarked, mediaKind, [mediaKind+publishedAt], [isBookmarked+publishedAt], [feedID+publishedAt]'
+    });
   }
 
   async search(query: string, limit: number = 50): Promise<Article[]> {

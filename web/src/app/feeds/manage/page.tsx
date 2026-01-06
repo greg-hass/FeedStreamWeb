@@ -342,10 +342,11 @@ function FeedRow({ feed, onDelete, onMove }: { feed: Feed; onDelete: () => void;
     const getIcon = () => {
         if (feed.type === 'youtube') return Play;
         if (feed.type === 'podcast') return Radio;
-        if (feed.type === 'reddit') return MessageCircle; // Ensure MessageCircle is imported
+        if (feed.type === 'reddit') return MessageCircle;
         return Rss;
     };
     const Icon = getIcon();
+    const [showMenu, setShowMenu] = useState(false);
 
     const handleTypeChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         await db.feeds.update(feed.id, { type: e.target.value as any });
@@ -354,7 +355,7 @@ function FeedRow({ feed, onDelete, onMove }: { feed: Feed; onDelete: () => void;
     const isLocal = isNaN(parseInt(feed.id));
 
     return (
-        <li className="flex items-center gap-3 px-4 py-3 border-t border-zinc-100 dark:border-zinc-800 first:border-t-0 group">
+        <li className="flex items-center gap-3 px-4 py-3 border-t border-zinc-100 dark:border-zinc-800 first:border-t-0 group relative">
             <Icon size={16} className="text-zinc-400 shrink-0" />
             <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate flex items-center gap-2">
@@ -380,12 +381,46 @@ function FeedRow({ feed, onDelete, onMove }: { feed: Feed; onDelete: () => void;
                     </select>
                 </div>
             </div>
-            <button onClick={onMove} className="p-2 text-zinc-400 hover:text-brand rounded-full hover:bg-brand/10 transition-colors" title="Move">
-                <MoveRight size={16} />
-            </button>
-            <button onClick={onDelete} className="p-2 text-zinc-400 hover:text-red-500 rounded-full hover:bg-red-500/10 transition-colors" title="Delete">
-                <Trash2 size={16} />
-            </button>
+
+            {/* Desktop Actions */}
+            <div className="hidden md:flex items-center gap-1">
+                <button onClick={onMove} className="p-2 text-zinc-400 hover:text-brand rounded-full hover:bg-brand/10 transition-colors" title="Move">
+                    <MoveRight size={16} />
+                </button>
+                <button onClick={onDelete} className="p-2 text-zinc-400 hover:text-red-500 rounded-full hover:bg-red-500/10 transition-colors" title="Delete">
+                    <Trash2 size={16} />
+                </button>
+            </div>
+
+            {/* Mobile Menu */}
+            <div className="md:hidden relative">
+                <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="p-2 -mr-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                >
+                    <MoreVertical size={20} />
+                </button>
+
+                {showMenu && (
+                    <>
+                        <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-zinc-900 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-800 z-20 py-1">
+                            <button
+                                onClick={() => { setShowMenu(false); onMove(); }}
+                                className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
+                            >
+                                <MoveRight size={16} /> Move to Folder
+                            </button>
+                            <button
+                                onClick={() => { setShowMenu(false); onDelete(); }}
+                                className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                            >
+                                <Trash2 size={16} /> Delete Feed
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
         </li>
     );
 }
