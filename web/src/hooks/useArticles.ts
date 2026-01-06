@@ -9,8 +9,8 @@ export function useArticles(
     limit = 100,
     searchQuery: string = ''
 ) {
-    // Check if a sync is actively running
-    const isSyncing = useUIStore((s) => s.isSyncing);
+    // Note: We check isSyncing via useUIStore.getState() in the debounce effect
+    // to avoid re-running the effect when sync status changes
 
     // Raw live query - updates on every DB change
     const liveArticles = useLiveQuery(async () => {
@@ -99,39 +99,93 @@ export function useArticles(
     // Use longer debounce (2s) during active sync, shorter (500ms) when idle
     const [debouncedArticles, setDebouncedArticles] = useState<Article[] | undefined>(undefined);
     const prevView = useRef(view);
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const lastArticlesRef = useRef<Article[] | undefined>(undefined);
 
     // Reset state when view changes
     if (prevView.current !== view) {
         prevView.current = view;
         setDebouncedArticles(undefined);
+        lastArticlesRef.current = undefined;
+        // Cancel pending debounce on view change
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
     }
 
     useEffect(() => {
-        // If we don't have debouncedArticles yet, set them immediately
-        if (debouncedArticles === undefined && liveArticles !== undefined) {
+        // If we don't have debouncedArticles yet, set them immediately (first load)
+        if (lastArticlesRef.current === undefined && liveArticles !== undefined) {
+            lastArticlesRef.current = liveArticles;
             setDebouncedArticles(liveArticles);
-            return; // Skip debounce for first load
+            return;
         }
 
-        const debounceMs = isSyncing ? 2000 : 500;
+        // Skip if liveArticles hasn't changed (shallow reference check)
+        // or if the liveArticles are undefined
+        if (liveArticles === undefined) return;
 
-        const handler = setTimeout(() => {
-            if (liveArticles !== undefined) {
-                setDebouncedArticles(current => {
-                    // Prevent update if data is effectively the same (deep comparison)
-                    if (current && current.length === liveArticles.length) {
-                        const simplify = (arr: Article[]) => arr.map(x => `${x.id}:${x.isRead}:${x.isBookmarked}`);
-                        if (JSON.stringify(simplify(current)) === JSON.stringify(simplify(liveArticles))) {
-                            return current;
+        // Clear any pending timer
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+        }
+
+        // Read isSyncing from the store synchronously when timer fires
+        // This prevents the effect dependency on isSyncing which resets the timer
+        timerRef.current = setTimeout(() => {
+            const currentSyncing = useUIStore.getState().isSyncing;
+            // If still syncing, re-schedule with longer delay instead of updating
+            if (currentSyncing) {
+                timerRef.current = setTimeout(() => {
+                    setDebouncedArticles(current => {
+                        if (!liveArticles) return current;
+                        // Compare by article IDs and key properties to avoid unnecessary updates
+                        if (current && current.length === liveArticles.length) {
+                            let isSame = true;
+                            for (let i = 0; i < current.length; i++) {
+                                if (current[i].id !== liveArticles[i].id ||
+                                    current[i].isRead !== liveArticles[i].isRead ||
+                                    current[i].isBookmarked !== liveArticles[i].isBookmarked) {
+                                    isSame = false;
+                                    break;
+                                }
+                            }
+                            if (isSame) return current;
+                        }
+                        lastArticlesRef.current = liveArticles;
+                        return liveArticles;
+                    });
+                }, 1500); // Additional delay while syncing
+                return;
+            }
+
+            setDebouncedArticles(current => {
+                if (!liveArticles) return current;
+                // Compare by article IDs and key properties to avoid unnecessary updates
+                if (current && current.length === liveArticles.length) {
+                    let isSame = true;
+                    for (let i = 0; i < current.length; i++) {
+                        if (current[i].id !== liveArticles[i].id ||
+                            current[i].isRead !== liveArticles[i].isRead ||
+                            current[i].isBookmarked !== liveArticles[i].isBookmarked) {
+                            isSame = false;
+                            break;
                         }
                     }
-                    return liveArticles;
-                });
-            }
-        }, debounceMs);
+                    if (isSame) return current;
+                }
+                lastArticlesRef.current = liveArticles;
+                return liveArticles;
+            });
+        }, 300); // Short initial debounce, sync-aware logic inside
 
-        return () => clearTimeout(handler);
-    }, [liveArticles, isSyncing]);
+        return () => {
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+            }
+        };
+    }, [liveArticles]); // Only depend on liveArticles, NOT isSyncing
 
     return debouncedArticles;
 }
