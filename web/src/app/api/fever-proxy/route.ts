@@ -9,24 +9,32 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing target URL' }, { status: 400 });
         }
 
-        // Parse the body
-        const formData = await req.formData();
+        // Robustly handle the body
+        // We expect application/x-www-form-urlencoded from our client
+        const textBody = await req.text();
+        const forwardBody = new URLSearchParams(textBody);
 
-        // Convert back to URLSearchParams to force application/x-www-form-urlencoded
-        // This is crucial for PHP backends like FreshRSS which may not handle multipart well from proxies
-        const forwardBody = new URLSearchParams();
-        formData.forEach((value, key) => {
-            forwardBody.append(key, value as string);
-        });
+        console.log(`[FeverProxy] Proxying to: ${url_param}`);
 
         // Forward the request to the actual Fever API
         const response = await fetch(url_param, {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'FeedStreamWeb/1.0',
+                'Accept': 'application/json'
+            },
             body: forwardBody,
         });
 
-        const data = await response.json();
+        if (!response.ok) {
+            console.error(`[FeverProxy] Upstream Error: ${response.status} ${response.statusText}`);
+            return NextResponse.json({ 
+                error: `Upstream error: ${response.status}` 
+            }, { status: response.status });
+        }
 
+        const data = await response.json();
         return NextResponse.json(data);
     } catch (e: any) {
         console.error('[FeverProxy] Error:', e);

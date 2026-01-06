@@ -139,13 +139,19 @@ export class FeedService {
         try {
             console.log("Starting Sync...");
 
-            // 1. Parallel Fetch: Groups, Feeds, Unread, Saved
-            const [groupsData, feedsData, unreadData, savedData] = await Promise.all([
-                api.getGroups(),
-                api.getFeeds(),
-                api.getUnreadItemIds(),
-                api.getSavedItemIds()
-            ]);
+            // 1. Sequential Fetch: Groups, Feeds, Unread, Saved
+            // We do this sequentially to avoid overwhelming the server or hitting browser connection limits on mobile
+            console.log("[FeedService] Fetching Groups...");
+            const groupsData = await api.getGroups();
+            
+            console.log("[FeedService] Fetching Feeds...");
+            const feedsData = await api.getFeeds();
+            
+            console.log("[FeedService] Fetching Unread Items...");
+            const unreadData = await api.getUnreadItemIds();
+            
+            console.log("[FeedService] Fetching Saved Items...");
+            const savedData = await api.getSavedItemIds();
 
             // 2. Process Groups (Folders)
             const feedToFolderMap = new Map<string, string>();

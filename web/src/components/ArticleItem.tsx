@@ -199,14 +199,16 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                         {article.thumbnailPath && (
                             <div
                                 className={clsx(
-                                    "mt-3 md:mt-0 md:shrink-0 md:w-28 md:h-28",
-                                    "relative group/thumb cursor-pointer"
+                                    "mt-3 md:mt-0 md:shrink-0",
+                                    "w-full aspect-video", // Mobile: Force 16:9 video ratio
+                                    isVideoPlaying ? "md:w-[320px] md:h-[180px]" : "md:w-28 md:h-28 md:aspect-auto",
+                                    "relative group/thumb cursor-pointer transition-all duration-300 ease-out"
                                 )}
                                 onClick={article.mediaKind === 'youtube' ? handleVideoClick : article.mediaKind === 'podcast' ? handlePlay : undefined}
                             >
                                 {/* Show embedded video on mobile when playing */}
                                 {isVideoPlaying && videoId ? (
-                                    <div className="w-full aspect-video md:hidden bg-black rounded-lg overflow-hidden">
+                                    <div className="w-full h-full bg-black rounded-lg overflow-hidden">
                                         <iframe
                                             src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`}
                                             className="w-full h-full"
@@ -220,8 +222,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                         alt=""
                                         className={clsx(
                                             "w-full object-cover rounded-lg bg-zinc-200 dark:bg-zinc-800",
-                                            "md:w-full md:h-full",
-                                            "aspect-video md:aspect-auto",
+                                            "h-full", // Always fill container
                                             (article.mediaKind === 'podcast' || article.mediaKind === 'youtube') && "group-hover/thumb:brightness-75 transition-all"
                                         )}
                                         loading="lazy"

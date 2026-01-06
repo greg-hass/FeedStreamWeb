@@ -69,16 +69,10 @@ export function AppHeader({
         setRefreshProgress({ current: 0, total: 0, feedName: 'Syncing FreshRSS...' });
 
         try {
+            // Always await sync to catch errors and report them
+            await FeedService.syncWithFever();
+            
             let localFeeds = await db.feeds.toArray();
-
-            if (localFeeds.length === 0) {
-                // First-time sync: wait for Fever import so we actually have feeds to process
-                await FeedService.syncWithFever();
-                localFeeds = await db.feeds.toArray();
-            } else {
-                // Subsequent refreshes: run Fever sync in the background
-                FeedService.syncWithFever().catch(e => console.warn('[Sync] Fever sync failed:', e));
-            }
 
             // Get relevant feeds to sync
             const feedsToSync = localFeeds.filter(f =>
@@ -92,7 +86,7 @@ export function AppHeader({
             });
 
             // Parallel execution with higher concurrency limit
-            const CONCURRENCY_LIMIT = 25;
+            const CONCURRENCY_LIMIT = 5; // Reduced for stability
             let completedCount = 0;
             let currentIndex = 0;
             let totalNewArticles = 0;
@@ -121,7 +115,8 @@ export function AppHeader({
                     completedCount++;
                     setRefreshProgress(prev => ({
                         current: completedCount,
-                        total: feedsToSync.length
+                        total: feedsToSync.length,
+                        feedName: prev?.feedName // Keep current name or update?
                     }));
 
                     // Process next in queue
@@ -140,28 +135,34 @@ export function AppHeader({
 
             // Show summary notification
             if (totalNewArticles > 0) {
-                // Ideally use a toast library if available, falling back to alert for now or just log for user clarity
-                // Since user sees console, a prominent log is good, but visual is better.
-                // Assuming no toast lib installed yet based on package.json (no sonner/toast), 
-                // we will rely on UI reactivity already fixed, but let's log it clearly.
                 console.log(`[Sync Complete] Refreshed ${feedsToSync.length} feeds. Found ${totalNewArticles} new articles.`);
-                // For now, let's alert ONLY if manually triggered (isSyncing check/context) or just always?
-                // Alert is intrusive. 
-                // Let's create a temporary status message in the header timeRemaining area?
                 setTimeRemaining(`${totalNewArticles} new`);
                 setTimeout(() => setTimeRemaining(''), 5000);
             } else {
                 console.log(`[Sync Complete] Refreshed ${feedsToSync.length} feeds. No new articles.`);
             }
-
-        } catch (e) {
-            console.error('Sync failed:', e);
-        } finally {
-            // ALWAYS update last refresh time to prevent infinite loops if sync fails
-            setLastRefreshTime(Date.now());
-
+            
+            // Clear progress immediately on success
+            setRefreshProgress(null);
             setIsSyncing(false);
-            setTimeout(() => setRefreshProgress(null), 1000);
+
+        } catch (e: any) {
+            console.error('Sync failed:', e);
+            // Show error to user
+            setRefreshProgress({ 
+                current: 0, 
+                total: 0, 
+                feedName: `Sync Failed: ${e.message || 'Unknown error'}` 
+            });
+            // Clear after 3 seconds so user can see it
+            setTimeout(() => {
+                setRefreshProgress(null);
+                setIsSyncing(false);
+            }, 3000);
+        } finally {
+            // Ensure we don't leave it hanging if something unexpected happens
+            // But main logic is in try/catch for specific timing
+            setLastRefreshTime(Date.now());
         }
     }, [isSyncing, setLastRefreshTime]); // Depend on isSyncing
 

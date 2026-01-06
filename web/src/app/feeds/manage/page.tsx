@@ -351,11 +351,20 @@ function FeedRow({ feed, onDelete, onMove }: { feed: Feed; onDelete: () => void;
         await db.feeds.update(feed.id, { type: e.target.value as any });
     };
 
+    const isLocal = isNaN(parseInt(feed.id));
+
     return (
         <li className="flex items-center gap-3 px-4 py-3 border-t border-zinc-100 dark:border-zinc-800 first:border-t-0 group">
             <Icon size={16} className="text-zinc-400 shrink-0" />
             <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{feed.title}</p>
+                <p className="font-medium text-sm truncate flex items-center gap-2">
+                    {feed.title}
+                    {isLocal && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            LOCAL
+                        </span>
+                    )}
+                </p>
                 <div className="flex items-center gap-2">
                     <p className="text-xs text-zinc-500 truncate max-w-[200px]">{feed.feedURL}</p>
                     <select
