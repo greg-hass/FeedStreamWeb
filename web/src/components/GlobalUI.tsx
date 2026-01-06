@@ -9,7 +9,7 @@ import { AlertCircle, Download, X } from "lucide-react";
 import { BackupService } from "@/lib/backup-service";
 
 export function GlobalUI() {
-    const { isSyncing, current, total, feedName, endSync } = useUIStore();
+    const { isSyncing, current, total, feedName, endSync, cancelSync } = useUIStore();
     const { backupFrequency, lastBackupAt } = useSettingsStore();
     const [showBackupReminder, setShowBackupReminder] = useState(false);
 
@@ -57,7 +57,7 @@ export function GlobalUI() {
                     current={current}
                     total={total}
                     currentFeedName={feedName}
-                    onDismiss={endSync}
+                    onDismiss={cancelSync}
                 />
             )}
 

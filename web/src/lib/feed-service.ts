@@ -58,17 +58,10 @@ export class FeedService {
         return feedId;
     }
 
-    static async refreshFeed(feed: Feed): Promise<number> {
-        // ... (existing implementation)
-        // Since we are replacing the logic above, let's keep the existing implementation but just inserting the NEW method below it
-        // actually I will just Replace the END of the refreshFeed block to insert the new method
-        // But the user tool view shows refreshFeed ending at 132.
-        // So I can append after it.
-        // I'll assume the tool handles context matching. 
-        // Let's rewrite refreshFeed's end and append refreshAllFeeds.
-
+    static async refreshFeed(feed: Feed, signal?: AbortSignal): Promise<number> {
         console.log(`[RefreshFeed] Starting refresh for: ${feed.title}`);
         try {
+            if (signal?.aborted) return 0;
             const proxyUrl = `/api/proxy?url=${encodeURIComponent(feed.feedURL)}`;
 
             // Build headers with conditional caching
@@ -76,7 +69,7 @@ export class FeedService {
             if (feed.etag) headers['If-None-Match'] = feed.etag;
             if (feed.lastModified) headers['If-Modified-Since'] = feed.lastModified;
 
-            const response = await fetch(proxyUrl, { headers });
+            const response = await fetch(proxyUrl, { headers, signal });
 
             // Handle 304 Not Modified - feed unchanged, skip parsing
             if (response.status === 304) {
@@ -103,6 +96,8 @@ export class FeedService {
             const newLastModified = response.headers.get('last-modified');
 
             const text = await response.text();
+            if (signal?.aborted) return 0;
+
             console.log(`[RefreshFeed] Fetched ${text.length} bytes for ${feed.title}`);
             const normalized = await parseFeed(text, feed.feedURL);
             console.log(`[RefreshFeed] Parsed ${normalized.articles.length} articles for ${feed.title}`);
@@ -129,6 +124,10 @@ export class FeedService {
             return newCount;
 
         } catch (e: any) {
+            if (e.name === 'AbortError') {
+                console.log(`[RefreshFeed] Aborted: ${feed.title}`);
+                return 0;
+            }
             console.error(`Failed to sync feed ${feed.title}`, e);
             await db.feeds.update(feed.id, {
                 lastError: e.message || 'Unknown error',
@@ -138,7 +137,7 @@ export class FeedService {
         }
     }
 
-    static async refreshAllFeeds(onProgress?: (completed: number, total: number, message: string) => void): Promise<number> {
+    static async refreshAllFeeds(onProgress?: (completed: number, total: number, message: string) => void, signal?: AbortSignal): Promise<number> {
         const localFeeds = await db.feeds.toArray();
         const feedsToSync = localFeeds.filter(f => !f.isPaused);
 
@@ -150,7 +149,7 @@ export class FeedService {
         let totalNewArticles = 0;
 
         const processNext = async (): Promise<void> => {
-            if (currentIndex >= feedsToSync.length) return;
+            if (signal?.aborted || currentIndex >= feedsToSync.length) return;
 
             const feed = feedsToSync[currentIndex];
             currentIndex++;
@@ -158,13 +157,13 @@ export class FeedService {
             if (onProgress) onProgress(completedCount, feedsToSync.length, `Updating ${feed.title}...`);
 
             try {
-                const newCount = await this.refreshFeed(feed);
+                const newCount = await this.refreshFeed(feed, signal);
                 totalNewArticles += newCount;
             } catch (e) {
                 console.error(e);
             } finally {
                 completedCount++;
-                if (onProgress) onProgress(completedCount, feedsToSync.length, `Updating ${feed.title}...`);
+                if (onProgress && !signal?.aborted) onProgress(completedCount, feedsToSync.length, `Updating ${feed.title}...`);
                 await processNext();
             }
         };

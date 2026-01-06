@@ -35,7 +35,7 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     const touchStartY = useRef(0);
     const isDragging = useRef(false);
     const lastSyncTime = useRef<number>(0);
-    const { startSync, setProgress, endSync, isSyncing } = useUIStore(); // Use global store
+    const { startSync, setProgress, endSync, isSyncing, abortController } = useUIStore(); // Use global store
 
     const handleTouchStart = (e: React.TouchEvent) => {
         if (atTop && !isRefreshing) {
@@ -69,14 +69,21 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
             setPullDistance(60); // Snap to loading position
 
             // Show global progress for manual refresh
-            startSync(0);
+            startSync(0); // This creates a NEW abortController in store
+            
+            // Get the FRESH controller instance immediately after startSync update
+            // However, React state update is async.
+            // Better pattern: startSync returns the controller OR we access the store instance directly.
+            // But useUIStore.getState().abortController is synchronous.
+            const controller = useUIStore.getState().abortController;
+            
             setProgress(0, 0, 'Refreshing...');
 
             try {
                 // Determine if we should Sync (Fever) or Refresh All (Local)
                 await FeedService.refreshAllFeeds((completed, total, message) => {
                     setProgress(completed, total, message);
-                });
+                }, controller?.signal);
             } catch (e) {
                 console.error("Refresh failed", e);
             } finally {
