@@ -100,8 +100,12 @@ export function useArticles(
     const [debouncedArticles, setDebouncedArticles] = useState<Article[] | undefined>(undefined);
 
     useEffect(() => {
-        // If liveArticles is undefined (loading), wait.
-        // If we're syncing, use a longer debounce to batch updates
+        // If we don't have debouncedArticles yet, set them immediately
+        if (debouncedArticles === undefined && liveArticles !== undefined) {
+            setDebouncedArticles(liveArticles);
+            return; // Skip debounce for first load
+        }
+
         const debounceMs = isSyncing ? 2000 : 500;
 
         const handler = setTimeout(() => {
