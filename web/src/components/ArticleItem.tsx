@@ -54,22 +54,54 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
         }
     };
 
-    // Extract YouTube video ID from contentHTML or URL
+    // Extract YouTube video ID from contentHTML, URL, or Thumbnail
     const getYouTubeVideoId = (): string | null => {
-        // 1. Check contentHTML
-        if (article.contentHTML) {
-            for (const pattern of YOUTUBE_PATTERNS) {
-                const match = article.contentHTML.match(pattern);
+        const extractFromUrl = (url: string | undefined | null) => {
+            if (!url) return null;
+            try {
+                // If the URL is just an ID (11 chars), return it (rare but possible in some feeds)
+                if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+
+                const urlObj = new URL(url);
+                const hostname = urlObj.hostname.replace('www.', '');
+
+                if (hostname === 'youtu.be') return urlObj.pathname.slice(1);
+
+                if (hostname.includes('youtube.com')) {
+                    // v= query param
+                    const v = urlObj.searchParams.get('v');
+                    if (v) return v;
+
+                    // Path segments: /embed/ID, /v/ID, /shorts/ID, /live/ID
+                    const path = urlObj.pathname;
+                    if (path.startsWith('/embed/')) return path.split('/')[2];
+                    if (path.startsWith('/v/')) return path.split('/')[2];
+                    if (path.startsWith('/shorts/')) return path.split('/')[2];
+                    if (path.startsWith('/live/')) return path.split('/')[2];
+                }
+            } catch (e) {
+                // Fallback for partial URLs or regex matching
+                const match = url.match(YOUTUBE_PATTERNS[0]);
                 if (match) return match[1];
             }
+            return null;
+        };
+
+        // 1. Check contentHTML (regex is fine for iframes strings)
+        if (article.contentHTML) {
+            const match = article.contentHTML.match(YOUTUBE_PATTERNS[0]);
+            if (match) return match[1];
         }
 
         // 2. Check Article URL
-        if (article.url) {
-            for (const pattern of YOUTUBE_PATTERNS) {
-                const match = article.url.match(pattern);
-                if (match) return match[1];
-            }
+        const fromUrl = extractFromUrl(article.url);
+        if (fromUrl) return fromUrl;
+
+        // 3. Check Thumbnail Path (High confidence fallback)
+        // Format: https://i.ytimg.com/vi/[ID]/maxresdefault.jpg
+        if (article.thumbnailPath && article.thumbnailPath.includes('/vi/')) {
+            const match = article.thumbnailPath.match(/\/vi\/([^\/]+)\//);
+            if (match) return match[1];
         }
 
         return null;
@@ -93,17 +125,13 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
     };
 
     const handleVideoClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (article.mediaKind === 'youtube') {
-            if (!videoId) {
-                console.warn('[YouTube] Could not extract video ID, opening in new tab as fallback:', article.url);
-                window.open(article.url, '_blank', 'noopener,noreferrer');
-                return;
-            }
+        if (article.mediaKind === 'youtube' && videoId) {
+            e.preventDefault();
+            e.stopPropagation();
             setIsVideoPlaying(true);
         }
+        // If no videoId, do NOT preventDefault. Let it click through to the detailed article view.
+        // This avoids the "blank white page" issue of window.open falback.
     };
 
     return (
