@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Check, Bookmark, Youtube, Radio, Rss, Mic, Play, MessageCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Article, Feed } from '@/lib/db';
-import { ArticleSwipeRow } from './ArticleSwipeRow';
+import { MemoizedArticleSwipeRow as ArticleSwipeRow } from './ArticleSwipeRow';
 import { useAudioStore } from '@/store/audioStore';
 
 const YOUTUBE_PATTERNS = [
@@ -26,13 +26,7 @@ interface ArticleItemProps {
 function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggleBookmark }: ArticleItemProps) {
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
-    const getTypeIcon = () => {
-        if (article.mediaKind === 'youtube') return Youtube;
-        if (article.mediaKind === 'podcast') return Mic;
-        if (feed?.type === 'reddit') return MessageCircle;
-        return Rss;
-    };
-    const TypeIcon = getTypeIcon();
+
 
     // Selector optimization to prevent re-renders on audio progress
     const setTrack = useAudioStore((s) => s.setTrack);
@@ -107,13 +101,29 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
         return null;
     };
 
-    const getPreviewText = () => {
+    // Memoize expensive computations to avoid recalculating on every render
+    const TypeIcon = useMemo(() => {
+        if (article.mediaKind === 'youtube') return Youtube;
+        if (article.mediaKind === 'podcast') return Mic;
+        if (feed?.type === 'reddit') return MessageCircle;
+        return Rss;
+    }, [article.mediaKind, feed?.type]);
+
+    const previewText = useMemo(() => {
         if (article.summary) return article.summary.replace(HTML_TAG_PATTERN, '');
         if (article.contentHTML) return article.contentHTML.replace(HTML_TAG_PATTERN, '').slice(0, 200);
         return '';
-    };
+    }, [article.summary, article.contentHTML]);
 
-    const videoId = article.mediaKind === 'youtube' ? getYouTubeVideoId() : null;
+    const videoId = useMemo(() => {
+        return article.mediaKind === 'youtube' ? getYouTubeVideoId() : null;
+    }, [article.mediaKind, article.contentHTML, article.url, article.thumbnailPath]);
+
+    // Memoize relative time - only recalculate when publishedAt changes
+    const relativeTime = useMemo(() => {
+        if (!article.publishedAt) return '';
+        return formatDistanceToNow(article.publishedAt, { addSuffix: true });
+    }, [article.publishedAt]);
 
     // Handle article click - podcasts play instead of navigating
     const handleArticleClick = (e: React.MouseEvent) => {
@@ -187,7 +197,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                     className="shrink-0 text-sm text-orange-500 dark:text-orange-400 font-medium flex items-center gap-1.5"
                                     suppressHydrationWarning
                                 >
-                                    {article.publishedAt ? formatDistanceToNow(article.publishedAt, { addSuffix: true }) : ''}
+                                    {relativeTime}
                                     <TypeIcon size={14} className="text-zinc-400 dark:text-zinc-500" />
                                 </time>
                             </div>
@@ -207,7 +217,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
 
                             {/* Preview Text - Desktop only */}
                             <p className="hidden md:block text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed mb-2 md:order-3">
-                                {getPreviewText()}
+                                {previewText}
                             </p>
 
                             {/* Actions - Desktop only */}

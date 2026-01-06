@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Article } from '@/lib/db';
 import { ArticleItem } from './ArticleItem';
@@ -70,13 +70,13 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
 
             // Show global progress for manual refresh
             startSync(0); // This creates a NEW abortController in store
-            
+
             // Get the FRESH controller instance immediately after startSync update
             // However, React state update is async.
             // Better pattern: startSync returns the controller OR we access the store instance directly.
             // But useUIStore.getState().abortController is synchronous.
             const controller = useUIStore.getState().abortController;
-            
+
             setProgress(0, 0, 'Refreshing...');
 
             try {
@@ -254,8 +254,8 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                     >
                         <span>New Articles</span>
                         <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                         </span>
                     </button>
                 </div>
@@ -287,12 +287,15 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                             onToggleBookmark={handleToggleBookmark}
                         />
                     )}
-                    rangeChanged={(range) => {
-                        setScrollPosition(pathname, range.startIndex);
+                    rangeChanged={useCallback((range: { startIndex: number }) => {
+                        // Debounce scroll position updates to prevent jank
+                        // Only save every 5 items to reduce store updates
+                        const roundedIndex = Math.floor(range.startIndex / 5) * 5;
+                        setScrollPosition(pathname, roundedIndex);
                         if (range.startIndex === 0) {
                             setShowNewItems(false);
                         }
-                    }}
+                    }, [pathname, setScrollPosition])}
                     className="w-full h-full article-list-container ios-scroll"
                 />
             </div>

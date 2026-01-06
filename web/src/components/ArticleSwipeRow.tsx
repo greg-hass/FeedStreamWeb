@@ -133,3 +133,6 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
         </div>
     );
 }
+
+// Memoize to prevent re-renders during virtualized scrolling
+export const MemoizedArticleSwipeRow = React.memo(ArticleSwipeRow);
