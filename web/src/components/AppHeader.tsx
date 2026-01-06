@@ -66,6 +66,7 @@ export function AppHeader({
     const performSync = useCallback(async () => {
         if (isSyncing) return;
         setIsSyncing(true);
+        setRefreshProgress({ current: 0, total: 0, feedName: 'Syncing FreshRSS...' });
 
         try {
             let localFeeds = await db.feeds.toArray();
@@ -84,7 +85,11 @@ export function AppHeader({
                 f.type === 'rss' || f.type === 'reddit' || f.type === 'youtube' || f.type === 'podcast'
             );
 
-            setRefreshProgress({ current: 0, total: feedsToSync.length });
+            setRefreshProgress({
+                current: 0,
+                total: feedsToSync.length,
+                feedName: feedsToSync.length === 0 ? 'No feeds ready to refresh' : 'Preparing feeds...'
+            });
 
             // Parallel execution with higher concurrency limit
             const CONCURRENCY_LIMIT = 25;

@@ -161,22 +161,22 @@ export class FeedService {
                         });
                     }
                 });
+            }
 
-                if (Array.isArray(groupsData.feeds_groups)) {
-                    for (const group of groupsData.feeds_groups) {
-                        const groupId = group.group_id;
-                        if (groupId === undefined || !group.feed_ids) continue;
+            if (Array.isArray(feedsData.feeds_groups)) {
+                for (const group of feedsData.feeds_groups) {
+                    const groupId = group.group_id;
+                    if (groupId === undefined || !group.feed_ids) continue;
 
-                        const feedIds = String(group.feed_ids)
-                            .split(/[ ,]/)
-                            .map(id => id.trim())
-                            .filter(Boolean);
+                    const feedIds = String(group.feed_ids)
+                        .split(/[ ,]/)
+                        .map(id => id.trim())
+                        .filter(Boolean);
 
-                        for (const feedId of feedIds) {
-                            // If a feed belongs to multiple groups, prefer the first mapping we encounter.
-                            if (!feedToFolderMap.has(feedId)) {
-                                feedToFolderMap.set(feedId, String(groupId));
-                            }
+                    for (const feedId of feedIds) {
+                        // If a feed belongs to multiple groups, prefer the first mapping we encounter.
+                        if (!feedToFolderMap.has(feedId)) {
+                            feedToFolderMap.set(feedId, String(groupId));
                         }
                     }
                 }
