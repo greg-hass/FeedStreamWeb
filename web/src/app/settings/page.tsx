@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { md5 } from '@/lib/utils';
 import { OpmlService } from '@/lib/opml-service';
 import { FeverAPI } from '@/lib/fever-api';
+import { BackupService } from '@/lib/backup-service';
 import Link from 'next/link';
 import { Sparkles, Workflow, Loader2, CheckCircle, AlertCircle, Bell } from 'lucide-react';
 import { NotificationSettings } from '@/components/NotificationSettings';
@@ -248,56 +249,28 @@ export default function SettingsPage() {
 
                         <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
 
-                        {/* Settings Backup */}
+                        {/* Master Backup */}
                         <div>
-                            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">Backup Settings</p>
+                            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">Master Backup</p>
                             <p className="text-xs text-zinc-500 mb-3">
-                                Export your API keys and sync config to restore on another device.
+                                Comprehensive backup: Includes all feeds, folders, bookmarks, read status, and API keys. Use this to move to a new device or protect your data.
                             </p>
-                            <div className="flex gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2">
                                 <button
                                     onClick={async () => {
-                                        const settings = {
-                                            syncEndpoint,
-                                            syncUsername,
-                                            syncApiKey,
-                                            openaiApiKey,
-                                            geminiApiKey,
-                                            exportedAt: new Date().toISOString(),
-                                        };
-                                        const json = JSON.stringify(settings, null, 2);
-                                        const blob = new Blob([json], { type: 'application/json' });
-                                        const file = new File([blob], 'feedstream_settings.json', { type: 'application/json' });
-
-                                        // Try Web Share API first (works on iOS Safari)
-                                        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-                                            try {
-                                                await navigator.share({
-                                                    files: [file],
-                                                    title: 'FeedStream Settings',
-                                                });
-                                                return;
-                                            } catch (e) {
-                                                // User cancelled or share failed, fall through
-                                            }
+                                        try {
+                                            const backup = await BackupService.createMasterBackup();
+                                            BackupService.downloadBackup(backup);
+                                        } catch (e: any) {
+                                            alert('Export failed: ' + e.message);
                                         }
-
-                                        // Fallback: try traditional download
-                                        const url = URL.createObjectURL(blob);
-                                        const a = document.createElement('a');
-                                        a.href = url;
-                                        a.download = 'feedstream_settings.json';
-                                        document.body.appendChild(a);
-                                        a.click();
-                                        document.body.removeChild(a);
-                                        URL.revokeObjectURL(url);
                                     }}
-                                    className="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 rounded text-sm font-medium hover:bg-zinc-300 dark:hover:bg-zinc-700 transition"
+                                    className="flex-1 px-4 py-2.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg text-sm font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-700 transition flex items-center justify-center gap-2"
                                 >
-                                    Export Settings
+                                    Export All Data
                                 </button>
-                                <label className="px-4 py-2 bg-brand text-white rounded text-sm font-medium hover:brightness-110 transition cursor-pointer">
-                                    Import Settings
+                                <label className="flex-1 px-4 py-2.5 bg-brand text-white rounded-lg text-sm font-semibold hover:brightness-110 transition cursor-pointer flex items-center justify-center gap-2">
+                                    Import Backup
                                     <input
                                         type="file"
                                         accept=".json"
@@ -305,31 +278,16 @@ export default function SettingsPage() {
                                         onChange={async (e) => {
                                             const file = e.target.files?.[0];
                                             if (!file) return;
+                                            if (!confirm('Importing a backup will OVERWRITE all current feeds and articles. Continue?')) return;
+                                            
                                             try {
                                                 const text = await file.text();
-                                                const settings = JSON.parse(text);
-                                                if (settings.syncEndpoint !== undefined) {
-                                                    setSyncConfig(
-                                                        settings.syncEndpoint || '',
-                                                        settings.syncUsername || '',
-                                                        settings.syncApiKey || ''
-                                                    );
-                                                    setSyncEnabled(true);
-                                                }
-                                                if (settings.openaiApiKey) setOpenaiApiKey(settings.openaiApiKey);
-                                                if (settings.geminiApiKey) setGeminiApiKey(settings.geminiApiKey);
-
-                                                // Update local state
-                                                setEndpoint(settings.syncEndpoint || '');
-                                                setUsername(settings.syncUsername || '');
-                                                setApiKey(settings.syncApiKey || '');
-                                                setAiKey(settings.openaiApiKey || '');
-                                                setGKey(settings.geminiApiKey || '');
-
-                                                alert('Settings restored successfully!');
-                                                e.target.value = '';
+                                                const backup = JSON.parse(text);
+                                                await BackupService.restoreMasterBackup(backup);
+                                                alert('Master Backup restored! The app will now reload.');
+                                                window.location.reload();
                                             } catch (err: any) {
-                                                alert('Failed to import: ' + (err.message || 'Invalid file'));
+                                                alert('Restore Failed: ' + (err.message || 'Invalid file'));
                                             }
                                         }}
                                     />

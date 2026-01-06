@@ -60,4 +60,37 @@ self.addEventListener('pushsubscriptionchange', () => {
     console.log('Push subscription changed - may need to re-subscribe');
 });
 
+// Image caching for offline thumbnails
+const IMAGE_CACHE_NAME = 'article-thumbnails-v1';
+const CACHEABLE_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+
+self.addEventListener('fetch', (event: FetchEvent) => {
+    const url = new URL(event.request.url);
+    
+    // Cache article thumbnails and feed icons
+    const isImage = CACHEABLE_IMAGE_EXTENSIONS.some(ext => url.pathname.toLowerCase().endsWith(ext));
+    const isProxyImage = url.pathname.startsWith('/api/proxy') && (url.searchParams.get('url')?.match(/\.(jpg|jpeg|png|gif|webp)$/i));
+
+    if (event.request.method === 'GET' && (isImage || isProxyImage)) {
+        event.respondWith(
+            caches.open(IMAGE_CACHE_NAME).then(async (cache) => {
+                const cachedResponse = await cache.match(event.request);
+                
+                // Stale-while-revalidate strategy
+                const fetchedResponse = fetch(event.request).then((networkResponse) => {
+                    if (networkResponse.ok) {
+                        cache.put(event.request, networkResponse.clone());
+                    }
+                    return networkResponse;
+                }).catch(() => {
+                    // Fail silently, we'll use cache if available
+                    return null;
+                });
+
+                return cachedResponse || fetchedResponse as Promise<Response>;
+            })
+        );
+    }
+});
+
 export { };
