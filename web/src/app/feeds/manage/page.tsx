@@ -16,8 +16,6 @@ export default function ManageFeedsPage() {
     const [showMoveModal, setShowMoveModal] = useState(false);
     const [showNewFolderModal, setShowNewFolderModal] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
-    const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
-    const [editingFolderName, setEditingFolderName] = useState('');
 
     const handleDeleteFeed = async (feedId: string) => {
         if (!confirm('Delete this feed and all its articles?')) return;
@@ -50,13 +48,6 @@ export default function ManageFeedsPage() {
         });
         setNewFolderName('');
         setShowNewFolderModal(false);
-    };
-
-    const handleRenameFolder = async (folderId: string) => {
-        if (!editingFolderName.trim()) return;
-        await db.folders.update(folderId, { name: editingFolderName.trim() });
-        setEditingFolderId(null);
-        setEditingFolderName('');
     };
 
     const rootFeeds = feeds.filter(f => !f.folderID);
@@ -194,53 +185,16 @@ export default function ManageFeedsPage() {
 
                 <div className="max-w-2xl mx-auto space-y-6">
                     {/* Folders */}
-                    {folders.map(folder => {
-                        const folderFeeds = feeds.filter(f => f.folderID === folder.id);
-                        return (
-                            <div key={folder.id} className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-                                <div className="px-4 py-3 bg-zinc-100 dark:bg-zinc-800/50 flex items-center gap-3">
-                                    <FolderOpen size={18} className="text-amber-500" />
-                                    {editingFolderId === folder.id ? (
-                                        <div className="flex-1 flex items-center gap-2">
-                                            <input
-                                                type="text"
-                                                value={editingFolderName}
-                                                onChange={e => setEditingFolderName(e.target.value)}
-                                                className="flex-1 px-2 py-1 text-sm rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800"
-                                                autoFocus
-                                            />
-                                            <button onClick={() => handleRenameFolder(folder.id)} className="p-1 text-brand"><Check size={18} /></button>
-                                            <button onClick={() => setEditingFolderId(null)} className="p-1 text-zinc-500"><X size={18} /></button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <span className="font-medium flex-1">{folder.name}</span>
-                                            <button onClick={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name); }} className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white rounded hover:bg-zinc-200 dark:hover:bg-zinc-700">
-                                                <Edit2 size={14} />
-                                            </button>
-                                            <button onClick={() => handleDeleteFolder(folder.id)} className="p-1.5 text-red-500 hover:bg-red-500/10 rounded">
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                                {folderFeeds.length > 0 ? (
-                                    <ul>
-                                        {folderFeeds.map(feed => (
-                                            <FeedRow
-                                                key={feed.id}
-                                                feed={feed}
-                                                onDelete={() => handleDeleteFeed(feed.id)}
-                                                onMove={() => { setSelectedFeed(feed.id); setShowMoveModal(true); }}
-                                            />
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <div className="px-4 py-3 text-sm text-zinc-400">No feeds in this folder</div>
-                                )}
-                            </div>
-                        );
-                    })}
+                    {folders.map(folder => (
+                        <FolderGroup
+                            key={folder.id}
+                            folder={folder}
+                            feeds={feeds.filter(f => f.folderID === folder.id)}
+                            onDeleteFolder={() => handleDeleteFolder(folder.id)}
+                            onDeleteFeed={handleDeleteFeed}
+                            onMoveFeed={(id) => { setSelectedFeed(id); setShowMoveModal(true); }}
+                        />
+                    ))}
 
                     {/* Root Feeds */}
                     {rootFeeds.length > 0 && (
@@ -422,5 +376,115 @@ function FeedRow({ feed, onDelete, onMove }: { feed: Feed; onDelete: () => void;
                 )}
             </div>
         </li>
+    );
+}
+
+function FolderGroup({ folder, feeds, onDeleteFolder, onDeleteFeed, onMoveFeed }: { 
+    folder: Folder; 
+    feeds: Feed[]; 
+    onDeleteFolder: () => void;
+    onDeleteFeed: (id: string) => void;
+    onMoveFeed: (id: string) => void;
+}) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState(folder.name);
+    const [showMenu, setShowMenu] = useState(false);
+
+    const handleRename = async () => {
+        if (!editName.trim()) return;
+        await db.folders.update(folder.id, { name: editName.trim() });
+        setIsEditing(false);
+    };
+
+    return (
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            <div className="px-4 py-3 bg-zinc-100 dark:bg-zinc-800/50 flex items-center gap-3 group relative">
+                <FolderOpen size={18} className="text-amber-500" />
+                
+                {isEditing ? (
+                    <div className="flex-1 flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            className="flex-1 px-2 py-1 text-sm rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800"
+                            autoFocus
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRename();
+                                if (e.key === 'Escape') setIsEditing(false);
+                            }}
+                        />
+                        <button onClick={handleRename} className="p-1 text-brand"><Check size={18} /></button>
+                        <button onClick={() => { setIsEditing(false); setEditName(folder.name); }} className="p-1 text-zinc-500"><X size={18} /></button>
+                    </div>
+                ) : (
+                    <>
+                        <span className="font-medium flex-1 truncate">{folder.name}</span>
+                        
+                        {/* Desktop Actions */}
+                        <div className="hidden md:flex items-center gap-1">
+                            <button 
+                                onClick={() => { setIsEditing(true); setEditName(folder.name); }} 
+                                className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                                title="Rename Folder"
+                            >
+                                <Edit2 size={14} />
+                            </button>
+                            <button 
+                                onClick={onDeleteFolder} 
+                                className="p-1.5 text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                title="Delete Folder"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        </div>
+
+                        {/* Mobile Menu */}
+                        <div className="md:hidden relative">
+                            <button
+                                onClick={() => setShowMenu(!showMenu)}
+                                className="p-2 -mr-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                            >
+                                <MoreVertical size={20} />
+                            </button>
+
+                            {showMenu && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                                    <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-zinc-900 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-800 z-20 py-1">
+                                        <button
+                                            onClick={() => { setShowMenu(false); setIsEditing(true); setEditName(folder.name); }}
+                                            className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
+                                        >
+                                            <Edit2 size={16} /> Rename Folder
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowMenu(false); onDeleteFolder(); }}
+                                            className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                        >
+                                            <Trash2 size={16} /> Delete Folder
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+            {feeds.length > 0 ? (
+                <ul>
+                    {feeds.map(feed => (
+                        <FeedRow
+                            key={feed.id}
+                            feed={feed}
+                            onDelete={() => onDeleteFeed(feed.id)}
+                            onMove={() => onMoveFeed(feed.id)}
+                        />
+                    ))}
+                </ul>
+            ) : (
+                <div className="px-4 py-3 text-sm text-zinc-400">No feeds in this folder</div>
+            )}
+        </div>
     );
 }
