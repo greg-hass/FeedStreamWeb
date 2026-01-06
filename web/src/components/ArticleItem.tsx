@@ -210,10 +210,12 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                 {isVideoPlaying && videoId ? (
                                     <div className="w-full h-full bg-black rounded-lg overflow-hidden">
                                         <iframe
-                                            src={`https://www.youtube.com/embed/${videoId}?playsinline=1&modestbranding=1&rel=0`}
+                                            src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0&enablejsapi=1`}
                                             className="w-full h-full"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                                             allowFullScreen
+                                            loading="lazy"
+                                            referrerPolicy="strict-origin-when-cross-origin"
                                             style={{ border: 0 }}
                                         />
                                     </div>
