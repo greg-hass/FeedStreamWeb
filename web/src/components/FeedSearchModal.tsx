@@ -9,7 +9,6 @@ import { FeedService } from '@/lib/feed-service';
 import { FolderSelector } from './FolderSelector';
 import { URLDetector } from '@/lib/url-detector';
 import { FeedPreview } from './FeedPreview';
-import { FeedDiscovery } from '@/lib/feed-discovery';
 import { useLiveQuery } from 'dexie-react-hooks';
 
 interface FeedSearchModalProps {
@@ -17,7 +16,7 @@ interface FeedSearchModalProps {
     onClose: () => void;
 }
 
-type TabType = 'search' | 'url' | 'bulk' | 'discover';
+type TabType = 'search' | 'url' | 'bulk';
 
 const FEED_TABS: { id: 'all' | FeedType, label: string, icon: any }[] = [
     { id: 'all', label: 'All', icon: Search },
@@ -38,7 +37,6 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
     const [bulkUrls, setBulkUrls] = useState('');
     const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [discoveredFeeds, setDiscoveredFeeds] = useState<{ url: string; count: number; title?: string }[]>([]);
 
     // Get existing feeds to check if already added
     const existingFeeds = useLiveQuery(() => db.feeds.toArray()) || [];
@@ -77,25 +75,6 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
 
         return () => clearTimeout(timeoutId);
     }, [query, feedTypeFilter, activeTab]);
-
-    // Load discovered feeds when discover tab is opened
-    useEffect(() => {
-        if (activeTab === 'discover' && discoveredFeeds.length === 0) {
-            loadDiscoveredFeeds();
-        }
-    }, [activeTab]);
-
-    const loadDiscoveredFeeds = async () => {
-        setLoading(true);
-        try {
-            const feeds = await FeedDiscovery.extractURLsFromArticles();
-            setDiscoveredFeeds(feeds);
-        } catch (e) {
-            console.error('Error loading discovered feeds:', e);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleAdd = async (url: string, title?: string) => {
         setAddingUrl(url);
@@ -227,18 +206,6 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
                         >
                             <List size={16} />
                             Bulk
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('discover')}
-                            className={clsx(
-                                "px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
-                                activeTab === 'discover'
-                                    ? "border-brand text-brand"
-                                    : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                            )}
-                        >
-                            <Sparkles size={16} />
-                            Discover
                         </button>
                     </div>
                 </div>
@@ -424,49 +391,6 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
                             >
                                 {bulkProgress ? 'Adding...' : `Add ${bulkUrls.split('\n').filter(u => u.trim()).length} Feeds`}
                             </button>
-                        </div>
-                    )}
-
-                    {activeTab === 'discover' && (
-                        <div className="p-4 sm:p-6">
-                            <div className="mb-4">
-                                <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                                    ✨ Feeds mentioned in your articles
-                                </h3>
-                                <p className="text-xs text-zinc-500">
-                                    Sites frequently referenced in what you're reading
-                                </p>
-                            </div>
-
-                            {loading ? (
-                                <div className="flex items-center justify-center p-12">
-                                    <Loader2 className="animate-spin text-brand" size={32} />
-                                </div>
-                            ) : discoveredFeeds.length > 0 ? (
-                                <div className="space-y-2">
-                                    {discoveredFeeds.map((item, i) => (
-                                        <div key={i} className="flex items-center gap-3 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-lg group">
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-medium truncate text-zinc-900 dark:text-zinc-100">{item.title || item.url}</h3>
-                                                <p className="text-xs text-zinc-500">Mentioned {item.count} {item.count === 1 ? 'time' : 'times'}</p>
-                                            </div>
-                                            <button
-                                                onClick={() => handleAdd(item.url, item.title)}
-                                                disabled={!!addingUrl}
-                                                className="p-2 bg-brand text-white rounded-full hover:bg-brand/80 transition-colors"
-                                            >
-                                                {addingUrl === item.url ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center p-12 text-zinc-500">
-                                    <Sparkles className="mx-auto mb-2 opacity-20" size={48} />
-                                    <p>No feeds discovered yet</p>
-                                    <p className="text-xs mt-2">Read more articles to build personalized suggestions</p>
-                                </div>
-                            )}
                         </div>
                     )}
                 </div>
