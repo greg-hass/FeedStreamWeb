@@ -143,7 +143,7 @@ export class FeedService {
 
         if (feedsToSync.length === 0) return 0;
 
-        const CONCURRENCY_LIMIT = 12;
+        const CONCURRENCY_LIMIT = 4;
         let completedCount = 0;
         let currentIndex = 0;
         let totalNewArticles = 0;
