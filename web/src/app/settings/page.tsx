@@ -339,68 +339,7 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
-                <section className="space-y-4">
-                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Sync</h2>
-                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">FreshRSS / Fever API</p>
-                        </div>
-
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-xs text-zinc-500 mb-1">API Endpoint</label>
-                                <input
-                                    type="text"
-                                    placeholder="https://freshrss.example.com/api/fever.php"
-                                    className="w-full text-sm p-2 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
-                                    value={endpoint}
-                                    onChange={(e) => setEndpoint(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-zinc-500 mb-1">Username</label>
-                                <input
-                                    type="text"
-                                    className="w-full text-sm p-2 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-zinc-500 mb-1">API Key</label>
-                                <input
-                                    type="password"
-                                    className="w-full text-sm p-2 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        {testMessage && (
-                            <div className={`text-sm p-3 rounded flex items-center gap-2 ${testStatus === 'success' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
-                                {testStatus === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                                {testMessage}
-                            </div>
-                        )}
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleTestSync}
-                                disabled={testStatus === 'testing' || !endpoint || !username || !apiKey}
-                                className="flex-1 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                                {testStatus === 'testing' ? <Loader2 className="animate-spin" size={16} /> : 'Test Connection'}
-                            </button>
-                            <button
-                                onClick={handleSaveSync}
-                                className="flex-1 py-2 bg-brand text-white rounded text-sm font-medium hover:brightness-110 transition-all"
-                            >
-                                Save & Enable Sync
-                            </button>
-                        </div>
-                    </div>
-                </section>
+                {/* FreshRSS Sync Section Removed */}
 
                 <section className="space-y-4">
                     <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">About</h2>

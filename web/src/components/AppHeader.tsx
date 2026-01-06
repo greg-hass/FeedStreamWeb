@@ -68,12 +68,11 @@ export function AppHeader({
         if (isSyncing) return;
         setIsSyncing(true);
         startSync(0);
-        setProgress(0, 0, 'Syncing FreshRSS...');
+        setProgress(0, 0, 'Updating Feeds...');
 
         try {
-            // Always await sync to catch errors and report them
-            await FeedService.syncWithFever();
-            
+            // Simplified Sync: Only update local feeds
+            // We removed FreshRSS integration to improve stability.
             let localFeeds = await db.feeds.toArray();
 
             // Get relevant feeds to sync
@@ -132,7 +131,7 @@ export function AppHeader({
             } else {
                 console.log(`[Sync Complete] Refreshed ${feedsToSync.length} feeds. No new articles.`);
             }
-            
+
             // Clear progress immediately on success
             endSync();
             setIsSyncing(false);
