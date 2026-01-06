@@ -148,6 +148,7 @@ export class FeedService {
             ]);
 
             // 2. Process Groups (Folders)
+            const feedToFolderMap = new Map<string, string>();
             if (groupsData.groups) {
                 await db.transaction('rw', db.folders, async () => {
                     // Clear existing folders first? Or merge? Fever source of truth usually implies sync.
@@ -160,18 +161,38 @@ export class FeedService {
                         });
                     }
                 });
+
+                if (Array.isArray(groupsData.feeds_groups)) {
+                    for (const group of groupsData.feeds_groups) {
+                        const groupId = group.group_id;
+                        if (groupId === undefined || !group.feed_ids) continue;
+
+                        const feedIds = String(group.feed_ids)
+                            .split(/[ ,]/)
+                            .map(id => id.trim())
+                            .filter(Boolean);
+
+                        for (const feedId of feedIds) {
+                            // If a feed belongs to multiple groups, prefer the first mapping we encounter.
+                            if (!feedToFolderMap.has(feedId)) {
+                                feedToFolderMap.set(feedId, String(groupId));
+                            }
+                        }
+                    }
+                }
             }
 
             // 3. Process Feeds
             if (feedsData.feeds) {
                 await db.transaction('rw', db.feeds, async () => {
                     for (const f of feedsData.feeds) {
+                        const mappedFolderId = feedToFolderMap.get(String(f.id));
                         await db.feeds.put({
                             id: String(f.id),
                             title: f.title,
                             feedURL: f.url,
                             siteURL: f.site_url,
-                            folderID: String(f.group_id),
+                            folderID: mappedFolderId ?? (f.group_id !== undefined ? String(f.group_id) : undefined),
                             isFaviconLoaded: false,
                             type: 'rss', // TODO: Infer from metadata if possible
                             dateAdded: new Date(f.last_updated_on_time * 1000),
