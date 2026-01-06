@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Plus, Search, X, Rss, CheckCheck } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { FeedService } from '@/lib/feed-service';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -38,7 +37,6 @@ export function AppHeader({
     const [timeRemaining, setTimeRemaining] = useState<string>('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; feedName?: string } | null>(null);
-    const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
 
     // Update countdown every second
     useEffect(() => {
@@ -69,16 +67,24 @@ export function AppHeader({
         if (isSyncing) return;
         setIsSyncing(true);
 
-        // Get relevant feeds to sync
-        const feedsToSync = feeds.filter(f =>
-            f.type === 'rss' || f.type === 'reddit' || f.type === 'youtube' || f.type === 'podcast'
-        );
-
-        setRefreshProgress({ current: 0, total: feedsToSync.length });
-
         try {
-            // Run Fever sync in parallel (non-blocking) - don't await it
-            FeedService.syncWithFever().catch(e => console.warn('[Sync] Fever sync failed:', e));
+            let localFeeds = await db.feeds.toArray();
+
+            if (localFeeds.length === 0) {
+                // First-time sync: wait for Fever import so we actually have feeds to process
+                await FeedService.syncWithFever();
+                localFeeds = await db.feeds.toArray();
+            } else {
+                // Subsequent refreshes: run Fever sync in the background
+                FeedService.syncWithFever().catch(e => console.warn('[Sync] Fever sync failed:', e));
+            }
+
+            // Get relevant feeds to sync
+            const feedsToSync = localFeeds.filter(f =>
+                f.type === 'rss' || f.type === 'reddit' || f.type === 'youtube' || f.type === 'podcast'
+            );
+
+            setRefreshProgress({ current: 0, total: feedsToSync.length });
 
             // Parallel execution with higher concurrency limit
             const CONCURRENCY_LIMIT = 25;
@@ -152,7 +158,7 @@ export function AppHeader({
             setIsSyncing(false);
             setTimeout(() => setRefreshProgress(null), 1000);
         }
-    }, [isSyncing, feeds, setLastRefreshTime]); // Depend on isSyncing and feeds
+    }, [isSyncing, setLastRefreshTime]); // Depend on isSyncing
 
     // Auto-refresh when timer reaches 0
     useEffect(() => {
@@ -173,7 +179,7 @@ export function AppHeader({
         const interval = setInterval(checkAutoRefresh, 60000); // Check every 60 seconds (battery optimization)
         checkAutoRefresh(); // Also check immediately
         return () => clearInterval(interval);
-    }, [lastRefreshTime, isSyncing, showRefresh, feeds, performSync]); // Depend on performSync
+    }, [lastRefreshTime, isSyncing, showRefresh, performSync]); // Depend on performSync
 
     const handleSync = () => {
         performSync();
