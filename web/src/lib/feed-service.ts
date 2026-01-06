@@ -256,28 +256,69 @@ export class FeedService {
     }
 
     private static async processFeverItems(items: any[]) {
-        const articles = items.map(item => ({
-            id: String(item.id), // Fever ID
-            feedID: String(item.feed_id),
-            title: item.title,
-            url: item.url,
-            author: item.author,
-            contentHTML: item.html,
-            summary: item.url, // Fever doesn't always distinguish summary/content perfectly
-            publishedAt: new Date(item.created_on_time * 1000),
-            isRead: item.is_read === 1,
-            isBookmarked: item.is_saved === 1,
-            mediaKind: 'none', // parsing needed if we want podcast
-            imageCacheStatus: 0,
-            downloadStatus: 0,
-            playbackPosition: 0,
-        }));
+        const YOUTUBE_PATTERNS = [
+            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+        ];
+
+        const extractYouTubeVideoID = (url: string): string | null => {
+            try {
+                const urlObj = new URL(url);
+                const hostname = urlObj.hostname.replace('www.', '');
+                if (hostname === 'youtu.be') return urlObj.pathname.slice(1);
+                if (hostname === 'youtube.com' || hostname === 'm.youtube.com') {
+                    const v = urlObj.searchParams.get('v');
+                    if (v) return v;
+                    if (urlObj.pathname.startsWith('/embed/')) return urlObj.pathname.split('/')[2];
+                    if (urlObj.pathname.startsWith('/v/')) return urlObj.pathname.split('/')[2];
+                }
+            } catch (e) { }
+            return null;
+        };
+
+        const articles = items.map(item => {
+            let mediaKind = 'none';
+            let contentHTML = item.html;
+            let thumbnailPath: string | undefined = undefined;
+
+            // YouTube Detection
+            if (item.url) {
+                const vid = extractYouTubeVideoID(item.url);
+                if (vid) {
+                    mediaKind = 'youtube';
+                    contentHTML = `<iframe width="100%" height="auto" style="aspect-ratio: 16/9" src="https://www.youtube.com/embed/${vid}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+                    thumbnailPath = `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`;
+                }
+            }
+
+            // Reddit Detection (Basic)
+            if (item.url && item.url.includes('reddit.com')) {
+                // Try to find image in HTML if not already there
+                const imgMatch = contentHTML.match(/src="(https:\/\/i\.redd\.it\/[^"]+)"/);
+                if (imgMatch) {
+                    thumbnailPath = imgMatch[1];
+                }
+            }
+            
+            return {
+                id: String(item.id), // Fever ID
+                feedID: String(item.feed_id),
+                title: item.title,
+                url: item.url,
+                author: item.author,
+                contentHTML: contentHTML,
+                summary: item.url, 
+                publishedAt: new Date(item.created_on_time * 1000),
+                isRead: item.is_read === 1,
+                isBookmarked: item.is_saved === 1,
+                mediaKind: mediaKind, 
+                thumbnailPath: thumbnailPath,
+                imageCacheStatus: 0,
+                downloadStatus: 0,
+                playbackPosition: 0,
+            };
+        });
 
         // Simplified merge: Just put them in.
-        /*
-           Critical: We need to map Article Type from DB.
-           But here we just put them in Articles table.
-        */
         await db.articles.bulkPut(articles as any);
     }
 
