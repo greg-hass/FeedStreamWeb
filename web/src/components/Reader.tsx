@@ -160,6 +160,44 @@ export function Reader({ article }: ReaderProps) {
                 }
                 setLoading(false);
             }
+
+            // Enhanced YouTube handling for Reader View
+            if (article.mediaKind === 'youtube' && article.url) {
+                // We want to force the video to appear prominently
+                let videoId: string | null = null;
+                try {
+                    const urlObj = new URL(article.url);
+                    if (urlObj.searchParams.get('v')) videoId = urlObj.searchParams.get('v');
+                    else if (urlObj.pathname.startsWith('/embed/')) videoId = urlObj.pathname.split('/')[2];
+                    else if (urlObj.pathname.startsWith('/shorts/')) videoId = urlObj.pathname.split('/')[2];
+                    else if (urlObj.hostname === 'youtu.be') videoId = urlObj.pathname.slice(1);
+                } catch (e) { }
+
+                if (videoId) {
+                    // Inject iframe at the top if it's not already there
+                    const iframeHtml = `
+                        <div style="margin-bottom: 24px;">
+                            <iframe 
+                                width="100%" 
+                                height="auto" 
+                                style="aspect-ratio: 16/9; border-radius: 12px;" 
+                                src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                        <hr style="margin: 24px 0; border-color: #3f3f46;" />
+                    `;
+
+                    // If content doesn't already have this iframe, prepend it
+                    if (!content.includes(videoId)) {
+                        setContent(current => iframeHtml + (article.contentHTML || article.summary || ''));
+                        // We don't necessarily turn on 'Reader Mode' (Readability) for YouTube, 
+                        // because the description is usually short and fine as is.
+                    }
+                }
+            }
         };
 
         init();

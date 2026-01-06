@@ -125,13 +125,17 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
     };
 
     const handleVideoClick = (e: React.MouseEvent) => {
+        // Desktop Check: If screen is wide (>= 1024px), let it click through to the detailed reader view
+        if (window.matchMedia('(min-width: 1024px)').matches) {
+            return; // Allow default Link behavior
+        }
+
+        // Mobile/Tablet: Play Inline
         if (article.mediaKind === 'youtube' && videoId) {
             e.preventDefault();
             e.stopPropagation();
             setIsVideoPlaying(true);
         }
-        // If no videoId, do NOT preventDefault. Let it click through to the detailed article view.
-        // This avoids the "blank white page" issue of window.open falback.
     };
 
     return (
