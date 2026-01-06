@@ -30,11 +30,22 @@ export class IconService {
     static async fetchYouTubeChannelIcon(feedURL: string, feedData?: any): Promise<string | null> {
         console.log(`[IconService] Fetching YouTube icon for ${feedURL}`);
         try {
+            let channelId: string | null = null;
+
             // 1. Try to extract channel ID from feed URL
             const channelIdMatch = feedURL.match(/channel_id=([a-zA-Z0-9_-]+)/);
-
             if (channelIdMatch) {
-                const channelId = channelIdMatch[1];
+                channelId = channelIdMatch[1];
+            } else if (feedData) {
+                // 1b. Try to extract from feed data (Atom feed: entry['yt:channelId'])
+                const feed = feedData.feed || feedData;
+                const entries = feed.entry ? (Array.isArray(feed.entry) ? feed.entry : [feed.entry]) : [];
+                if (entries.length > 0 && entries[0]['yt:channelId']) {
+                    channelId = entries[0]['yt:channelId'];
+                }
+            }
+
+            if (channelId) {
                 console.log(`[IconService] Detected YouTube Channel ID: ${channelId}`);
 
                 // 2. Try to fetch channel page through our proxy to get the avatar
@@ -44,6 +55,15 @@ export class IconService {
 
                     if (response.ok) {
                         const html = await response.text();
+                        
+                        // Priority 1: og:image (Reliable)
+                        const ogImageMatch = html.match(/<meta property="og:image" content="([^"]+)"/);
+                        if (ogImageMatch && ogImageMatch[1]) {
+                             console.log(`[IconService] Found YouTube avatar via og:image: ${ogImageMatch[1]}`);
+                             return ogImageMatch[1];
+                        }
+
+                        // Priority 2: JSON Scraping
                         // Look for avatar URL in the page (various patterns YouTube uses)
                         const avatarPatterns = [
                             /"avatar":\{"thumbnails":\[\{"url":"([^"]+)"/,
@@ -79,12 +99,6 @@ export class IconService {
                 if (author?.['media:thumbnail']?.['@_url']) {
                     return author['media:thumbnail']['@_url'];
                 }
-
-                // Fallback to first video's thumbnail? (Maybe better than generic icon)
-                // const firstEntry = Array.isArray(feedData.feed?.entry) ? feedData.feed.entry[0] : feedData.feed?.entry;
-                // if (firstEntry?.['media:group']?.['media:thumbnail']?.['@_url']) {
-                //      return firstEntry['media:group']['media:thumbnail']['@_url'];
-                // }
             }
 
             // 4. Last resort: Use YouTube favicon (improved resolution)
@@ -100,8 +114,8 @@ export class IconService {
      */
     static async fetchRedditIcon(feedURL: string): Promise<string | null> {
         try {
-            // Extract subreddit name from URL
-            const match = feedURL.match(/reddit\.com\/r\/([^\/]+)/);
+            // Extract subreddit name from URL (exclude .rss, .json, queries)
+            const match = feedURL.match(/reddit\.com\/r\/([^/?#.]+)/);
             if (!match) return null;
 
             const subreddit = match[1];

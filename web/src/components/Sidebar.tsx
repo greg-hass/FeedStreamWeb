@@ -9,6 +9,7 @@ import { db, Feed, Folder } from '@/lib/db';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { uuidv4 } from '@/lib/utils';
 import { useScrollStore } from '@/store/scrollStore';
+import { useUIStore } from '@/store/uiStore';
 
 interface SidebarProps {
     className?: string;
@@ -16,17 +17,38 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
+    const { isSyncing } = useUIStore();
     const folders = useLiveQuery(() => db.folders.orderBy('position').toArray()) || [];
     const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
     const [searchQuery, setSearchQuery] = useState('');
 
     // Sidebar counts - Optimized with Indexes
-    const counts = useLiveQuery(async () => {
+    const liveCounts = useLiveQuery(async () => {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+        
+        // Optimization: Skip fresh check during sync to prevent lag
+        // This query loads objects and is expensive
+        let freshFolders = new Set<string>();
+        if (!useUIStore.getState().isSyncing) {
+            const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+            const freshArticles = await db.articles.where('publishedAt').above(oneHourAgo).toArray();
+            const freshFeedIds = new Set(freshArticles.filter(a => !a.isRead).map(a => a.feedID));
+            
+            // Map fresh feed IDs to folder IDs
+            // Note: 'feeds' is from hook, might be stale here. Querying directly is safer but slower.
+            // We'll use a direct query for correctness since this runs infrequently when not syncing.
+            const allFeeds = await db.feeds.toArray();
+            allFeeds.forEach(f => {
+                if (freshFeedIds.has(f.id)) {
+                    if (f.folderID) {
+                        freshFolders.add(f.folderID);
+                    }
+                }
+            });
+        }
 
-        const [today, all, saved, freshFeedIds] = await Promise.all([
+        const [today, all, saved] = await Promise.all([
             // [isRead+publishedAt] index usage
             db.articles.where('[isRead+publishedAt]')
                 .between([0, todayStart], [0, new Date(Date.now() + 86400000)]) // 0=false (unread)
@@ -34,36 +56,34 @@ export function Sidebar({ className }: SidebarProps) {
             // Simple index
             db.articles.where('isRead').equals(0).count(),
             // Simple index
-            db.articles.where('isBookmarked').equals(1).count(),
-            // Find "Fresh" articles (unread and published in last 1 hour)
-            db.articles.where('publishedAt').above(oneHourAgo).toArray().then(articles => {
-                return new Set(articles.filter(a => !a.isRead).map(a => a.feedID));
-            })
+            db.articles.where('isBookmarked').equals(1).count()
         ]);
 
-        // Map fresh feed IDs to folder IDs
-        const freshFolders = new Set<string>();
-        const freshFeeds = new Set<string>(); // Also track feeds if needed later
-        
-        // We need access to 'feeds' list inside this async function, but 'feeds' is from another hook.
-        // Dexie liveQuery runs independently. So we must query feeds here or rely on the outer scope if available.
-        // Queries are async, outer scope 'feeds' might be stale. Best to query ID map.
-        const allFeeds = await db.feeds.toArray();
-        
-        allFeeds.forEach(f => {
-            if (freshFeedIds.has(f.id)) {
-                freshFeeds.add(f.id);
-                if (f.folderID) {
-                    freshFolders.add(f.folderID);
-                }
-            }
-        });
-
         return { today, all, saved, freshFolders };
-    }) || { today: 0, all: 0, saved: 0, freshFolders: new Set<string>() };
+    });
+
+    const [counts, setCounts] = useState(liveCounts || { today: 0, all: 0, saved: 0, freshFolders: new Set<string>() });
+
+    // Debounce counts update
+    useEffect(() => {
+        if (!liveCounts) return;
+        
+        // Immediate update on first load
+        if (counts.today === 0 && counts.all === 0 && counts.saved === 0) {
+            setCounts(liveCounts);
+            return;
+        }
+
+        const handler = setTimeout(() => {
+            setCounts(liveCounts);
+        }, isSyncing ? 2000 : 500);
+
+        return () => clearTimeout(handler);
+    }, [liveCounts, isSyncing]);
+
 
     // Smart Feed counts - Optimized
-    const mediaCounts = useLiveQuery(async () => {
+    const liveMediaCounts = useLiveQuery(async () => {
         const [youtube, podcast, reddit, rss] = await Promise.all([
             // Simple index
             db.articles.where('mediaKind').equals('youtube').count(),
@@ -71,11 +91,6 @@ export function Sidebar({ className }: SidebarProps) {
             // Reddit requires finding feeds first
             db.feeds.where('type').equals('reddit').toArray().then(feeds => {
                 if (feeds.length === 0) return 0;
-                // Optimization: If many feeds, this is still slow. 
-                // Better would be a compound index [feedID+isRead] but we want TOTAL items here? 
-                // Actually the UI usually implies 'All Items' in smart folders, not just unread.
-                // If we want UNREAD only, we need to change logic. 
-                // Assuming "Smart Folders" show ALL items for now based on current UI.
                 return db.articles.where('feedID').anyOf(feeds.map(f => f.id)).count();
             }),
             // RSS/Articles (generic)
@@ -85,7 +100,25 @@ export function Sidebar({ className }: SidebarProps) {
             })
         ]);
         return { youtube, podcast, reddit, rss };
-    }) || { youtube: 0, podcast: 0, reddit: 0, rss: 0 };
+    });
+
+    const [mediaCounts, setMediaCounts] = useState(liveMediaCounts || { youtube: 0, podcast: 0, reddit: 0, rss: 0 });
+
+    // Debounce media counts
+    useEffect(() => {
+        if (!liveMediaCounts) return;
+        
+        if (mediaCounts.rss === 0 && mediaCounts.youtube === 0) {
+            setMediaCounts(liveMediaCounts);
+            return;
+        }
+
+        const handler = setTimeout(() => {
+            setMediaCounts(liveMediaCounts);
+        }, isSyncing ? 2000 : 500);
+
+        return () => clearTimeout(handler);
+    }, [liveMediaCounts, isSyncing]);
 
     const { sidebarWidth, setSidebarWidth } = useScrollStore();
     const [isResizing, setIsResizing] = useState(false);

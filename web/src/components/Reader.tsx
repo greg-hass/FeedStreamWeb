@@ -177,7 +177,9 @@ export function Reader({ article }: ReaderProps) {
         // Fallback to RSS content (Sanitize once)
         const initialHtml = article.contentHTML || article.summary || '';
         if (initialHtml) {
-            setContent(DOMPurify.sanitize(initialHtml, sanitizeOptions));
+            // Decode entities first to handle double-escaped content (common in Reddit feeds)
+            const decoded = decodeHTMLEntities(initialHtml);
+            setContent(DOMPurify.sanitize(decoded, sanitizeOptions));
         }
     }, [article.id, article.readerHTML, article.contentHTML, article.summary, sanitizeOptions]);
 
@@ -240,7 +242,9 @@ export function Reader({ article }: ReaderProps) {
     const toggleReaderMode = async () => {
         if (isReaderMode) {
             // Revert to RSS content
-            setContent(DOMPurify.sanitize(article.contentHTML || article.summary || '', getSanitizeOptions()));
+            const rawHtml = article.contentHTML || article.summary || '';
+            const decoded = decodeHTMLEntities(rawHtml);
+            setContent(DOMPurify.sanitize(decoded, getSanitizeOptions()));
             setIsReaderMode(false);
             return;
         }

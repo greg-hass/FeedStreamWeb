@@ -174,9 +174,12 @@ async function parseXMLFeed(xmlData: string, sourceURL: string): Promise<Normali
         const articleID = await makeStableId(sourceURL, String(guid || title));
 
         let contentRaw = item['content:encoded'] || item.content || item.description || item.summary || '';
-        if (typeof contentRaw === 'object' && contentRaw['#text']) contentRaw = contentRaw['#text'];
+        // Handle complex XML nodes like { "#text": "...", "@_type": "html" } or CDATA
+        if (typeof contentRaw === 'object' && contentRaw !== null) {
+            contentRaw = contentRaw['#text'] || contentRaw['#cdata'] || JSON.stringify(contentRaw);
+        }
 
-        let contentHTML = String(contentRaw);
+        let contentHTML = decodeHTMLEntities(String(contentRaw));
 
         let mediaKind = 'none';
         let thumbnailPath: string | undefined = undefined;
