@@ -190,11 +190,26 @@ export class FeedService {
 
             // 3. Process Feeds
             if (feedsData.feeds) {
-                await db.transaction('rw', db.feeds, async () => {
+                await db.transaction('rw', db.feeds, db.articles, async () => {
                     for (const f of feedsData.feeds) {
-                        const mappedFolderId = feedToFolderMap.get(String(f.id));
+                        const feverId = String(f.id);
+                        const mappedFolderId = feedToFolderMap.get(feverId);
+                        
+                        // Check for existing feed with same URL but different ID (Local vs Fever collision)
+                        const existing = await db.feeds.where('feedURL').equals(f.url).first();
+                        
+                        if (existing && existing.id !== feverId) {
+                            console.log(`[Sync] Resolving Feed Collision: "${f.title}" (Local: ${existing.id} -> Fever: ${feverId})`);
+                            
+                            // Migrate articles to new ID
+                            await db.articles.where('feedID').equals(existing.id).modify({ feedID: feverId });
+                            
+                            // Delete old feed to free up the unique URL constraint
+                            await db.feeds.delete(existing.id);
+                        }
+
                         await db.feeds.put({
-                            id: String(f.id),
+                            id: feverId,
                             title: f.title,
                             feedURL: f.url,
                             siteURL: f.site_url,
