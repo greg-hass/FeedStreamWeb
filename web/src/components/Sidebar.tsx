@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, LayoutGrid, Bookmark, Settings, List, ChevronRight, ChevronDown, FolderOpen, Rss, Youtube, Mic, MessageCircle, MoreVertical, Edit2, Trash2, FolderInput, Folder as FolderIcon, Clock, FileText, MoreHorizontal, MoveRight, GripVertical, BarChart3, Search, X } from 'lucide-react';
+import { Calendar, LayoutGrid, Bookmark, Settings, List, ChevronRight, ChevronDown, FolderOpen, Rss, Youtube, Mic, MessageCircle, MoreVertical, Edit2, Trash2, FolderInput, Folder as FolderIcon, Clock, FileText, MoreHorizontal, MoveRight, GripVertical, BarChart3, Search, X, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
