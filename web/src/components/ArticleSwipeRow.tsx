@@ -43,21 +43,21 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
 
         // Lock vertical scroll if we are definitely swiping horizontally
         if (e.cancelable) {
-             // e.preventDefault(); // React synthetic events might complain, but usually needed for native feel
+            // e.preventDefault(); // React synthetic events might complain, but usually needed for native feel
         }
-        
+
         // Lock vertical scroll if dragging horizontal? 
         // Simple logic: limit drag to reasonable bounds (-150 to 150)
         // Add resistance
-        const resistedX = deltaX * 0.5; 
-        
+        const resistedX = deltaX * 0.5;
+
         // Only allow dragging if we have actions
         if ((resistedX > 0 && !onSwipeRight) || (resistedX < 0 && !onSwipeLeft)) {
             return;
         }
 
         currentX.current = resistedX;
-        
+
         if (contentRef.current) {
             contentRef.current.style.transform = `translateX(${resistedX}px)`;
         }
@@ -100,7 +100,7 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
     };
 
     return (
-        <div className="relative overflow-hidden bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 last:border-0 select-none">
+        <div className="swipe-row relative overflow-hidden bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 last:border-0 select-none">
             {/* Background Layer */}
             <div className="absolute inset-0 flex items-center justify-between pointer-events-none">
                 {/* Left Action (Swipe Right) -> Read */}
@@ -110,7 +110,7 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
                 )}>
                     {onSwipeRight && <Check className="text-white fill-current" size={24} />}
                 </div>
-                
+
                 {/* Right Action (Swipe Left) -> Bookmark */}
                 <div className={clsx(
                     "flex-1 h-full flex items-center justify-end px-6 transition-opacity duration-200",

@@ -34,13 +34,13 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     const touchStartY = useRef(0);
     const isDragging = useRef(false);
     const lastSyncTime = useRef<number>(0);
-    const { startSync, setProgress, endSync } = useUIStore(); // Use global store
+    const { startSync, setProgress, endSync, isSyncing } = useUIStore(); // Use global store
 
     // Auto-Sync on App Open / Visibility Change
     useEffect(() => {
         const attemptSync = async () => {
             if (!navigator.onLine) return;
-            
+
             const now = Date.now();
             // Sync if it's been more than 10 minutes since last sync
             if (now - lastSyncTime.current > 10 * 60 * 1000) {
@@ -65,7 +65,7 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
 
         // Listen for visibility changes (tab switching, app open from background)
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        
+
         // Try once on mount
         setTimeout(attemptSync, 1000);
 
@@ -81,13 +81,13 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
 
     const handleTouchMove = (e: React.TouchEvent) => {
         if (!isDragging.current || isRefreshing || !atTop) return;
-        
+
         const currentY = e.touches[0].clientY;
         const delta = currentY - touchStartY.current;
 
         if (delta > 0) {
             // Add resistance
-            const damped = Math.min(delta * 0.5, 120); 
+            const damped = Math.min(delta * 0.5, 120);
             setPullDistance(damped);
         } else {
             setPullDistance(0);
@@ -102,7 +102,7 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
             // Trigger Refresh
             setIsRefreshing(true);
             setPullDistance(60); // Snap to loading position
-            
+
             // Show global progress for manual refresh
             startSync(0);
             setProgress(0, 0, 'Refreshing...');
@@ -164,10 +164,10 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     const { selectedIndex } = useKeyboardNav({
         count: articles?.length || 0,
         onNext: (index) => {
-             virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
+            virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
         },
         onPrev: (index) => {
-             virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
+            virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
         },
         onSelect: (index) => {
             const article = articles[index];
@@ -211,7 +211,7 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     }
 
     return (
-        <div 
+        <div
             className="h-full flex flex-col relative overflow-hidden touch-pan-y"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -220,9 +220,9 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
             {/* Refresh Progress Modal - Handled Globally by GlobalUI now */}
 
             {/* Pull Indicator */}
-            <div 
+            <div
                 className="absolute top-0 left-0 right-0 flex items-center justify-center h-16 -mt-16 pointer-events-none z-10"
-                style={{ 
+                style={{
                     transform: `translateY(${pullDistance}px)`,
                     opacity: pullDistance > 0 ? 1 : 0,
                     transition: isDragging.current ? 'none' : 'all 0.3s ease-out'
@@ -255,10 +255,10 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                 </div>
             )}
 
-            <div 
-                className="h-full w-full"
-                style={{ 
-                    transform: `translateY(${pullDistance}px)`,
+            <div
+                className="h-full w-full pull-refresh-content"
+                style={{
+                    transform: `translateY(${pullDistance}px) translateZ(0)`,
                     transition: isDragging.current ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
                 }}
             >
@@ -286,7 +286,7 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                             setShowNewItems(false);
                         }
                     }}
-                    className="w-full h-full"
+                    className="w-full h-full article-list-container ios-scroll"
                 />
             </div>
         </div>

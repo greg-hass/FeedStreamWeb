@@ -33,7 +33,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
         return Rss;
     };
     const TypeIcon = getTypeIcon();
-    
+
     // Selector optimization to prevent re-renders on audio progress
     const setTrack = useAudioStore((s) => s.setTrack);
     const play = useAudioStore((s) => s.play);
@@ -66,12 +66,12 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
 
         // 2. Check Article URL
         if (article.url) {
-             for (const pattern of YOUTUBE_PATTERNS) {
+            for (const pattern of YOUTUBE_PATTERNS) {
                 const match = article.url.match(pattern);
                 if (match) return match[1];
             }
         }
-        
+
         return null;
     };
 
@@ -109,7 +109,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
         >
             <Link href={`/article/${article.id}`} className="block" onClick={handleArticleClick}>
                 <article className={clsx(
-                    "relative px-4 sm:px-6 py-4 transition-colors select-none",
+                    "article-item relative px-4 sm:px-6 py-4 transition-colors select-none",
                     "hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50",
                     "border-b border-zinc-100 dark:border-zinc-800/50",
                     isSelected && "bg-brand/5 dark:bg-brand/10 border-l-4 border-l-brand pl-3 sm:pl-5"
@@ -145,7 +145,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                     </span>
                                 )}
                                 <span className="text-zinc-300 dark:text-zinc-600">•</span>
-                                <time 
+                                <time
                                     className="shrink-0 text-sm text-orange-500 dark:text-orange-400 font-medium flex items-center gap-1.5"
                                     suppressHydrationWarning
                                 >
@@ -210,10 +210,11 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                 {isVideoPlaying && videoId ? (
                                     <div className="w-full h-full bg-black rounded-lg overflow-hidden">
                                         <iframe
-                                            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`}
+                                            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0`}
                                             className="w-full h-full"
-                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                                             allowFullScreen
+                                            style={{ border: 0 }}
                                         />
                                     </div>
                                 ) : (

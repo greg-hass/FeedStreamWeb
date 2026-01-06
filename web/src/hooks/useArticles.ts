@@ -2,12 +2,16 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db, Article } from "@/lib/db";
 import Dexie from "dexie";
 import { useState, useEffect } from "react";
+import { useUIStore } from "@/store/uiStore";
 
 export function useArticles(
     view: 'today' | 'last24h' | 'week' | 'all' | 'saved' | 'history' | 'youtube' | 'podcasts' | 'reddit' | string = 'all',
     limit = 100,
     searchQuery: string = ''
 ) {
+    // Check if a sync is actively running
+    const isSyncing = useUIStore((s) => s.isSyncing);
+
     // Raw live query - updates on every DB change
     const liveArticles = useLiveQuery(async () => {
         let collection: any; // Use any to avoid Dexie's complex generic type issues
@@ -74,7 +78,7 @@ export function useArticles(
         // We also manually map the results to exclude massive 'contentHTML' strings 
         // to save React memory diffing costs.
         const results = await collection.reverse().limit(limit).toArray();
-        
+
         return results.map((a: Article) => ({
             id: a.id,
             feedID: a.feedID,
@@ -92,19 +96,23 @@ export function useArticles(
     }, [view, limit, searchQuery]);
 
     // Debounce to prevent flickering during rapid sync updates
+    // Use longer debounce (2s) during active sync, shorter (500ms) when idle
     const [debouncedArticles, setDebouncedArticles] = useState<Article[] | undefined>(undefined);
 
     useEffect(() => {
         // If liveArticles is undefined (loading), wait.
-        // If we already have articles and get a new update, wait 500ms.
+        // If we're syncing, use a longer debounce to batch updates
+        const debounceMs = isSyncing ? 2000 : 500;
+
         const handler = setTimeout(() => {
             if (liveArticles !== undefined) {
                 setDebouncedArticles(liveArticles);
             }
-        }, 500);
+        }, debounceMs);
 
         return () => clearTimeout(handler);
-    }, [liveArticles]);
+    }, [liveArticles, isSyncing]);
 
     return debouncedArticles;
 }
+

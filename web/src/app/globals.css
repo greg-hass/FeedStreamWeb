@@ -93,3 +93,54 @@ body {
     background: rgba(9, 9, 11, 0.75);
   }
 }
+
+/* =============================================
+   iOS PWA Scroll & Performance Optimizations
+   ============================================= */
+
+/* Article list container - force GPU layer */
+.article-list-container {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: scroll-position;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Article items - paint containment for virtualized list */
+.article-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px; /* Estimated height */
+  contain: layout style paint;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Prevent iOS rubber-banding during swipe gestures */
+.swipe-row {
+  touch-action: pan-y pinch-zoom;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Pull-to-refresh container - smooth transform */
+.pull-refresh-content {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Sync indicator - isolated layer */
+.sync-indicator {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
+/* iOS safe momentum scrolling */
+.ios-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}

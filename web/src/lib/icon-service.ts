@@ -106,8 +106,9 @@ export class IconService {
 
             const subreddit = match[1];
 
-            // Fetch subreddit info from Reddit JSON API
-            const response = await fetch(`https://www.reddit.com/r/${subreddit}/about.json`);
+            // Fetch subreddit info from Reddit JSON API - route through proxy for CORS
+            const redditUrl = `https://www.reddit.com/r/${subreddit}/about.json`;
+            const response = await fetch(`/api/proxy?url=${encodeURIComponent(redditUrl)}`);
             if (!response.ok) return null;
 
             const data = await response.json();

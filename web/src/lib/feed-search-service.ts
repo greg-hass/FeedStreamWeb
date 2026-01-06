@@ -132,8 +132,9 @@ export class FeedSearchService {
             const candidates: FeedSearchResult[] = [];
             const clean = query.replace(/^r\//, '');
 
-            // 2. Subreddit search
-            const res = await fetch(`https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(clean)}&limit=5`);
+            // 2. Subreddit search - route through proxy to avoid CORS
+            const redditUrl = `https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(clean)}&limit=5`;
+            const res = await fetch(`/api/proxy?url=${encodeURIComponent(redditUrl)}`);
             if (res.ok) {
                 const data = await res.json();
                 const items = data.data?.children || [];
