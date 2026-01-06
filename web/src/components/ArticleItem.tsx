@@ -10,7 +10,7 @@ import { ArticleSwipeRow } from './ArticleSwipeRow';
 import { useAudioStore } from '@/store/audioStore';
 
 const YOUTUBE_PATTERNS = [
-    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|live|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
 ];
 
 const HTML_TAG_PATTERN = /<[^>]*>?/gm;
@@ -95,7 +95,13 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
     const handleVideoClick = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+
         if (article.mediaKind === 'youtube') {
+            if (!videoId) {
+                console.warn('[YouTube] Could not extract video ID, opening in new tab as fallback:', article.url);
+                window.open(article.url, '_blank', 'noopener,noreferrer');
+                return;
+            }
             setIsVideoPlaying(true);
         }
     };
@@ -210,13 +216,11 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                 {isVideoPlaying && videoId ? (
                                     <div className="w-full h-full bg-black rounded-lg overflow-hidden">
                                         <iframe
-                                            src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0&enablejsapi=1`}
+                                            src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0`}
                                             className="w-full h-full"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                                             allowFullScreen
-                                            loading="lazy"
-                                            referrerPolicy="strict-origin-when-cross-origin"
-                                            style={{ border: 0 }}
+                                            style={{ border: 0, minHeight: '180px' }}
                                         />
                                     </div>
                                 ) : (

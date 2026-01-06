@@ -81,16 +81,15 @@ body {
   @apply hover:brightness-110 active:scale-[0.98] transition-all duration-150;
 }
 
-/* Native iOS Header */
+/* Native iOS Header - OPTIMIZED: removed backdrop-blur (causes GPU overload on iOS) */
 .header-blur {
-  background: rgba(250, 250, 250, 0.75);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: rgba(250, 250, 250, 0.98);
+  /* backdrop-filter removed - too expensive on mobile, causes overheating */
 }
 
 @media (prefers-color-scheme: dark) {
   .header-blur {
-    background: rgba(9, 9, 11, 0.75);
+    background: rgba(9, 9, 11, 0.98);
   }
 }
 
@@ -109,11 +108,10 @@ body {
 /* Article items - paint containment for virtualized list */
 .article-item {
   content-visibility: auto;
-  contain-intrinsic-size: auto 140px;
+  contain-intrinsic-size: auto 120px;
   /* Estimated height */
   contain: layout style paint;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* translateZ(0) removed - too many layers cause heating on iOS */
 }
 
 /* Prevent iOS rubber-banding during swipe gestures */
@@ -175,5 +173,6 @@ body {
       var(--border) 50%,
       var(--accent) 100%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+  animation: shimmer 2s ease-in-out infinite;
+  /* Slower = less CPU */
 }
