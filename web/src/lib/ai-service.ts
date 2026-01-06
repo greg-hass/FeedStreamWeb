@@ -31,7 +31,7 @@ export class AIService {
             return `- ${a.title}: ${text}`;
         }).join('\n');
 
-        const systemPrompt = "You are a smart news editor. Create a concise Daily Briefing grouping stories by topic using bullet points. Keep it under 300 words. Tone: Professional but conversational.";
+        const systemPrompt = "You are a smart news editor. Create a concise Daily Briefing. Group stories by topic. Format using HTML: Use <h3><u>Topic Header</u></h3> for topics, <ul><li> for stories, and <b> for key terms. Add <br/> between sections. Keep it under 300 words. Tone: Professional but conversational.";
         const userPrompt = `Articles:\n${articlesText}`;
 
         // 3. Call AI API
