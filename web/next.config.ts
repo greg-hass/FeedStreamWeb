@@ -6,6 +6,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   register: true,
   scope: "/",
   sw: "sw.js",
+  customWorkerSrc: "worker",
 });
 
 const nextConfig: NextConfig = {
@@ -13,3 +14,4 @@ const nextConfig: NextConfig = {
 };
 
 export default withPWA(nextConfig);
+

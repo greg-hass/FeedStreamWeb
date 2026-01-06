@@ -8,7 +8,8 @@ import { md5 } from '@/lib/utils';
 import { OpmlService } from '@/lib/opml-service';
 import { FeverAPI } from '@/lib/fever-api';
 import Link from 'next/link';
-import { Sparkles, Workflow, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Sparkles, Workflow, Loader2, CheckCircle, AlertCircle, Bell } from 'lucide-react';
+import { NotificationSettings } from '@/components/NotificationSettings';
 
 export default function SettingsPage() {
     const { syncEndpoint, syncUsername, syncApiKey, setSyncConfig, setSyncEnabled, openaiApiKey, setOpenaiApiKey, geminiApiKey, setGeminiApiKey } = useSettingsStore();
@@ -49,11 +50,11 @@ export default function SettingsPage() {
             const inputString = `${username}:${apiKey}`;
             const finalKey = await md5(inputString);
             const api = new FeverAPI(endpoint, finalKey);
-            
+
             await api.getGroups(); // Simple fetch to verify auth
             setTestStatus('success');
             setTestMessage('Connection Successful!');
-            
+
             // Auto-clear success after 3s
             setTimeout(() => {
                 if (testStatus === 'success') setTestStatus('idle');
@@ -95,6 +96,15 @@ export default function SettingsPage() {
                         >
                             Clear Database & Reset App
                         </button>
+                    </div>
+                </section>
+
+                <section className="space-y-4">
+                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                        <Bell size={14} /> Notifications
+                    </h2>
+                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800">
+                        <NotificationSettings />
                     </div>
                 </section>
 
