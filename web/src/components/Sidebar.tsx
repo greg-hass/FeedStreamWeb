@@ -279,6 +279,9 @@ export function Sidebar({ className }: SidebarProps) {
                         <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                             Subscriptions
                         </div>
+                        <Link href="/feeds/discover" className="p-1 -mr-1 text-zinc-500 hover:text-purple-400 transition-colors" title="Discover New Feeds">
+                            <Sparkles size={14} />
+                        </Link>
                     </div>
 
                     {/* Filter Input */}

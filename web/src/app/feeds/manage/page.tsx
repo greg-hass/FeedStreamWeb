@@ -3,7 +3,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
 import { useState } from 'react';
-import { Trash2, FolderPlus, ArrowLeft, MoreVertical, FolderOpen, Rss, Play, Radio, MoveRight, Check, X, Edit2, MessageCircle } from 'lucide-react';
+import { Trash2, FolderPlus, ArrowLeft, MoreVertical, FolderOpen, Rss, Play, Radio, MoveRight, Check, X, Edit2, MessageCircle, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
 import { uuidv4 } from '@/lib/utils';
@@ -91,6 +91,13 @@ export default function ManageFeedsPage() {
                     </Link>
                     <h1 className="text-xl font-bold tracking-tight flex-1">Manage Feeds</h1>
                     <div className="flex items-center gap-2">
+                        <Link
+                            href="/feeds/discover"
+                            className="p-2 rounded-full text-purple-600 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+                            title="Discover Feeds"
+                        >
+                            <Sparkles size={20} />
+                        </Link>
                         <button
                             onClick={() => setShowBulkRenameModal(true)}
                             className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"

@@ -1,140 +1,114 @@
-import { db, Article } from './db';
+import { db } from './db';
+import { useSettingsStore } from '@/store/settingsStore';
 
-/**
- * FeedDiscovery - Extract feed URLs from user's reading patterns
- * Provides personalized feed suggestions based on actual usage
- */
-export class FeedDiscovery {
-    /**
-     * Extract unique URLs mentioned in articles
-     * Returns potential feed sources from sites the user reads about
-     */
-    static async extractURLsFromArticles(): Promise<{ url: string; count: number; title?: string }[]> {
+export interface FeedRecommendation {
+    title: string;
+    url: string;
+    description: string;
+    category: string;
+    type: 'rss' | 'youtube' | 'reddit' | 'podcast';
+}
+
+export class FeedDiscoveryService {
+
+    static async generateRecommendations(): Promise<FeedRecommendation[]> {
+        const { openaiApiKey, geminiApiKey } = useSettingsStore.getState();
+        
+        if (!openaiApiKey && !geminiApiKey) {
+            throw new Error("No AI API Key found. Please add an OpenAI or Gemini key in Settings.");
+        }
+
+        // 1. Build User Profile from existing feeds
+        const feeds = await db.feeds.toArray();
+        if (feeds.length === 0) {
+            // Cold start: ask for generic popular feeds
+            return this.fetchFromAI(null, openaiApiKey, geminiApiKey);
+        }
+
+        // Sample up to 30 feeds to avoid token limits
+        const profile = feeds.slice(0, 30).map(f => `- ${f.title} (${f.type})`).join('\n');
+        return this.fetchFromAI(profile, openaiApiKey, geminiApiKey);
+    }
+
+    private static async fetchFromAI(profile: string | null, openaiKey: string, geminiKey: string): Promise<FeedRecommendation[]> {
+        const systemPrompt = `You are a Feed Discovery Engine.
+        Analyze the user's subscriptions and suggest 5-8 high-quality, relevant NEW feeds they might like.
+        Include a mix of RSS, YouTube Channels, and Subreddits if appropriate for their interests.
+        
+        Output valid JSON ONLY in this format:
+        [
+            {
+                "title": "Feed Title",
+                "url": "Feed URL (RSS xml, YouTube Channel URL, or Subreddit URL)",
+                "description": "Why they might like it",
+                "category": "Tech/Gaming/News etc",
+                "type": "rss" | "youtube" | "reddit" | "podcast"
+            }
+        ]
+        
+        IMPORTANT: Ensure URLs are valid feed URLs where possible (e.g. youtube.com/feeds/videos.xml?channel_id=... or reddit.com/r/name.rss) OR standard URLs that can be auto-discovered.`;
+
+        const userPrompt = profile 
+            ? `My Subscriptions:\n${profile}\n\nSuggest new feeds based on these interests.`
+            : `I am a new user interested in Technology, Science, and World News. Suggest some starter feeds.`;
+
         try {
-            // Get all articles with content
-            const articles = await db.articles
-                .filter(a => !!(a.contentHTML || a.summary))
-                .toArray();
+            let jsonString = "";
 
-            const urlCounts: Map<string, { count: number; title?: string }> = new Map();
+            if (geminiKey) {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
 
-            // Extract URLs from content using regex
-            const urlRegex = /https?:\/\/[^\s<>"]+/g;
+                if (!response.ok) throw new Error(`Gemini API Error: ${await response.text()}`);
+                const data = await response.json();
+                jsonString = data.candidates[0].content.parts[0].text;
+            } else {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${openaiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-4o-mini",
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: userPrompt }
+                        ],
+                        response_format: { type: "json_object" }
+                    })
+                });
 
-            for (const article of articles) {
-                const content = (article.contentHTML || article.summary || '');
-                const matches = content.match(urlRegex) || [];
-
-                for (const urlMatch of matches) {
-                    try {
-                        const url = new URL(urlMatch);
-                        // Get base domain
-                        const domain = `${url.protocol}//${url.hostname}`;
-
-                        // Skip some common but not feed-worthy domains
-                        if (this.shouldSkipDomain(url.hostname)) {
-                            continue;
-                        }
-
-                        const existing = urlCounts.get(domain);
-                        if (existing) {
-                            existing.count++;
-                        } else {
-                            urlCounts.set(domain, { count: 1, title: url.hostname });
-                        }
-                    } catch (e) {
-                        // Invalid URL, skip
-                    }
-                }
+                if (!response.ok) throw new Error(`OpenAI API Error: ${await response.text()}`);
+                const data = await response.json();
+                jsonString = data.choices[0].message.content;
             }
 
-            // Convert to array and sort by count
-            return Array.from(urlCounts.entries())
-                .map(([url, data]) => ({ url, ...data }))
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 20); // Top 20 mentioned sites
-        } catch (e) {
-            console.error('Error extracting URLs:', e);
-            return [];
+            // Parse JSON
+            // Handle potential wrapping in ```json ... ```
+            const cleanJson = jsonString.replace(/```json\n?|\n?```/g, '').trim();
+            const result = JSON.parse(cleanJson);
+            
+            // Handle { "feeds": [...] } wrapper if AI adds it despite instructions
+            const items = Array.isArray(result) ? result : (result.feeds || result.recommendations || []);
+            
+            return items.map((item: any) => ({
+                title: item.title,
+                url: item.url,
+                description: item.description,
+                category: item.category,
+                type: item.type || 'rss'
+            }));
+
+        } catch (error: any) {
+            console.error("Feed Discovery Failed", error);
+            throw new Error(error.message || "Failed to generate recommendations");
         }
-    }
-
-    /**
-     * Skip domains that are unlikely to have useful feeds
-     */
-    private static shouldSkipDomain(hostname: string): boolean {
-        const skipPatterns = [
-            'twitter.com',
-            'x.com',
-            'facebook.com',
-            'instagram.com',
-            'linkedin.com',
-            'google.com',
-            'youtube.com', // We already handle YouTube specially
-            'reddit.com', // We already handle Reddit specially
-            'imgur.com',
-            'giphy.com',
-            'tiktok.com',
-            'amazon.com',
-            'ebay.com',
-        ];
-
-        return skipPatterns.some(pattern => hostname.includes(pattern));
-    }
-
-    /**
-     * Get feeds that appear frequently in user's reading
-     * Analyzes which feeds the user actually reads vs just subscribes to
-     */
-    static async getFrequentlyReadFeeds(): Promise<{ feedId: string; title: string; readCount: number }[]> {
-        try {
-            const feeds = await db.feeds.toArray();
-            const feedStats = await Promise.all(
-                feeds.map(async (feed) => {
-                    const readCount = await db.articles
-                        .where({ feedID: feed.id, isRead: true })
-                        .count();
-
-                    return {
-                        feedId: feed.id,
-                        title: feed.title,
-                        readCount
-                    };
-                })
-            );
-
-            return feedStats
-                .filter(stat => stat.readCount > 0)
-                .sort((a, b) => b.readCount - a.readCount)
-                .slice(0, 10);
-        } catch (e) {
-            console.error('Error getting frequently read feeds:', e);
-            return [];
-        }
-    }
-
-    /**
-     * Suggest potential feed URLs from discovered domains
-     * Tries common feed URL patterns
-     */
-    static async suggestFeedURLs(domains: string[]): Promise<string[]> {
-        const suggestions: string[] = [];
-
-        for (const domain of domains) {
-            // Common feed URL patterns
-            const patterns = [
-                `${domain}/feed`,
-                `${domain}/rss`,
-                `${domain}/atom.xml`,
-                `${domain}/feed.xml`,
-                `${domain}/rss.xml`,
-                `${domain}/blog/feed`,
-                `${domain}/index.xml`,
-            ];
-
-            suggestions.push(...patterns);
-        }
-
-        return suggestions;
     }
 }
