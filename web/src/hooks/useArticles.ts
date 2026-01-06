@@ -98,7 +98,9 @@ export function useArticles(
         // If liveArticles is undefined (loading), wait.
         // If we already have articles and get a new update, wait 500ms.
         const handler = setTimeout(() => {
-            setDebouncedArticles(liveArticles);
+            if (liveArticles !== undefined) {
+                setDebouncedArticles(liveArticles);
+            }
         }, 500);
 
         return () => clearTimeout(handler);

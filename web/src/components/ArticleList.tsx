@@ -265,6 +265,7 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                 <Virtuoso
                     ref={virtuosoRef}
                     data={articles}
+                    computeItemKey={(index, item) => item.id}
                     components={{ Header: () => <>{header}</> }}
                     atTopStateChange={setAtTop}
                     initialTopMostItemIndex={getScrollPosition(pathname)}
