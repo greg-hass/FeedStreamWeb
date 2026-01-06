@@ -1,7 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Article } from "@/lib/db";
 import Dexie from "dexie";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUIStore } from "@/store/uiStore";
 
 export function useArticles(
@@ -98,6 +98,13 @@ export function useArticles(
     // Debounce to prevent flickering during rapid sync updates
     // Use longer debounce (2s) during active sync, shorter (500ms) when idle
     const [debouncedArticles, setDebouncedArticles] = useState<Article[] | undefined>(undefined);
+    const prevView = useRef(view);
+
+    // Reset state when view changes
+    if (prevView.current !== view) {
+        prevView.current = view;
+        setDebouncedArticles(undefined);
+    }
 
     useEffect(() => {
         // If we don't have debouncedArticles yet, set them immediately
@@ -110,7 +117,16 @@ export function useArticles(
 
         const handler = setTimeout(() => {
             if (liveArticles !== undefined) {
-                setDebouncedArticles(liveArticles);
+                setDebouncedArticles(current => {
+                    // Prevent update if data is effectively the same (deep comparison)
+                    if (current && current.length === liveArticles.length) {
+                        const simplify = (arr: Article[]) => arr.map(x => `${x.id}:${x.isRead}:${x.isBookmarked}`);
+                        if (JSON.stringify(simplify(current)) === JSON.stringify(simplify(liveArticles))) {
+                            return current;
+                        }
+                    }
+                    return liveArticles;
+                });
             }
         }, debounceMs);
 
