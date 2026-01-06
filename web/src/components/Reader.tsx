@@ -162,27 +162,32 @@ export function Reader({ article }: ReaderProps) {
         return null;
     };
 
+    // Memoize options to avoid re-creating hook on every render
+    const sanitizeOptions = React.useMemo(() => getSanitizeOptions(), []);
+
+    // 1. Initial Content Resolution (Fast)
     useEffect(() => {
-        // For RSS articles (not youtube/podcast), auto-invoke Readability
-        const shouldAutoReader = article.mediaKind !== 'youtube' && article.mediaKind !== 'podcast';
+        // If we have cached reader content, use it immediately
+        if (article.readerHTML && article.mediaKind !== 'youtube' && article.mediaKind !== 'podcast') {
+            setContent(article.readerHTML);
+            setIsReaderMode(true);
+            return;
+        }
 
-        const init = async () => {
-            // If we have cached reader content, use it
-            if (article.readerHTML && shouldAutoReader) {
-                setContent(article.readerHTML);
-                setIsReaderMode(true);
-                return;
-            }
+        // Fallback to RSS content (Sanitize once)
+        const initialHtml = article.contentHTML || article.summary || '';
+        if (initialHtml) {
+            setContent(DOMPurify.sanitize(initialHtml, sanitizeOptions));
+        }
+    }, [article.id, article.readerHTML, article.contentHTML, article.summary, sanitizeOptions]);
 
-            // Set initial content from RSS
-            if (article.contentHTML) {
-                setContent(DOMPurify.sanitize(article.contentHTML, getSanitizeOptions()));
-            } else if (article.summary) {
-                setContent(DOMPurify.sanitize(article.summary, getSanitizeOptions()));
-            }
-
-            // Auto-fetch reader content for RSS feeds
-            if (shouldAutoReader && article.url) {
+    // 2. Background Fetch & Enhancement (Slow)
+    useEffect(() => {
+        const enhanceContent = async () => {
+            // Auto-fetch reader content for RSS feeds if not cached
+            const shouldAutoReader = article.mediaKind !== 'youtube' && article.mediaKind !== 'podcast';
+            
+            if (shouldAutoReader && article.url && !article.readerHTML) {
                 setLoading(true);
                 const readerContent = await fetchReaderContent();
                 if (readerContent) {
@@ -192,9 +197,8 @@ export function Reader({ article }: ReaderProps) {
                 setLoading(false);
             }
 
-            // Enhanced YouTube handling for Reader View
+            // YouTube Injection
             if (article.mediaKind === 'youtube' && article.url) {
-                // We want to force the video to appear prominently
                 let videoId: string | null = null;
                 try {
                     const urlObj = new URL(article.url);
@@ -205,7 +209,6 @@ export function Reader({ article }: ReaderProps) {
                 } catch (e) { }
 
                 if (videoId) {
-                    // Inject iframe at the top if it's not already there
                     const iframeHtml = `
                         <div style="margin-bottom: 24px;">
                             <iframe 
@@ -220,19 +223,19 @@ export function Reader({ article }: ReaderProps) {
                         </div>
                         <hr style="margin: 24px 0; border-color: #3f3f46;" />
                     `;
-
-                    // If content doesn't already have this iframe, prepend it
-                    if (!content.includes(videoId)) {
-                        setContent(current => iframeHtml + (article.contentHTML || article.summary || ''));
-                        // We don't necessarily turn on 'Reader Mode' (Readability) for YouTube, 
-                        // because the description is usually short and fine as is.
-                    }
+                    
+                    setContent(prev => {
+                        if (prev.includes(videoId!)) return prev;
+                        return iframeHtml + prev;
+                    });
                 }
             }
         };
 
-        init();
-    }, [article.id]);
+        // Defer enhancement to next tick to allow initial render
+        const timer = setTimeout(enhanceContent, 0);
+        return () => clearTimeout(timer);
+    }, [article.id, article.url, article.mediaKind, article.readerHTML]); // Removed 'content' dependency to avoid loops
 
     const toggleReaderMode = async () => {
         if (isReaderMode) {
