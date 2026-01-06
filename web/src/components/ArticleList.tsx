@@ -15,6 +15,7 @@ import { clsx } from 'clsx';
 import { useUIStore } from '@/store/uiStore';
 
 import { RefreshProgress } from './RefreshProgress';
+import { ArticleSkeleton } from './ArticleSkeleton';
 
 interface ArticleListProps {
     articles: Article[];
@@ -272,6 +273,7 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                 <Virtuoso
                     ref={virtuosoRef}
                     data={articles}
+                    overscan={200}
                     computeItemKey={(index, item) => item.id}
                     components={{ Header: () => <>{header}</> }}
                     atTopStateChange={setAtTop}

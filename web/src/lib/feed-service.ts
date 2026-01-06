@@ -143,13 +143,13 @@ export class FeedService {
             // We do this sequentially to avoid overwhelming the server or hitting browser connection limits on mobile
             console.log("[FeedService] Fetching Groups...");
             const groupsData = await api.getGroups();
-            
+
             console.log("[FeedService] Fetching Feeds...");
             const feedsData = await api.getFeeds();
-            
+
             console.log("[FeedService] Fetching Unread Items...");
             const unreadData = await api.getUnreadItemIds();
-            
+
             console.log("[FeedService] Fetching Saved Items...");
             const savedData = await api.getSavedItemIds();
 
@@ -194,16 +194,16 @@ export class FeedService {
                     for (const f of feedsData.feeds) {
                         const feverId = String(f.id);
                         const mappedFolderId = feedToFolderMap.get(feverId);
-                        
+
                         // Check for existing feed with same URL but different ID (Local vs Fever collision)
                         const existing = await db.feeds.where('feedURL').equals(f.url).first();
-                        
+
                         if (existing && existing.id !== feverId) {
                             console.log(`[Sync] Resolving Feed Collision: "${f.title}" (Local: ${existing.id} -> Fever: ${feverId})`);
-                            
+
                             // Migrate articles to new ID
                             await db.articles.where('feedID').equals(existing.id).modify({ feedID: feverId });
-                            
+
                             // Delete old feed to free up the unique URL constraint
                             await db.feeds.delete(existing.id);
                         }
@@ -232,7 +232,7 @@ export class FeedService {
                 const unreadIds = unreadData.unread_item_ids.split(',').map(String);
                 // Mark these as unread
                 await db.articles.where('id').anyOf(unreadIds).modify({ isRead: false });
-                
+
                 // Implicitly, anything NOT in this list (and older than sync time) *could* be read.
                 // But safer to just process the "unread" list for now.
             }
@@ -242,12 +242,44 @@ export class FeedService {
                 await db.articles.where('id').anyOf(savedIds).modify({ isBookmarked: true });
             }
 
-            // 5. Fetch Items (Articles)
-            // We fetch latest 50 items for now.
-            const itemsData = await api.getItems();
-            if (itemsData.items) {
-                await this.processFeverItems(itemsData.items);
+            // 5. Fetch Items (Articles) - Delta Sync with pagination
+            // Get last synced item ID from localStorage for incremental sync
+            const lastSyncedId = localStorage.getItem('fever_last_synced_id');
+            let sinceId = lastSyncedId ? parseInt(lastSyncedId, 10) : undefined;
+
+            // Fetch items in batches until we get no more new items
+            let totalFetched = 0;
+            let maxItemId = sinceId || 0;
+            const MAX_ITEMS = 500; // Safety limit per sync
+
+            while (totalFetched < MAX_ITEMS) {
+                const itemsData = await api.getItems(sinceId);
+                const items = itemsData.items || [];
+
+                if (items.length === 0) break;
+
+                // Process this batch
+                await this.processFeverItems(items);
+                totalFetched += items.length;
+
+                // Track the highest ID we've seen for next sync
+                for (const item of items) {
+                    if (item.id > maxItemId) maxItemId = item.id;
+                }
+
+                // If we got fewer than 50 items, we've reached the end
+                if (items.length < 50) break;
+
+                // Update sinceId for next batch (Fever returns 50 items per page)
+                sinceId = maxItemId;
             }
+
+            // Store the highest ID for next incremental sync
+            if (maxItemId > 0) {
+                localStorage.setItem('fever_last_synced_id', String(maxItemId));
+            }
+
+            console.log(`[FeedService] Synced ${totalFetched} items (since_id: ${lastSyncedId || 'none'})`);
 
         } catch (e) {
             console.error("Sync Failed", e);
@@ -298,7 +330,7 @@ export class FeedService {
                     thumbnailPath = imgMatch[1];
                 }
             }
-            
+
             return {
                 id: String(item.id), // Fever ID
                 feedID: String(item.feed_id),
@@ -306,11 +338,11 @@ export class FeedService {
                 url: item.url,
                 author: item.author,
                 contentHTML: contentHTML,
-                summary: item.url, 
+                summary: item.url,
                 publishedAt: new Date(item.created_on_time * 1000),
                 isRead: item.is_read === 1,
                 isBookmarked: item.is_saved === 1,
-                mediaKind: mediaKind, 
+                mediaKind: mediaKind,
                 thumbnailPath: thumbnailPath,
                 imageCacheStatus: 0,
                 downloadStatus: 0,

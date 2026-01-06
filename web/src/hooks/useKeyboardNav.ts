@@ -6,9 +6,23 @@ interface UseKeyboardNavProps {
     onPrev?: (index: number) => void;
     onSelect?: (index: number) => void;
     onMarkRead?: (index: number) => void;
+    onToggleStar?: (index: number) => void;
+    onOpenInNewTab?: (index: number) => void;
+    onFocusSearch?: () => void;
+    onShowHelp?: () => void;
 }
 
-export function useKeyboardNav({ count, onNext, onPrev, onSelect, onMarkRead }: UseKeyboardNavProps) {
+export function useKeyboardNav({
+    count,
+    onNext,
+    onPrev,
+    onSelect,
+    onMarkRead,
+    onToggleStar,
+    onOpenInNewTab,
+    onFocusSearch,
+    onShowHelp
+}: UseKeyboardNavProps) {
     const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -33,8 +47,15 @@ export function useKeyboardNav({ count, onNext, onPrev, onSelect, onMarkRead }: 
                 });
                 break;
             case 'Enter':
-            case 'o':
                 if (selectedIndex >= 0) {
+                    onSelect?.(selectedIndex);
+                }
+                break;
+            case 'o':
+                if (e.shiftKey && selectedIndex >= 0) {
+                    // Shift+O opens in new tab
+                    onOpenInNewTab?.(selectedIndex);
+                } else if (selectedIndex >= 0) {
                     onSelect?.(selectedIndex);
                 }
                 break;
@@ -43,10 +64,22 @@ export function useKeyboardNav({ count, onNext, onPrev, onSelect, onMarkRead }: 
                     onMarkRead?.(selectedIndex);
                 }
                 break;
+            case 's':
+                if (selectedIndex >= 0) {
+                    onToggleStar?.(selectedIndex);
+                }
+                break;
+            case '/':
+                e.preventDefault(); // Prevent browser's quick find
+                onFocusSearch?.();
+                break;
+            case '?':
+                onShowHelp?.();
+                break;
             default:
                 break;
         }
-    }, [count, onNext, onPrev, onSelect, onMarkRead, selectedIndex]);
+    }, [count, onNext, onPrev, onSelect, onMarkRead, onToggleStar, onOpenInNewTab, onFocusSearch, onShowHelp, selectedIndex]);
 
     useEffect(() => {
         window.addEventListener('keydown', handleKeyDown);
@@ -55,3 +88,4 @@ export function useKeyboardNav({ count, onNext, onPrev, onSelect, onMarkRead }: 
 
     return { selectedIndex, setSelectedIndex };
 }
+

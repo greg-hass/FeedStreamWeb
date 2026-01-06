@@ -222,12 +222,13 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                         src={article.thumbnailPath}
                                         alt=""
                                         className={clsx(
-                                            "w-full object-cover rounded-lg bg-zinc-200 dark:bg-zinc-800",
+                                            "w-full object-cover rounded-lg bg-zinc-200 dark:bg-zinc-800 img-blur-up",
                                             "h-full", // Always fill container
                                             (article.mediaKind === 'podcast' || article.mediaKind === 'youtube') && "group-hover/thumb:brightness-75 transition-all"
                                         )}
                                         loading="lazy"
                                         decoding="async"
+                                        onLoad={(e) => e.currentTarget.classList.add('loaded')}
                                         onError={(e) => {
                                             // Hide the entire thumbnail container when image fails to load
                                             const container = e.currentTarget.closest('.group\\/thumb');
