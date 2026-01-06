@@ -63,7 +63,7 @@ export function GlobalUI() {
 
             {/* Backup Reminder Toast */}
             {showBackupReminder && (
-                <div className="fixed bottom-22 md:bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-6 md:translate-x-0 z-50 animate-in fade-in slide-in-from-bottom-4">
+                <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-6 md:translate-x-0 z-50 animate-in fade-in slide-in-from-bottom-4">
                     <div className="bg-zinc-900 border border-zinc-800 text-white rounded-xl shadow-2xl p-4 w-80 flex flex-col gap-3">
                         <div className="flex items-start gap-3">
                             <div className="p-2 bg-amber-500/10 rounded-lg shrink-0">
