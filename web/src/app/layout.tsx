@@ -3,6 +3,7 @@ import './globals.css';
 import { Sidebar } from '@/components/Sidebar';
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { TabBar } from "@/components/TabBar";
+import { GlobalUI } from "@/components/GlobalUI";
 
 export const metadata: Metadata = {
   title: 'FeedStream',
@@ -48,6 +49,7 @@ export default function RootLayout({
         </div>
 
         <AudioPlayer />
+        <GlobalUI />
       </body>
     </html>
   );

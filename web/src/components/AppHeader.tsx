@@ -6,6 +6,7 @@ import { clsx } from 'clsx';
 import { db } from '@/lib/db';
 import { FeedService } from '@/lib/feed-service';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useUIStore } from '@/store/uiStore';
 import { FeedSearchModal } from './FeedSearchModal';
 import { RefreshProgress } from './RefreshProgress';
 import Link from 'next/link';
@@ -34,9 +35,9 @@ export function AppHeader({
 }: AppHeaderProps) {
     const [isSyncing, setIsSyncing] = useState(false);
     const { lastRefreshTime, setLastRefreshTime } = useSettingsStore();
+    const { startSync, setProgress, endSync } = useUIStore();
     const [timeRemaining, setTimeRemaining] = useState<string>('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; feedName?: string } | null>(null);
 
     // Update countdown every second
     useEffect(() => {
@@ -66,7 +67,8 @@ export function AppHeader({
     const performSync = useCallback(async () => {
         if (isSyncing) return;
         setIsSyncing(true);
-        setRefreshProgress({ current: 0, total: 0, feedName: 'Syncing FreshRSS...' });
+        startSync(0);
+        setProgress(0, 0, 'Syncing FreshRSS...');
 
         try {
             // Always await sync to catch errors and report them
@@ -79,11 +81,8 @@ export function AppHeader({
                 f.type === 'rss' || f.type === 'reddit' || f.type === 'youtube' || f.type === 'podcast'
             );
 
-            setRefreshProgress({
-                current: 0,
-                total: feedsToSync.length,
-                feedName: feedsToSync.length === 0 ? 'No feeds ready to refresh' : 'Preparing feeds...'
-            });
+            startSync(feedsToSync.length);
+            setProgress(0, feedsToSync.length, feedsToSync.length === 0 ? 'No feeds ready to refresh' : 'Preparing feeds...');
 
             // Parallel execution with higher concurrency limit
             const CONCURRENCY_LIMIT = 5; // Reduced for stability
@@ -98,11 +97,7 @@ export function AppHeader({
                 currentIndex++;
 
                 // Update progress
-                setRefreshProgress(prev => ({
-                    current: completedCount,
-                    total: feedsToSync.length,
-                    feedName: `Syncing ${feed.title}...`
-                }));
+                setProgress(completedCount, feedsToSync.length, `Syncing ${feed.title}...`);
 
                 try {
                     const newCount = await FeedService.refreshFeed(feed);
@@ -113,11 +108,7 @@ export function AppHeader({
                     console.error(`Failed to refresh ${feed.title}`, e);
                 } finally {
                     completedCount++;
-                    setRefreshProgress(prev => ({
-                        current: completedCount,
-                        total: feedsToSync.length,
-                        feedName: prev?.feedName // Keep current name or update?
-                    }));
+                    setProgress(completedCount, feedsToSync.length, undefined);
 
                     // Process next in queue
                     await processNext();
@@ -143,20 +134,16 @@ export function AppHeader({
             }
             
             // Clear progress immediately on success
-            setRefreshProgress(null);
+            endSync();
             setIsSyncing(false);
 
         } catch (e: any) {
             console.error('Sync failed:', e);
             // Show error to user
-            setRefreshProgress({ 
-                current: 0, 
-                total: 0, 
-                feedName: `Sync Failed: ${e.message || 'Unknown error'}` 
-            });
+            setProgress(0, 0, `Sync Failed: ${e.message || 'Unknown error'}`);
             // Clear after 3 seconds so user can see it
             setTimeout(() => {
-                setRefreshProgress(null);
+                endSync();
                 setIsSyncing(false);
             }, 3000);
         } finally {
@@ -164,7 +151,7 @@ export function AppHeader({
             // But main logic is in try/catch for specific timing
             setLastRefreshTime(Date.now());
         }
-    }, [isSyncing, setLastRefreshTime]); // Depend on isSyncing
+    }, [isSyncing, setLastRefreshTime, startSync, setProgress, endSync]); // Depend on store actions
 
     // Auto-refresh when timer reaches 0
     useEffect(() => {
@@ -271,15 +258,7 @@ export function AppHeader({
                 </div>
             </header>
 
-            {/* Refresh Progress Indicator */}
-            {refreshProgress && (
-                <RefreshProgress
-                    current={refreshProgress.current}
-                    total={refreshProgress.total}
-                    currentFeedName={refreshProgress.feedName}
-                    onDismiss={() => setRefreshProgress(null)}
-                />
-            )}
+            {/* Refresh Progress Indicator moved to Root Layout via UI Store */}
         </>
     );
 }

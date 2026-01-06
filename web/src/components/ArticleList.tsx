@@ -12,6 +12,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useKeyboardNav } from '@/hooks/useKeyboardNav';
 import { Loader2, ArrowDown } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useUIStore } from '@/store/uiStore';
 
 import { RefreshProgress } from './RefreshProgress';
 
@@ -33,31 +34,32 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     const touchStartY = useRef(0);
     const isDragging = useRef(false);
     const lastSyncTime = useRef<number>(0);
+    const { startSync, setProgress, endSync } = useUIStore(); // Use global store
 
     // Auto-Sync on App Open / Visibility Change
     useEffect(() => {
         const attemptSync = async () => {
+            if (!navigator.onLine) return;
+            
             const now = Date.now();
             // Sync if it's been more than 10 minutes since last sync
             if (now - lastSyncTime.current > 10 * 60 * 1000) {
                 console.log("[AutoSync] Triggering background sync...");
                 lastSyncTime.current = now;
                 try {
-                    setIsRefreshing(true); // Show progress during auto-sync too? Maybe subtle.
-                    // Actually, for auto-sync, maybe we don't want the full modal unless user pulled.
-                    // But for pull-to-refresh (which sets isRefreshing), we definitely want it.
+                    // We don't show full modal for auto-sync, maybe just a small indicator if needed
+                    // But if we want to trigger the global sync logic:
                     await FeedService.syncWithFever();
                 } catch (e) {
                     console.error("[AutoSync] Failed", e);
-                } finally {
-                    setIsRefreshing(false);
                 }
             }
         };
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                attemptSync();
+                // Small delay to ensure DB/Network is woke
+                setTimeout(attemptSync, 1000);
             }
         };
 
@@ -65,32 +67,12 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         
         // Try once on mount
-        attemptSync();
+        setTimeout(attemptSync, 1000);
 
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, []);
 
-    const handleTouchStart = (e: React.TouchEvent) => {
-        if (atTop && !isRefreshing) {
-            touchStartY.current = e.touches[0].clientY;
-            isDragging.current = true;
-        }
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (!isDragging.current || isRefreshing || !atTop) return;
-        
-        const currentY = e.touches[0].clientY;
-        const delta = currentY - touchStartY.current;
-
-        if (delta > 0) {
-            // Add resistance
-            const damped = Math.min(delta * 0.5, 120); 
-            setPullDistance(damped);
-        } else {
-            setPullDistance(0);
-        }
-    };
+    // ... (touch handlers)
 
     const handleTouchEnd = async () => {
         if (!isDragging.current) return;
@@ -100,26 +82,38 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
             // Trigger Refresh
             setIsRefreshing(true);
             setPullDistance(60); // Snap to loading position
+            
+            // Show global progress for manual refresh
+            startSync(0);
+            setProgress(0, 0, 'Refreshing...');
+
             try {
                 // Determine if we should Sync (Fever) or Refresh All (Local)
-                // For now, we assume Sync is the primary action if configured
                 await FeedService.syncWithFever();
-                // We could also trigger a re-query of local feeds here if needed
             } catch (e) {
                 console.error("Refresh failed", e);
             } finally {
                 setIsRefreshing(false);
                 setPullDistance(0);
+                endSync();
             }
         } else {
             setPullDistance(0);
         }
     };
 
-    // Optimization: Fetch feeds once and map them
+    // Optimization: Debounce Feed Updates to prevent flickering during sync
+    const rawFeeds = useLiveQuery(() => db.feeds.toArray());
+    const [feeds, setFeeds] = useState(rawFeeds);
 
-    // Optimization: Fetch feeds once and map them
-    const feeds = useLiveQuery(() => db.feeds.toArray());
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setFeeds(rawFeeds);
+        }, 1000); // 1 second debounce for feed metadata updates (icons, lastSync, etc)
+
+        return () => clearTimeout(handler);
+    }, [rawFeeds]);
+
     const feedsMap = useMemo(() => {
         const map = new Map();
         if (feeds) {
@@ -203,14 +197,7 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
         >
-            {/* Refresh Progress Modal */}
-            {isRefreshing && (
-                <RefreshProgress 
-                    current={1} 
-                    total={1} 
-                    currentFeedName="Syncing with Server..." 
-                />
-            )}
+            {/* Refresh Progress Modal - Handled Globally by GlobalUI now */}
 
             {/* Pull Indicator */}
             <div 
