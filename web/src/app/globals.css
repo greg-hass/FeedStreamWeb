@@ -176,3 +176,43 @@ body {
   animation: shimmer 2s ease-in-out infinite;
   /* Slower = less CPU */
 }
+
+/* =============================================
+   UI Polish (Scrollbars & Tactile)
+   ============================================= */
+
+/* Minimal Scrollbar for WebKit */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(161, 161, 170, 0.3); /* zinc-400/30 */
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(161, 161, 170, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: rgba(82, 82, 91, 0.5); /* zinc-600/50 */
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(82, 82, 91, 0.8);
+  }
+}
+
+/* Tactile Active State for Touch/Click */
+.active-press {
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.active-press:active {
+  transform: scale(0.96);
+}

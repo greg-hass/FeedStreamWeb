@@ -10,7 +10,7 @@ import { useScrollStore } from '@/store/scrollStore';
 import { FeedService } from '@/lib/feed-service';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useKeyboardNav } from '@/hooks/useKeyboardNav';
-import { Loader2, ArrowDown } from 'lucide-react';
+import { Loader2, ArrowDown, Rss } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useUIStore } from '@/store/uiStore';
 
@@ -196,8 +196,12 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
         }
 
         return (
-            <div className="flex flex-col items-center justify-center p-12 text-zinc-400">
-                <p>No articles found.</p>
+            <div className="flex flex-col items-center justify-center p-12 text-zinc-400 h-full">
+                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800/50 rounded-full flex items-center justify-center mb-4">
+                    <Rss size={32} className="opacity-20" />
+                </div>
+                <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-1">All Caught Up</h3>
+                <p className="text-sm text-zinc-500 max-w-xs text-center">No articles found in this view. Try pulling to refresh or check other feeds.</p>
             </div>
         )
     }
@@ -239,10 +243,13 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                             virtuosoRef.current?.scrollToIndex({ index: 0, align: 'start', behavior: 'smooth' });
                             setShowNewItems(false);
                         }}
-                        className="px-4 py-2 bg-brand text-white text-sm font-medium rounded-full shadow-lg hover:brightness-110 active:scale-95 transition-all animate-in fade-in slide-in-from-top-4 flex items-center gap-2"
+                        className="active-press px-4 py-2 bg-brand/90 backdrop-blur-md text-white text-sm font-medium rounded-full shadow-lg hover:bg-brand transition-all animate-in fade-in slide-in-from-top-4 flex items-center gap-2 border border-brand/50"
                     >
                         <span>New Articles</span>
-                        <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                        </span>
                     </button>
                 </div>
             )}

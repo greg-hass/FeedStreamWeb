@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, LayoutGrid, Bookmark, Settings, List, ChevronRight, ChevronDown, FolderOpen, Rss, Youtube, Mic, MessageCircle, MoreVertical, Edit2, Trash2, FolderInput, Folder as FolderIcon, Clock, FileText, MoreHorizontal, MoveRight, GripVertical, BarChart3 } from 'lucide-react';
+import { Calendar, LayoutGrid, Bookmark, Settings, List, ChevronRight, ChevronDown, FolderOpen, Rss, Youtube, Mic, MessageCircle, MoreVertical, Edit2, Trash2, FolderInput, Folder as FolderIcon, Clock, FileText, MoreHorizontal, MoveRight, GripVertical, BarChart3, Search, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Feed, Folder } from '@/lib/db';
@@ -18,6 +18,7 @@ export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const folders = useLiveQuery(() => db.folders.orderBy('position').toArray()) || [];
     const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Sidebar counts - Optimized with Indexes
     const counts = useLiveQuery(async () => {
@@ -251,13 +252,41 @@ export function Sidebar({ className }: SidebarProps) {
 
                 {/* Library Section */}
                 <div className="pt-4 mt-4 border-t border-zinc-800/50">
-                    <div className="px-3 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                        Subscriptions
+                    <div className="px-3 py-2 flex items-center justify-between group">
+                        <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                            Subscriptions
+                        </div>
+                    </div>
+
+                    {/* Filter Input */}
+                    <div className="px-3 mb-2">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Filter feeds..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-zinc-900/50 border border-zinc-800 focus:border-zinc-700 rounded-md px-2 py-1.5 pl-8 text-xs text-zinc-300 placeholder:text-zinc-600 outline-none transition-colors"
+                            />
+                            <div className="absolute left-2.5 top-1.5 text-zinc-600 pointer-events-none">
+                                <Search size={12} />
+                            </div>
+                            {searchQuery && (
+                                <button 
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-2 top-1.5 text-zinc-600 hover:text-zinc-400"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Root Feeds */}
                     <div className="mt-1 space-y-0.5">
-                        {feeds.filter(f => !f.folderID).map(feed => (
+                        {feeds
+                            .filter(f => !f.folderID && f.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                            .map(feed => (
                             <SidebarFeedItem
                                 key={feed.id}
                                 feed={feed}
@@ -277,68 +306,82 @@ export function Sidebar({ className }: SidebarProps) {
                     </div>
 
                     {/* Folders */}
-                    {folders.map(folder => {
-                        const folderFeeds = feeds.filter(f => f.folderID === folder.id);
-                        const isCollapsed = collapsedFolders.has(folder.id);
+                    {folders
+                        .filter(folder => {
+                            if (!searchQuery) return true;
+                            // Show folder if name matches OR if it contains matching feeds
+                            const folderFeeds = feeds.filter(f => f.folderID === folder.id);
+                            const hasMatchingFeeds = folderFeeds.some(f => f.title.toLowerCase().includes(searchQuery.toLowerCase()));
+                            return folder.name.toLowerCase().includes(searchQuery.toLowerCase()) || hasMatchingFeeds;
+                        })
+                        .map(folder => {
+                            const folderFeeds = feeds.filter(f => f.folderID === folder.id);
+                            // If searching, always expand relevant folders
+                            const isCollapsed = searchQuery ? false : collapsedFolders.has(folder.id);
+                            
+                            // Filter feeds inside folder if searching
+                            const displayFeeds = searchQuery 
+                                ? folderFeeds.filter(f => f.title.toLowerCase().includes(searchQuery.toLowerCase())) 
+                                : folderFeeds;
 
-                        return (
-                            <div key={folder.id} className="mt-3">
-                                <div className="group flex items-center">
-                                    <button
-                                        onClick={() => toggleFolderCollapse(folder.id)}
-                                        className="p-1 text-zinc-600 hover:text-zinc-300 transition-colors"
-                                    >
-                                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                                    </button>
-                                    <Link
-                                        href={`/folder/view/${folder.id}`}
-                                        className={clsx(
-                                            "flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
-                                            pathname === `/folder/view/${folder.id}`
-                                                ? "bg-brand/10 text-brand font-medium"
-                                                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
-                                        )}
-                                    >
-                                        <FolderIcon size={16} />
-                                        <span className="flex-1">{folder.name}</span>
-                                        <span className="text-xs font-mono text-brand font-semibold">{folderFeeds.length}</span>
-                                    </Link>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            setContextMenu({ type: 'folder', id: folder.id, x: rect.right, y: rect.top });
-                                        }}
-                                        className="p-1 text-zinc-600 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <MoreHorizontal size={14} />
-                                    </button>
-                                </div>
-                                {!isCollapsed && folderFeeds.length > 0 && (
-                                    <div className="mt-0.5 ml-6 pl-3 border-l border-zinc-800 space-y-0.5">
-                                        {folderFeeds.map(feed => (
-                                            <SidebarFeedItem
-                                                key={feed.id}
-                                                feed={feed}
-                                                isActive={pathname === `/feed/${feed.id}`}
-                                                small
-                                                onContextMenu={(e) => {
-                                                    e.preventDefault();
-                                                    setContextMenu({ type: 'feed', id: feed.id, x: e.clientX, y: e.clientY });
-                                                }}
-                                                onMenuClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                    setContextMenu({ type: 'feed', id: feed.id, x: rect.right, y: rect.top });
-                                                }}
-                                            />
-                                        ))}
+                            return (
+                                <div key={folder.id} className="mt-3">
+                                    <div className="group flex items-center">
+                                        <button
+                                            onClick={() => toggleFolderCollapse(folder.id)}
+                                            className="p-1 text-zinc-600 hover:text-zinc-300 transition-colors"
+                                        >
+                                            {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                                        </button>
+                                        <Link
+                                            href={`/folder/view/${folder.id}`}
+                                            className={clsx(
+                                                "flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
+                                                pathname === `/folder/view/${folder.id}`
+                                                    ? "bg-brand/10 text-brand font-medium"
+                                                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                            )}
+                                        >
+                                            <FolderIcon size={16} />
+                                            <span className="flex-1 truncate">{folder.name}</span>
+                                            <span className="text-xs font-mono text-brand font-semibold">{folderFeeds.length}</span>
+                                        </Link>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                setContextMenu({ type: 'folder', id: folder.id, x: rect.right, y: rect.top });
+                                            }}
+                                            className="p-1 text-zinc-600 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <MoreHorizontal size={14} />
+                                        </button>
                                     </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                                    {!isCollapsed && displayFeeds.length > 0 && (
+                                        <div className="mt-0.5 ml-6 pl-3 border-l border-zinc-800 space-y-0.5">
+                                            {displayFeeds.map(feed => (
+                                                <SidebarFeedItem
+                                                    key={feed.id}
+                                                    feed={feed}
+                                                    isActive={pathname === `/feed/${feed.id}`}
+                                                    small
+                                                    onContextMenu={(e) => {
+                                                        e.preventDefault();
+                                                        setContextMenu({ type: 'feed', id: feed.id, x: e.clientX, y: e.clientY });
+                                                    }}
+                                                    onMenuClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        setContextMenu({ type: 'feed', id: feed.id, x: rect.right, y: rect.top });
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                 </div>
             </nav>
             {/* Context Menu */}
