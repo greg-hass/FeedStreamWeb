@@ -105,13 +105,11 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Article items - paint containment for virtualized list */
+/* Article items - minimal styling for virtualized list */
+/* Note: content-visibility: auto was removed as it causes ghosting on scroll */
+/* Virtuoso already handles virtualization, so we don't need additional containment */
 .article-item {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 120px;
-  /* Estimated height */
-  contain: layout style paint;
-  /* translateZ(0) removed - too many layers cause heating on iOS */
+  /* Keep items simple - let Virtuoso handle the heavy lifting */
 }
 
 /* Prevent iOS rubber-banding during swipe gestures */
@@ -192,7 +190,8 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(161, 161, 170, 0.3); /* zinc-400/30 */
+  background: rgba(161, 161, 170, 0.3);
+  /* zinc-400/30 */
   border-radius: 3px;
 }
 
@@ -202,8 +201,10 @@ body {
 
 @media (prefers-color-scheme: dark) {
   ::-webkit-scrollbar-thumb {
-    background: rgba(82, 82, 91, 0.5); /* zinc-600/50 */
+    background: rgba(82, 82, 91, 0.5);
+    /* zinc-600/50 */
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(82, 82, 91, 0.8);
   }
@@ -213,6 +214,7 @@ body {
 .active-press {
   transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .active-press:active {
   transform: scale(0.96);
 }
