@@ -72,7 +72,27 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, []);
 
-    // ... (touch handlers)
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (atTop && !isRefreshing) {
+            touchStartY.current = e.touches[0].clientY;
+            isDragging.current = true;
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isDragging.current || isRefreshing || !atTop) return;
+        
+        const currentY = e.touches[0].clientY;
+        const delta = currentY - touchStartY.current;
+
+        if (delta > 0) {
+            // Add resistance
+            const damped = Math.min(delta * 0.5, 120); 
+            setPullDistance(damped);
+        } else {
+            setPullDistance(0);
+        }
+    };
 
     const handleTouchEnd = async () => {
         if (!isDragging.current) return;
