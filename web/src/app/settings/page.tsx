@@ -13,7 +13,7 @@ import { Sparkles, Workflow, Loader2, CheckCircle, AlertCircle, Bell } from 'luc
 import { NotificationSettings } from '@/components/NotificationSettings';
 
 export default function SettingsPage() {
-    const { syncEndpoint, syncUsername, syncApiKey, setSyncConfig, setSyncEnabled, openaiApiKey, setOpenaiApiKey, geminiApiKey, setGeminiApiKey } = useSettingsStore();
+    const { syncEndpoint, syncUsername, syncApiKey, setSyncConfig, setSyncEnabled, openaiApiKey, setOpenaiApiKey, geminiApiKey, setGeminiApiKey, backupFrequency, setBackupFrequency } = useSettingsStore();
     const [endpoint, setEndpoint] = useState('');
     const [username, setUsername] = useState('');
     const [apiKey, setApiKey] = useState('');
@@ -245,6 +245,28 @@ export default function SettingsPage() {
                             >
                                 Download OPML File
                             </button>
+                        </div>
+
+                        <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
+
+                        {/* Backup Schedule */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Backup Reminders</p>
+                                <select
+                                    value={backupFrequency}
+                                    onChange={(e) => setBackupFrequency(e.target.value as any)}
+                                    className="text-xs bg-zinc-100 dark:bg-zinc-800 border-none rounded px-2 py-1 text-zinc-600 dark:text-zinc-400 focus:ring-0 cursor-pointer"
+                                >
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="never">Never</option>
+                                </select>
+                            </div>
+                            <p className="text-xs text-zinc-500">
+                                Get reminded to download a backup of your data.
+                            </p>
                         </div>
 
                         <div className="h-px bg-zinc-200 dark:bg-zinc-800" />

@@ -41,6 +41,9 @@ export class BackupService {
             thumbnailPath: a.thumbnailPath,
         }));
 
+        // Record successful backup
+        useSettingsStore.getState().recordBackup();
+
         return {
             version: 1,
             exportedAt: new Date().toISOString(),

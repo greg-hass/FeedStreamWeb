@@ -17,6 +17,12 @@ interface SettingsState {
     setGeminiApiKey: (key: string) => void; // NEW
     lastRefreshTime: number;
     setLastRefreshTime: (time: number) => void;
+    
+    // Backup Reminders
+    backupFrequency: 'never' | 'daily' | 'weekly' | 'monthly';
+    lastBackupAt: string | null;
+    setBackupFrequency: (freq: 'never' | 'daily' | 'weekly' | 'monthly') => void;
+    recordBackup: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -29,12 +35,16 @@ export const useSettingsStore = create<SettingsState>()(
             openaiApiKey: '',
             geminiApiKey: '', // NEW
             lastRefreshTime: 0,
+            backupFrequency: 'weekly', // Default to weekly reminders
+            lastBackupAt: null,
 
             setSyncConfig: (endpoint, username, apiKey) => set({ syncEndpoint: endpoint, syncUsername: username, syncApiKey: apiKey }),
             setSyncEnabled: (enabled) => set({ syncEnabled: enabled }),
             setOpenaiApiKey: (key) => set({ openaiApiKey: key }),
             setGeminiApiKey: (key) => set({ geminiApiKey: key }), // NEW
             setLastRefreshTime: (time) => set({ lastRefreshTime: time }),
+            setBackupFrequency: (freq) => set({ backupFrequency: freq }),
+            recordBackup: () => set({ lastBackupAt: new Date().toISOString() }),
         }),
         {
             name: 'feedstream-settings',
