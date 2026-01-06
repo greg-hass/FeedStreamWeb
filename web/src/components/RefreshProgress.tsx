@@ -14,25 +14,36 @@ export function RefreshProgress({ current, total, currentFeedName, onDismiss }: 
     const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
 
     return (
-        <div className="fixed bottom-28 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 animate-in slide-in-from-bottom-4">
-            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-2xl p-4">
-                <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                        <h4 className="font-semibold text-sm mb-1">Refreshing Feeds</h4>
-                        <p className="text-xs text-zinc-500">
-                            {current} / {total} {currentFeedName && `• ${currentFeedName}`}
-                        </p>
+        <div className="fixed bottom-[5.5rem] md:bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm z-50 animate-in slide-in-from-bottom-4 duration-300">
+            <div className="bg-zinc-900/90 backdrop-blur-md text-white rounded-xl border border-zinc-700/50 shadow-2xl p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        {/* Spinner */}
+                        <div className="relative w-5 h-5 shrink-0">
+                            <div className="absolute inset-0 rounded-full border-2 border-zinc-700"></div>
+                            <div className="absolute inset-0 rounded-full border-t-2 border-brand animate-spin"></div>
+                        </div>
+                        
+                        <div className="flex flex-col min-w-0">
+                            <h4 className="font-semibold text-sm leading-none truncate">Refreshing Feeds</h4>
+                            <p className="text-xs text-zinc-400 leading-none mt-1.5 truncate">
+                                {current} / {total} {currentFeedName && `• ${currentFeedName}`}
+                            </p>
+                        </div>
                     </div>
+                    
                     {onDismiss && (
                         <button
                             onClick={onDismiss}
-                            className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 rounded-full"
+                            className="p-1.5 text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors"
                         >
-                            <X size={16} />
+                            <X size={14} />
                         </button>
                     )}
                 </div>
-                <div className="relative w-full h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+
+                {/* Progress Bar */}
+                <div className="relative w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                     <div
                         className="absolute top-0 left-0 h-full bg-brand transition-all duration-300 ease-out"
                         style={{ width: `${percentage}%` }}
