@@ -124,14 +124,21 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
 
     // Optimization: Debounce Feed Updates to prevent flickering during sync
     const rawFeeds = useLiveQuery(() => db.feeds.toArray());
-    const [feeds, setFeeds] = useState(rawFeeds);
+    const [feeds, setFeeds] = useState<typeof rawFeeds>([]);
 
     useEffect(() => {
+        // Immediately set feeds if we have data and state is empty (first load)
+        if (rawFeeds && rawFeeds.length > 0 && (!feeds || feeds.length === 0)) {
+            setFeeds(rawFeeds);
+            return;
+        }
+
+        // Debounce subsequent updates
         const handler = setTimeout(() => {
             setFeeds(current => {
                 // Prevent unnecessary updates if data hasn't actually changed
                 if (JSON.stringify(current) === JSON.stringify(rawFeeds)) return current;
-                return rawFeeds;
+                return rawFeeds ?? [];
             });
         }, 1000); // 1 second debounce for feed metadata updates (icons, lastSync, etc)
 
