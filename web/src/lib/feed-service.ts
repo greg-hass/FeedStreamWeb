@@ -1,7 +1,6 @@
 
 import { db, Feed, Article } from './db';
 import { parseFeed } from './feed-parser';
-import { FeverAPI } from './fever-api';
 import { useSettingsStore } from '@/store/settingsStore';
 import { md5, uuidv4 } from './utils';
 import { IconService } from './icon-service';
@@ -60,6 +59,14 @@ export class FeedService {
     }
 
     static async refreshFeed(feed: Feed): Promise<number> {
+        // ... (existing implementation)
+        // Since we are replacing the logic above, let's keep the existing implementation but just inserting the NEW method below it
+        // actually I will just Replace the END of the refreshFeed block to insert the new method
+        // But the user tool view shows refreshFeed ending at 132.
+        // So I can append after it.
+        // I'll assume the tool handles context matching. 
+        // Let's rewrite refreshFeed's end and append refreshAllFeeds.
+
         console.log(`[RefreshFeed] Starting refresh for: ${feed.title}`);
         try {
             const proxyUrl = `/api/proxy?url=${encodeURIComponent(feed.feedURL)}`;
@@ -130,249 +137,46 @@ export class FeedService {
             return 0;
         }
     }
-    static async syncWithFever() {
-        const { syncEndpoint, syncUsername, syncApiKey, syncEnabled } = useSettingsStore.getState();
-        if (!syncEnabled || !syncEndpoint || !syncApiKey) {
-            console.log("Sync disabled or missing config");
-            return;
-        }
 
-        // Fever API Authentication Strategy
-        // Standard: api_key = md5(username + ":" + password)
-        // We assume the user entered their "API Password" in the settings "API Key" field.
+    static async refreshAllFeeds(onProgress?: (completed: number, total: number, message: string) => void): Promise<number> {
+        const localFeeds = await db.feeds.toArray();
+        const feedsToSync = localFeeds.filter(f => !f.isPaused);
 
-        console.log(`[FeedService] Sync Config -> Endpoint: ${syncEndpoint}, User: ${syncUsername}, KeyLength: ${syncApiKey.length}`);
+        if (feedsToSync.length === 0) return 0;
 
-        let finalKey = syncApiKey;
+        const CONCURRENCY_LIMIT = 12;
+        let completedCount = 0;
+        let currentIndex = 0;
+        let totalNewArticles = 0;
 
-        // If we have a username, we should try to hash it according to spec
-        if (syncUsername && syncApiKey) {
-            // FreshRSS Fever API expects `api_key` to be MD5("username:api_password")
-            // We log the *inputs* (carefully) to debug mismatches
-            const inputString = `${syncUsername}:${syncApiKey}`;
-            console.log(`[FeedService] Hashing input: "${syncUsername}:***" (Length: ${inputString.length})`);
+        const processNext = async (): Promise<void> => {
+            if (currentIndex >= feedsToSync.length) return;
 
-            finalKey = await md5(inputString);
-            console.log(`[FeedService] Generated Hash: ${finalKey}`);
-        }
+            const feed = feedsToSync[currentIndex];
+            currentIndex++;
 
-        const api = new FeverAPI(syncEndpoint, finalKey);
+            if (onProgress) onProgress(completedCount, feedsToSync.length, `Updating ${feed.title}...`);
 
-        try {
-            console.log("Starting Sync...");
-
-            // 1. Sequential Fetch: Groups, Feeds, Unread, Saved
-            // We do this sequentially to avoid overwhelming the server or hitting browser connection limits on mobile
-            console.log("[FeedService] Fetching Groups...");
-            const groupsData = await api.getGroups();
-
-            console.log("[FeedService] Fetching Feeds...");
-            const feedsData = await api.getFeeds();
-
-            console.log("[FeedService] Fetching Unread Items...");
-            const unreadData = await api.getUnreadItemIds();
-
-            console.log("[FeedService] Fetching Saved Items...");
-            const savedData = await api.getSavedItemIds();
-
-            // 2. Process Groups (Folders)
-            const feedToFolderMap = new Map<string, string>();
-            if (groupsData.groups) {
-                await db.transaction('rw', db.folders, async () => {
-                    // Clear existing folders first? Or merge? Fever source of truth usually implies sync.
-                    // For now, upsert.
-                    for (const g of groupsData.groups) {
-                        await db.folders.put({
-                            id: String(g.id),
-                            name: g.title,
-                            position: 0
-                        });
-                    }
-                });
-            }
-
-            if (Array.isArray(feedsData.feeds_groups)) {
-                for (const group of feedsData.feeds_groups) {
-                    const groupId = group.group_id;
-                    if (groupId === undefined || !group.feed_ids) continue;
-
-                    const feedIds = String(group.feed_ids)
-                        .split(/[ ,]/)
-                        .map(id => id.trim())
-                        .filter(Boolean);
-
-                    for (const feedId of feedIds) {
-                        // If a feed belongs to multiple groups, prefer the first mapping we encounter.
-                        if (!feedToFolderMap.has(feedId)) {
-                            feedToFolderMap.set(feedId, String(groupId));
-                        }
-                    }
-                }
-            }
-
-            // 3. Process Feeds
-            if (feedsData.feeds) {
-                await db.transaction('rw', db.feeds, db.articles, async () => {
-                    for (const f of feedsData.feeds) {
-                        const feverId = String(f.id);
-                        const mappedFolderId = feedToFolderMap.get(feverId);
-
-                        // Check for existing feed with same URL but different ID (Local vs Fever collision)
-                        const existing = await db.feeds.where('feedURL').equals(f.url).first();
-
-                        if (existing && existing.id !== feverId) {
-                            console.log(`[Sync] Resolving Feed Collision: "${f.title}" (Local: ${existing.id} -> Fever: ${feverId})`);
-
-                            // Migrate articles to new ID
-                            await db.articles.where('feedID').equals(existing.id).modify({ feedID: feverId });
-
-                            // Delete old feed to free up the unique URL constraint
-                            await db.feeds.delete(existing.id);
-                        }
-
-                        await db.feeds.put({
-                            id: feverId,
-                            title: f.title,
-                            feedURL: f.url,
-                            siteURL: f.site_url,
-                            folderID: mappedFolderId ?? (f.group_id !== undefined ? String(f.group_id) : undefined),
-                            isFaviconLoaded: false,
-                            type: 'rss', // TODO: Infer from metadata if possible
-                            dateAdded: new Date(f.last_updated_on_time * 1000),
-                            consecutiveFailures: 0,
-                            isPaused: false,
-                            sortOrder: 0,
-                            isFavorite: false
-                        });
-                    }
-                });
-            }
-
-            // 4. Sync Read/Saved Status
-            // Use transaction to batch these updates and prevent UI flickering
-            await db.transaction('rw', db.articles, async () => {
-                if (unreadData.unread_item_ids) {
-                    const unreadIds = unreadData.unread_item_ids.split(',').map(String);
-                    await db.articles.where('id').anyOf(unreadIds).modify({ isRead: false });
-                }
-
-                if (savedData.saved_item_ids) {
-                    const savedIds = savedData.saved_item_ids.split(',').map(String);
-                    await db.articles.where('id').anyOf(savedIds).modify({ isBookmarked: true });
-                }
-            });
-
-            // 5. Fetch Items (Articles) - Delta Sync with pagination
-            // Get last synced item ID from localStorage for incremental sync
-            const lastSyncedId = localStorage.getItem('fever_last_synced_id');
-            let sinceId = lastSyncedId ? parseInt(lastSyncedId, 10) : undefined;
-
-            // Fetch items in batches until we get no more new items
-            let totalFetched = 0;
-            let maxItemId = sinceId || 0;
-            const MAX_ITEMS = 500; // Safety limit per sync
-
-            while (totalFetched < MAX_ITEMS) {
-                const itemsData = await api.getItems(sinceId);
-                const items = itemsData.items || [];
-
-                if (items.length === 0) break;
-
-                // Process this batch
-                await this.processFeverItems(items);
-                totalFetched += items.length;
-
-                // Track the highest ID we've seen for next sync
-                for (const item of items) {
-                    if (item.id > maxItemId) maxItemId = item.id;
-                }
-
-                // If we got fewer than 50 items, we've reached the end
-                if (items.length < 50) break;
-
-                // Update sinceId for next batch (Fever returns 50 items per page)
-                sinceId = maxItemId;
-            }
-
-            // Store the highest ID for next incremental sync
-            if (maxItemId > 0) {
-                localStorage.setItem('fever_last_synced_id', String(maxItemId));
-            }
-
-            console.log(`[FeedService] Synced ${totalFetched} items (since_id: ${lastSyncedId || 'none'})`);
-
-        } catch (e) {
-            console.error("Sync Failed", e);
-            throw e;
-        }
-    }
-
-    private static async processFeverItems(items: any[]) {
-        const YOUTUBE_PATTERNS = [
-            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|live|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
-        ];
-
-        const extractYouTubeVideoID = (url: string): string | null => {
             try {
-                const urlObj = new URL(url);
-                const hostname = urlObj.hostname.replace('www.', '');
-                if (hostname === 'youtu.be') return urlObj.pathname.slice(1);
-                if (hostname === 'youtube.com' || hostname === 'm.youtube.com') {
-                    const v = urlObj.searchParams.get('v');
-                    if (v) return v;
-                    if (urlObj.pathname.startsWith('/embed/')) return urlObj.pathname.split('/')[2];
-                    if (urlObj.pathname.startsWith('/v/')) return urlObj.pathname.split('/')[2];
-                }
-            } catch (e) { }
-            return null;
+                const newCount = await this.refreshFeed(feed);
+                totalNewArticles += newCount;
+            } catch (e) {
+                console.error(e);
+            } finally {
+                completedCount++;
+                if (onProgress) onProgress(completedCount, feedsToSync.length, `Updating ${feed.title}...`);
+                await processNext();
+            }
         };
 
-        const articles = items.map(item => {
-            let mediaKind = 'none';
-            let contentHTML = item.html;
-            let thumbnailPath: string | undefined = undefined;
+        const workers = Array(Math.min(CONCURRENCY_LIMIT, feedsToSync.length))
+            .fill(null)
+            .map(() => processNext());
 
-            // YouTube Detection
-            if (item.url) {
-                const vid = extractYouTubeVideoID(item.url);
-                if (vid) {
-                    mediaKind = 'youtube';
-                    contentHTML = `<iframe width="100%" height="auto" style="aspect-ratio: 16/9" src="https://www.youtube.com/embed/${vid}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
-                    thumbnailPath = `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`;
-                }
-            }
-
-            // Reddit Detection (Basic)
-            if (item.url && item.url.includes('reddit.com')) {
-                // Try to find image in HTML if not already there
-                const imgMatch = contentHTML.match(/src="(https:\/\/i\.redd\.it\/[^"]+)"/);
-                if (imgMatch) {
-                    thumbnailPath = imgMatch[1];
-                }
-            }
-
-            return {
-                id: String(item.id), // Fever ID
-                feedID: String(item.feed_id),
-                title: item.title,
-                url: item.url,
-                author: item.author,
-                contentHTML: contentHTML,
-                summary: item.url,
-                publishedAt: new Date(item.created_on_time * 1000),
-                isRead: item.is_read === 1,
-                isBookmarked: item.is_saved === 1,
-                mediaKind: mediaKind,
-                thumbnailPath: thumbnailPath,
-                imageCacheStatus: 0,
-                downloadStatus: 0,
-                playbackPosition: 0,
-            };
-        });
-
-        // Simplified merge: Just put them in.
-        await db.articles.bulkPut(articles as any);
+        await Promise.all(workers);
+        return totalNewArticles;
     }
+
 
     private static async mergeArticles(feedId: string, incoming: Article[]): Promise<number> {
         console.log(`[MergeArticles] Processing ${incoming.length} articles for feed ${feedId}`);
@@ -448,53 +252,11 @@ export class FeedService {
     static async toggleReadStatus(articleId: string, isRead: boolean) {
         // 1. Optimistic Update Local
         await db.articles.update(articleId, { isRead });
-
-        // 2. Sync with Fever if enabled
-        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
-        if (syncEnabled && syncEndpoint && syncApiKey) {
-            // Fever API expects numeric ID? Our IDs are strings (UUIDs or hashes). 
-            // If we synced FROM Fever, the ID is numeric string. 
-            // If we are Local-Only, we can't sync this item anyway.
-            // Check if ID is numeric-like (Fever assumption)
-            const numericId = parseInt(articleId);
-            if (!isNaN(numericId)) {
-                try {
-                    const api = new FeverAPI(syncEndpoint, syncApiKey);
-                    if (isRead) {
-                        await api.markItemRead(numericId);
-                    } else {
-                        await api.markItemUnread(numericId);
-                    }
-                } catch (e) {
-                    console.error('Failed to sync read status:', e);
-                    // Optionally revert local change if strictly required, 
-                    // but optimistic UI usually keeps local state and retries later.
-                }
-            }
-        }
     }
 
     static async toggleBookmark(articleId: string, isBookmarked: boolean) {
         // 1. Optimistic Update Local
         await db.articles.update(articleId, { isBookmarked });
-
-        // 2. Sync with Fever if enabled
-        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
-        if (syncEnabled && syncEndpoint && syncApiKey) {
-            const numericId = parseInt(articleId);
-            if (!isNaN(numericId)) {
-                try {
-                    const api = new FeverAPI(syncEndpoint, syncApiKey);
-                    if (isBookmarked) {
-                        await api.markItemSaved(numericId);
-                    } else {
-                        await api.markItemUnsaved(numericId);
-                    }
-                } catch (e) {
-                    console.error('Failed to sync bookmark status:', e);
-                }
-            }
-        }
     }
 
     static async markFeedAsRead(feedId: string) {
@@ -505,19 +267,6 @@ export class FeedService {
         if (ids.length === 0) return;
 
         await db.articles.bulkUpdate(articles.map(a => ({ key: a.id, changes: { isRead: true } })));
-
-        // 2. Sync (Basic Loop for now, ideally batch if API supported)
-        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
-        if (syncEnabled && syncEndpoint && syncApiKey) {
-            const api = new FeverAPI(syncEndpoint, syncApiKey);
-            for (const id of ids) {
-                const numericId = parseInt(id);
-                if (!isNaN(numericId)) {
-                    // Fire and forget to avoid blocking UI
-                    api.markItemRead(numericId).catch(console.error);
-                }
-            }
-        }
     }
 
     static async markAllAsRead() {
@@ -527,16 +276,5 @@ export class FeedService {
 
         // Bulk update is faster
         await db.articles.bulkUpdate(unread.map(a => ({ key: a.id, changes: { isRead: true } })));
-
-        // 2. Sync
-        const { syncEndpoint, syncApiKey, syncEnabled } = useSettingsStore.getState();
-        if (syncEnabled && syncEndpoint && syncApiKey) {
-            const api = new FeverAPI(syncEndpoint, syncApiKey);
-            // This could be heavy. Fever API usually has "mark group as read" or similar but our basic client might not.
-            // We'll limit to recent 50 to avoid flooding, or just accept the limitation.
-            // Better strategy: Just mark visible/fetched ones? 
-            // For now, we leave this as a "Best Effort" local action primarily.
-            console.warn("Syncing 'Mark All Read' for all items is not fully optimized for Fever yet.");
-        }
     }
 }

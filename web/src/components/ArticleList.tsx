@@ -37,42 +37,6 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     const lastSyncTime = useRef<number>(0);
     const { startSync, setProgress, endSync, isSyncing } = useUIStore(); // Use global store
 
-    // Auto-Sync on App Open / Visibility Change
-    useEffect(() => {
-        const attemptSync = async () => {
-            if (!navigator.onLine) return;
-
-            const now = Date.now();
-            // Sync if it's been more than 10 minutes since last sync
-            if (now - lastSyncTime.current > 10 * 60 * 1000) {
-                console.log("[AutoSync] Triggering background sync...");
-                lastSyncTime.current = now;
-                try {
-                    // We don't show full modal for auto-sync, maybe just a small indicator if needed
-                    // But if we want to trigger the global sync logic:
-                    await FeedService.syncWithFever();
-                } catch (e) {
-                    console.error("[AutoSync] Failed", e);
-                }
-            }
-        };
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                // Small delay to ensure DB/Network is woke
-                setTimeout(attemptSync, 1000);
-            }
-        };
-
-        // Listen for visibility changes (tab switching, app open from background)
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        // Try once on mount
-        setTimeout(attemptSync, 1000);
-
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, []);
-
     const handleTouchStart = (e: React.TouchEvent) => {
         if (atTop && !isRefreshing) {
             touchStartY.current = e.touches[0].clientY;
@@ -110,7 +74,9 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
 
             try {
                 // Determine if we should Sync (Fever) or Refresh All (Local)
-                await FeedService.syncWithFever();
+                await FeedService.refreshAllFeeds((completed, total, message) => {
+                    setProgress(completed, total, message);
+                });
             } catch (e) {
                 console.error("Refresh failed", e);
             } finally {

@@ -71,65 +71,18 @@ export function AppHeader({
         setProgress(0, 0, 'Updating Feeds...');
 
         try {
-            // Simplified Sync: Only update local feeds
-            // We removed FreshRSS integration to improve stability.
-            let localFeeds = await db.feeds.toArray();
-
-            // Get relevant feeds to sync
-            const feedsToSync = localFeeds.filter(f =>
-                f.type === 'rss' || f.type === 'reddit' || f.type === 'youtube' || f.type === 'podcast'
-            );
-
-            startSync(feedsToSync.length);
-            setProgress(0, feedsToSync.length, feedsToSync.length === 0 ? 'No feeds ready to refresh' : 'Preparing feeds...');
-
-            // Parallel execution with higher concurrency limit
-            const CONCURRENCY_LIMIT = 5; // Reduced for stability
-            let completedCount = 0;
-            let currentIndex = 0;
-            let totalNewArticles = 0;
-
-            const processNext = async (): Promise<void> => {
-                if (currentIndex >= feedsToSync.length) return;
-
-                const feed = feedsToSync[currentIndex];
-                currentIndex++;
-
-                // Update progress
-                setProgress(completedCount, feedsToSync.length, `Syncing ${feed.title}...`);
-
-                try {
-                    const newCount = await FeedService.refreshFeed(feed);
-                    if (typeof newCount === 'number') {
-                        totalNewArticles += newCount;
-                    }
-                } catch (e) {
-                    console.error(`Failed to refresh ${feed.title}`, e);
-                } finally {
-                    completedCount++;
-                    setProgress(completedCount, feedsToSync.length, undefined);
-
-                    // Process next in queue
-                    await processNext();
-                }
-            };
-
-            // Start workers
-            const workers = Array(Math.min(CONCURRENCY_LIMIT, feedsToSync.length))
-                .fill(null)
-                .map(() => processNext());
-
-            await Promise.all(workers);
+            const newArticles = await FeedService.refreshAllFeeds((completed, total, message) => {
+                setProgress(completed, total, message);
+            });
 
             setLastRefreshTime(Date.now());
 
-            // Show summary notification
-            if (totalNewArticles > 0) {
-                console.log(`[Sync Complete] Refreshed ${feedsToSync.length} feeds. Found ${totalNewArticles} new articles.`);
-                setTimeRemaining(`${totalNewArticles} new`);
+            if (newArticles > 0) {
+                console.log(`[Sync Complete] Found ${newArticles} new articles.`);
+                setTimeRemaining(`${newArticles} new`);
                 setTimeout(() => setTimeRemaining(''), 5000);
             } else {
-                console.log(`[Sync Complete] Refreshed ${feedsToSync.length} feeds. No new articles.`);
+                console.log(`[Sync Complete] No new articles.`);
             }
 
             // Clear progress immediately on success
