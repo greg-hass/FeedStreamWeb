@@ -62,16 +62,20 @@ self.addEventListener('pushsubscriptionchange', () => {
 
 // Image caching for offline thumbnails
 const IMAGE_CACHE_NAME = 'article-thumbnails-v1';
-const CACHEABLE_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+const CACHEABLE_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico'];
 
 self.addEventListener('fetch', (event: FetchEvent) => {
     const url = new URL(event.request.url);
     
     // Cache article thumbnails and feed icons
     const isImage = CACHEABLE_IMAGE_EXTENSIONS.some(ext => url.pathname.toLowerCase().endsWith(ext));
-    const isProxyImage = url.pathname.startsWith('/api/proxy') && (url.searchParams.get('url')?.match(/\.(jpg|jpeg|png|gif|webp)$/i));
+    
+    // Identify Proxy images or external icon services
+    const isProxyImage = url.pathname.startsWith('/api/proxy');
+    const isGoogleFavicon = url.hostname.includes('google.com') && url.pathname.includes('favicons');
+    const isYouTubeIcon = url.hostname.includes('ytimg.com') || url.hostname.includes('ggpht.com');
 
-    if (event.request.method === 'GET' && (isImage || isProxyImage)) {
+    if (event.request.method === 'GET' && (isImage || isProxyImage || isGoogleFavicon || isYouTubeIcon)) {
         event.respondWith(
             caches.open(IMAGE_CACHE_NAME).then(async (cache) => {
                 const cachedResponse = await cache.match(event.request);
