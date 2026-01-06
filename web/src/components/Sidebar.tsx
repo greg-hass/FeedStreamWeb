@@ -24,8 +24,9 @@ export function Sidebar({ className }: SidebarProps) {
     const counts = useLiveQuery(async () => {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
-        const [today, all, saved] = await Promise.all([
+        const [today, all, saved, freshFeedIds] = await Promise.all([
             // [isRead+publishedAt] index usage
             db.articles.where('[isRead+publishedAt]')
                 .between([0, todayStart], [0, new Date(Date.now() + 86400000)]) // 0=false (unread)
@@ -34,10 +35,32 @@ export function Sidebar({ className }: SidebarProps) {
             db.articles.where('isRead').equals(0).count(),
             // Simple index
             db.articles.where('isBookmarked').equals(1).count(),
+            // Find "Fresh" articles (unread and published in last 1 hour)
+            db.articles.where('publishedAt').above(oneHourAgo).toArray().then(articles => {
+                return new Set(articles.filter(a => !a.isRead).map(a => a.feedID));
+            })
         ]);
 
-        return { today, all, saved };
-    }) || { today: 0, all: 0, saved: 0 };
+        // Map fresh feed IDs to folder IDs
+        const freshFolders = new Set<string>();
+        const freshFeeds = new Set<string>(); // Also track feeds if needed later
+        
+        // We need access to 'feeds' list inside this async function, but 'feeds' is from another hook.
+        // Dexie liveQuery runs independently. So we must query feeds here or rely on the outer scope if available.
+        // Queries are async, outer scope 'feeds' might be stale. Best to query ID map.
+        const allFeeds = await db.feeds.toArray();
+        
+        allFeeds.forEach(f => {
+            if (freshFeedIds.has(f.id)) {
+                freshFeeds.add(f.id);
+                if (f.folderID) {
+                    freshFolders.add(f.folderID);
+                }
+            }
+        });
+
+        return { today, all, saved, freshFolders };
+    }) || { today: 0, all: 0, saved: 0, freshFolders: new Set<string>() };
 
     // Smart Feed counts - Optimized
     const mediaCounts = useLiveQuery(async () => {
@@ -344,6 +367,10 @@ export function Sidebar({ className }: SidebarProps) {
                                         >
                                             <FolderIcon size={16} />
                                             <span className="flex-1 truncate">{folder.name}</span>
+                                            {/* Fresh Indicator */}
+                                            {counts.freshFolders.has(folder.id) && (
+                                                <div className="w-2 h-2 bg-green-500 rounded-full shrink-0 animate-pulse" title="New articles in last hour" />
+                                            )}
                                             <span className="text-xs font-mono text-brand font-semibold">{folderFeeds.length}</span>
                                         </Link>
                                         <button
