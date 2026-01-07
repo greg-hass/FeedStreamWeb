@@ -281,13 +281,14 @@ export function Reader({ article }: ReaderProps) {
         }
     };
 
-    // Theme Classes
+    // Theme Classes - explicit colors that override system dark mode
     const getThemeClasses = () => {
         switch (theme) {
             case 'sepia': return 'bg-[#f4ecd8] text-[#5b4636]';
             case 'navy': return 'bg-[#1a202c] text-[#cbd5e0]';
             case 'black': return 'bg-black text-zinc-300';
-            default: return 'bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100';
+            case 'light': return 'bg-white text-zinc-900'; // Force white regardless of system theme
+            default: return 'bg-white text-zinc-900';
         }
     };
 
