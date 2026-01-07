@@ -16,6 +16,7 @@ interface ArticleSwipeRowProps {
 export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, isBookmarked }: ArticleSwipeRowProps) {
     const contentRef = useRef<HTMLDivElement>(null);
     const [offset, setOffset] = useState(0);
+    const [isActivelySwiping, setIsActivelySwiping] = useState(false);
     const touchStartX = useRef<number | null>(null);
     const touchStartY = useRef<number | null>(null);
     const currentX = useRef(0);
@@ -46,7 +47,7 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
             // e.preventDefault(); // React synthetic events might complain, but usually needed for native feel
         }
 
-        // Lock vertical scroll if dragging horizontal? 
+        // Lock vertical scroll if dragging horizontal?
         // Simple logic: limit drag to reasonable bounds (-150 to 150)
         // Add resistance
         const resistedX = deltaX * 0.5;
@@ -54,6 +55,11 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
         // Only allow dragging if we have actions
         if ((resistedX > 0 && !onSwipeRight) || (resistedX < 0 && !onSwipeLeft)) {
             return;
+        }
+
+        // Show background only when actively swiping with sufficient distance
+        if (Math.abs(resistedX) > 10 && !isActivelySwiping) {
+            setIsActivelySwiping(true);
         }
 
         currentX.current = resistedX;
@@ -97,28 +103,31 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
             contentRef.current.style.transform = 'translateX(0px)';
         }
         currentX.current = 0;
+        setIsActivelySwiping(false);
     };
 
     return (
         <div className="swipe-row relative overflow-hidden bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 last:border-0 select-none">
-            {/* Background Layer */}
-            <div className="absolute inset-0 flex items-center justify-between pointer-events-none">
-                {/* Left Action (Swipe Right) -> Read */}
-                <div className={clsx(
-                    "flex-1 h-full flex items-center justify-start px-6 transition-opacity duration-200",
-                    onSwipeRight ? "bg-brand" : "bg-transparent"
-                )}>
-                    {onSwipeRight && <Check className="text-white fill-current" size={24} />}
-                </div>
+            {/* Background Layer - Only render when actively swiping to prevent flicker during scroll */}
+            {isActivelySwiping && (
+                <div className="absolute inset-0 flex items-center justify-between pointer-events-none">
+                    {/* Left Action (Swipe Right) -> Read */}
+                    <div className={clsx(
+                        "flex-1 h-full flex items-center justify-start px-6",
+                        onSwipeRight ? "bg-brand" : "bg-transparent"
+                    )}>
+                        {onSwipeRight && <Check className="text-white fill-current" size={24} />}
+                    </div>
 
-                {/* Right Action (Swipe Left) -> Bookmark */}
-                <div className={clsx(
-                    "flex-1 h-full flex items-center justify-end px-6 transition-opacity duration-200",
-                    onSwipeLeft ? "bg-amber-500" : "bg-transparent"
-                )}>
-                    {onSwipeLeft && <Bookmark className={clsx("text-white", isBookmarked && "fill-current")} size={24} />}
+                    {/* Right Action (Swipe Left) -> Bookmark */}
+                    <div className={clsx(
+                        "flex-1 h-full flex items-center justify-end px-6",
+                        onSwipeLeft ? "bg-amber-500" : "bg-transparent"
+                    )}>
+                        {onSwipeLeft && <Bookmark className={clsx("text-white", isBookmarked && "fill-current")} size={24} />}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Content Layer */}
             <div
