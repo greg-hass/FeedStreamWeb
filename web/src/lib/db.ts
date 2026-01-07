@@ -197,3 +197,56 @@ export interface SyncQueueItem {
 }
 
 export const db = new FeedStreamDB();
+
+/**
+ * Reopen the database connection
+ * Used when iOS Safari closes IndexedDB on background
+ */
+export async function reopenDatabase(): Promise<void> {
+    if (!db.isOpen()) {
+        await db.open();
+    }
+}
+
+/**
+ * Setup visibility change handler to reopen DB on iOS
+ * Call this once on app initialization
+ */
+export function setupDatabaseReconnection(): void {
+    if (typeof document === 'undefined') return;
+
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+            try {
+                // Check if DB is still open, reopen if needed
+                if (!db.isOpen()) {
+                    console.log('[DB] Reopening database after visibility change');
+                    await db.open();
+                }
+            } catch (e) {
+                console.error('[DB] Failed to reopen database:', e);
+                // Force close and reopen
+                try {
+                    db.close();
+                    await db.open();
+                } catch (e2) {
+                    console.error('[DB] Failed to force reopen:', e2);
+                }
+            }
+        }
+    });
+
+    // Also handle page show event (iOS back-forward cache)
+    window.addEventListener('pageshow', async (event) => {
+        if (event.persisted) {
+            console.log('[DB] Page restored from bfcache, checking database');
+            try {
+                if (!db.isOpen()) {
+                    await db.open();
+                }
+            } catch (e) {
+                console.error('[DB] Failed to reopen after pageshow:', e);
+            }
+        }
+    });
+}

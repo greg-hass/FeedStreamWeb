@@ -7,14 +7,18 @@ import { useSettingsStore } from "@/store/settingsStore";
 import { differenceInDays, parseISO } from "date-fns";
 import { AlertCircle, Download, X } from "lucide-react";
 import { BackupService } from "@/lib/backup-service";
+import { setupDatabaseReconnection } from "@/lib/db";
 
 export function GlobalUI() {
     const { isSyncing, isImporting, current, total, feedName, endSync, cancelSync, endImport } = useUIStore();
     const { backupFrequency, lastBackupAt } = useSettingsStore();
     const [showBackupReminder, setShowBackupReminder] = useState(false);
 
-    // 1. Request Persistence on Mount
+    // 1. Request Persistence and Setup DB Reconnection on Mount
     useEffect(() => {
+        // Setup database reconnection for iOS background/foreground
+        setupDatabaseReconnection();
+
         if (navigator.storage && navigator.storage.persist) {
             navigator.storage.persist().then(persistent => {
                 console.log(persistent ? "Storage is persistent" : "Storage is NOT persistent");

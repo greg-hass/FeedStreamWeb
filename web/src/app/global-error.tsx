@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { RefreshCw, Trash2, Database } from 'lucide-react';
 
 export default function GlobalError({
   error,
@@ -10,9 +10,43 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [isRetrying, setIsRetrying] = useState(false);
+
   useEffect(() => {
     console.error('Global Error:', error);
   }, [error]);
+
+  // Check if this is a database cursor error (common on iOS background/foreground)
+  const isDatabaseError = error.message?.includes('cursor') ||
+                          error.message?.includes('IndexedDB') ||
+                          error.message?.includes('database');
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+
+    try {
+      // If it's a database error, try to reopen the connection first
+      if (isDatabaseError) {
+        console.log('[Error Recovery] Attempting to reopen database...');
+
+        // Import db module dynamically to avoid issues
+        const { db } = await import('@/lib/db');
+
+        // Force close and reopen
+        if (db.isOpen()) {
+          db.close();
+        }
+        await db.open();
+
+        console.log('[Error Recovery] Database reopened successfully');
+      }
+    } catch (e) {
+      console.error('[Error Recovery] Failed to reopen database:', e);
+    }
+
+    setIsRetrying(false);
+    reset();
+  };
 
   const handleHardReset = async () => {
     if (!confirm('This will delete all local data (feeds, articles, settings) and reset the app. Are you sure?')) return;
@@ -65,12 +99,21 @@ export default function GlobalError({
 
           <div className="space-y-3 pt-2">
             <button
-              onClick={() => reset()}
-              className="w-full py-3 bg-zinc-100 text-zinc-900 rounded-xl font-semibold hover:bg-white transition flex items-center justify-center gap-2"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="w-full py-3 bg-zinc-100 text-zinc-900 rounded-xl font-semibold hover:bg-white transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <RefreshCw size={18} /> Try Again
+              {isRetrying ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin" /> Reconnecting...
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={18} /> Try Again
+                </>
+              )}
             </button>
-            
+
             <button
               onClick={handleHardReset}
               className="w-full py-3 bg-red-500/10 text-red-500 rounded-xl font-semibold hover:bg-red-500/20 transition flex items-center justify-center gap-2"
@@ -78,9 +121,11 @@ export default function GlobalError({
               <Trash2 size={18} /> Reset All Data
             </button>
           </div>
-          
+
           <p className="text-xs text-zinc-600">
-            If this persists, try "Reset All Data" to clear corrupted local storage.
+            {isDatabaseError
+              ? 'This may be caused by the app being backgrounded. "Try Again" will attempt to reconnect.'
+              : 'If this persists, try "Reset All Data" to clear corrupted local storage.'}
           </p>
         </div>
       </body>
