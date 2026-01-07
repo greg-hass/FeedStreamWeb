@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Check, Bookmark, Youtube, Radio, Rss, Mic, Play, MessageCircle } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Article, Feed } from '@/lib/db';
+import { Article, Feed, db } from '@/lib/db';
 import { MemoizedArticleSwipeRow as ArticleSwipeRow } from './ArticleSwipeRow';
 import { useAudioStore } from '@/store/audioStore';
 
