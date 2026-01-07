@@ -24,12 +24,11 @@ export default function ManageFeedsPage() {
     };
 
     const handleDeleteFolder = async (folderId: string) => {
-        if (!confirm('Delete this folder and ALL feeds inside it? This cannot be undone.')) return;
+        if (!confirm('Delete this folder? Feeds inside will be moved to Uncategorized.')) return;
         const folderFeeds = await db.feeds.where('folderID').equals(folderId).toArray();
         for (const feed of folderFeeds) {
-            await db.articles.where('feedID').equals(feed.id).delete();
+            await db.feeds.update(feed.id, { folderID: undefined });
         }
-        await db.feeds.where('folderID').equals(folderId).delete();
         await db.folders.delete(folderId);
     };
 
@@ -205,15 +204,16 @@ export default function ManageFeedsPage() {
 
                     {/* Root Feeds */}
                     {rootFeeds.length > 0 && (
-                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-                            <div className="px-4 py-3 bg-zinc-100 dark:bg-zinc-800/50 font-medium">Uncategorized</div>
+                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            <div className="px-4 py-3 bg-zinc-100 dark:bg-zinc-800/50 font-medium rounded-t-xl">Uncategorized</div>
                             <ul>
-                                {rootFeeds.map(feed => (
+                                {rootFeeds.map((feed, index) => (
                                     <FeedRow
                                         key={feed.id}
                                         feed={feed}
                                         onDelete={() => handleDeleteFeed(feed.id)}
                                         onMove={() => { setSelectedFeed(feed.id); setShowMoveModal(true); }}
+                                        isLast={index === rootFeeds.length - 1}
                                     />
                                 ))}
                             </ul>
@@ -299,7 +299,7 @@ export default function ManageFeedsPage() {
     );
 }
 
-function FeedRow({ feed, onDelete, onMove }: { feed: Feed; onDelete: () => void; onMove: () => void }) {
+function FeedRow({ feed, onDelete, onMove, isLast }: { feed: Feed; onDelete: () => void; onMove: () => void; isLast?: boolean }) {
     const getIcon = () => {
         if (feed.type === 'youtube') return Play;
         if (feed.type === 'podcast') return Radio;
@@ -316,7 +316,10 @@ function FeedRow({ feed, onDelete, onMove }: { feed: Feed; onDelete: () => void;
     const isLocal = isNaN(parseInt(feed.id));
 
     return (
-        <li className="flex items-center gap-3 px-4 py-3 border-t border-zinc-100 dark:border-zinc-800 first:border-t-0 group relative">
+        <li className={clsx(
+            "flex items-center gap-3 px-4 py-3 border-t border-zinc-100 dark:border-zinc-800 first:border-t-0 group relative",
+            isLast && "rounded-b-xl"
+        )}>
             <Icon size={16} className="text-zinc-400 shrink-0" />
             <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate flex items-center gap-2">
@@ -404,8 +407,8 @@ function FolderGroup({ folder, feeds, onDeleteFolder, onDeleteFeed, onMoveFeed }
     };
 
     return (
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-            <div className="px-4 py-3 bg-zinc-100 dark:bg-zinc-800/50 flex items-center gap-3 group relative">
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800">
+            <div className="px-4 py-3 bg-zinc-100 dark:bg-zinc-800/50 flex items-center gap-3 group relative rounded-t-xl">
                 <FolderOpen size={18} className="text-amber-500" />
                 
                 {isEditing ? (
@@ -480,17 +483,18 @@ function FolderGroup({ folder, feeds, onDeleteFolder, onDeleteFeed, onMoveFeed }
             </div>
             {feeds.length > 0 ? (
                 <ul>
-                    {feeds.map(feed => (
+                    {feeds.map((feed, index) => (
                         <FeedRow
                             key={feed.id}
                             feed={feed}
                             onDelete={() => onDeleteFeed(feed.id)}
                             onMove={() => onMoveFeed(feed.id)}
+                            isLast={index === feeds.length - 1}
                         />
                     ))}
                 </ul>
             ) : (
-                <div className="px-4 py-3 text-sm text-zinc-400">No feeds in this folder</div>
+                <div className="px-4 py-3 text-sm text-zinc-400 rounded-b-xl">No feeds in this folder</div>
             )}
         </div>
     );

@@ -39,7 +39,7 @@ export class FeedService {
         let articlesWithFeedId = normalized.articles.map(a => ({
             ...a,
             feedID: feedId,
-            isRead: false
+            isRead: 0
         }));
 
         // Apply Rules
@@ -224,10 +224,10 @@ export class FeedService {
                     if (hasChanged) {
                         updates.push({
                             ...item,
-                            // Persist user state unless rule forced it?
-                            // Simplest: OR logic. isRead = existing.isRead || item.isRead (from rule)
-                            isRead: existing.isRead || item.isRead,
-                            isBookmarked: existing.isBookmarked || item.isBookmarked,
+                            // Persist user state unless rule forced it
+                            // Using bitwise OR as numeric boolean logic (if either is 1, result is 1)
+                            isRead: existing.isRead | item.isRead,
+                            isBookmarked: existing.isBookmarked | item.isBookmarked,
                             playbackPosition: existing.playbackPosition,
                             downloadStatus: existing.downloadStatus,
                             contentPrefetchedAt: existing.contentPrefetchedAt
@@ -261,22 +261,22 @@ export class FeedService {
 
     static async toggleReadStatus(articleId: string, isRead: boolean) {
         // 1. Optimistic Update Local
-        await db.articles.update(articleId, { isRead });
+        await db.articles.update(articleId, { isRead: isRead ? 1 : 0 });
     }
 
     static async toggleBookmark(articleId: string, isBookmarked: boolean) {
         // 1. Optimistic Update Local
-        await db.articles.update(articleId, { isBookmarked });
+        await db.articles.update(articleId, { isBookmarked: isBookmarked ? 1 : 0 });
     }
 
     static async markFeedAsRead(feedId: string) {
         // 1. Local update
-        const articles = await db.articles.where('feedID').equals(feedId).filter(a => !a.isRead).toArray();
+        const articles = await db.articles.where('feedID').equals(feedId).filter(a => a.isRead === 0).toArray();
         const ids = articles.map(a => a.id);
 
         if (ids.length === 0) return;
 
-        await db.articles.bulkUpdate(articles.map(a => ({ key: a.id, changes: { isRead: true } })));
+        await db.articles.bulkUpdate(articles.map(a => ({ key: a.id, changes: { isRead: 1 } })));
     }
 
     static async markAllAsRead() {
@@ -285,6 +285,6 @@ export class FeedService {
         if (unread.length === 0) return;
 
         // Bulk update is faster
-        await db.articles.bulkUpdate(unread.map(a => ({ key: a.id, changes: { isRead: true } })));
+        await db.articles.bulkUpdate(unread.map(a => ({ key: a.id, changes: { isRead: 1 } })));
     }
 }

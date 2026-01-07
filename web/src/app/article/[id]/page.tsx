@@ -16,7 +16,7 @@ export default function ArticlePage() {
     const article = useLiveQuery(() => db.articles.get(id), [id]);
 
     useEffect(() => {
-        if (article && !article.isRead) {
+        if (article && article.isRead === 0) {
             FeedService.toggleReadStatus(id, true);
         }
     }, [article, id]);

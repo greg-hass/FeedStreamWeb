@@ -9,8 +9,8 @@ interface ArticleSwipeRowProps {
     children: React.ReactNode;
     onSwipeLeft?: () => void; // Usually Bookmark/More
     onSwipeRight?: () => void; // Usually Toggle Read
-    isRead: boolean;
-    isBookmarked: boolean;
+    isRead: number;
+    isBookmarked: number;
 }
 
 export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, isBookmarked }: ArticleSwipeRowProps) {

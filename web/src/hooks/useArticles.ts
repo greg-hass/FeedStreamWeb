@@ -100,17 +100,9 @@ export function useArticles(
         const results = await collection.reverse().limit(limit).toArray();
 
         return results.map((a: Article) => ({
-            id: a.id,
-            feedID: a.feedID,
-            title: a.title,
-            summary: a.summary,
-            // Exclude contentHTML and readerHTML
-            publishedAt: a.publishedAt,
-            isRead: a.isRead,
-            isBookmarked: a.isBookmarked,
-            mediaKind: a.mediaKind,
-            thumbnailPath: a.thumbnailPath,
-            author: a.author,
+            ...a,
+            contentHTML: undefined,
+            readerHTML: undefined,
         })) as Article[];
 
     }, [view, limit, searchQuery]);

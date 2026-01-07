@@ -7,28 +7,16 @@ import { ArticleList } from '@/components/ArticleList';
 import { AppHeader } from '@/components/AppHeader';
 import { useState } from 'react';
 import { FeedService } from '@/lib/feed-service';
+import { useArticles } from '@/hooks/useArticles';
 
 export default function FeedPage() {
     const params = useParams();
     const feedId = params.id as string;
     const [searchQuery, setSearchQuery] = useState('');
-    const [isSyncing, setIsSyncing] = useState(false);
+    const [limit, setLimit] = useState(100);
 
     const feed = useLiveQuery(() => db.feeds.get(feedId), [feedId]);
-    const articles = useLiveQuery(
-        () => db.articles.where('feedID').equals(feedId).reverse().sortBy('publishedAt'),
-        [feedId]
-    ) as Article[] | undefined;
-
-    const handleSync = async () => {
-        if (isSyncing || !feed) return;
-        setIsSyncing(true);
-        try {
-            await FeedService.refreshFeed(feed);
-        } finally {
-            setIsSyncing(false);
-        }
-    };
+    const articles = useArticles(feedId, limit, searchQuery);
 
     const handleMarkAllRead = async () => {
         if (confirm('Mark all articles in this feed as read?')) {
@@ -36,11 +24,9 @@ export default function FeedPage() {
         }
     };
 
-    const filteredArticles = articles?.filter(article => {
-        if (!searchQuery) return true;
-        return article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            article.summary?.toLowerCase().includes(searchQuery.toLowerCase());
-    });
+    const handleLoadMore = () => {
+        setLimit(prev => prev + 100);
+    };
 
     if (!feed) {
         return (
@@ -59,14 +45,14 @@ export default function FeedPage() {
                 onMarkAllRead={handleMarkAllRead}
             />
             <div className="flex-1 overflow-hidden">
-                {filteredArticles && filteredArticles.length > 0 ? (
-                    <ArticleList articles={filteredArticles} />
+                {articles && articles.length > 0 ? (
+                    <ArticleList 
+                        articles={articles} 
+                        onLoadMore={handleLoadMore}
+                    />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-zinc-400 gap-2">
                         <p>No articles yet</p>
-                        <button onClick={handleSync} className="text-brand hover:underline">
-                            Refresh Feed
-                        </button>
                     </div>
                 )}
             </div>

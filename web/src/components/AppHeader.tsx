@@ -10,6 +10,7 @@ import { useUIStore } from '@/store/uiStore';
 import { FeedSearchModal } from './FeedSearchModal';
 import { RefreshProgress } from './RefreshProgress';
 import Link from 'next/link';
+import { useSync } from '@/hooks/useSync';
 
 
 interface AppHeaderProps {
@@ -33,11 +34,11 @@ export function AppHeader({
     onSearchChange,
     onMarkAllRead
 }: AppHeaderProps) {
-    const [isSyncing, setIsSyncing] = useState(false);
+    const { isSyncing } = useUIStore();
     const { lastRefreshTime, setLastRefreshTime } = useSettingsStore();
-    const { startSync, setProgress, endSync } = useUIStore();
     const [timeRemaining, setTimeRemaining] = useState<string>('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const { runSync } = useSync();
 
     // Update countdown every second
     useEffect(() => {
@@ -66,44 +67,9 @@ export function AppHeader({
 
     const performSync = useCallback(async () => {
         if (isSyncing) return;
-        setIsSyncing(true);
-        startSync(0);
-        setProgress(0, 0, 'Updating Feeds...');
-
-        try {
-            const newArticles = await FeedService.refreshAllFeeds((completed, total, message) => {
-                setProgress(completed, total, message);
-            });
-
-            setLastRefreshTime(Date.now());
-
-            if (newArticles > 0) {
-                console.log(`[Sync Complete] Found ${newArticles} new articles.`);
-                setTimeRemaining(`${newArticles} new`);
-                setTimeout(() => setTimeRemaining(''), 5000);
-            } else {
-                console.log(`[Sync Complete] No new articles.`);
-            }
-
-            // Clear progress immediately on success
-            endSync();
-            setIsSyncing(false);
-
-        } catch (e: any) {
-            console.error('Sync failed:', e);
-            // Show error to user
-            setProgress(0, 0, `Sync Failed: ${e.message || 'Unknown error'}`);
-            // Clear after 3 seconds so user can see it
-            setTimeout(() => {
-                endSync();
-                setIsSyncing(false);
-            }, 3000);
-        } finally {
-            // Ensure we don't leave it hanging if something unexpected happens
-            // But main logic is in try/catch for specific timing
-            setLastRefreshTime(Date.now());
-        }
-    }, [isSyncing, setLastRefreshTime, startSync, setProgress, endSync]); // Depend on store actions
+        setLastRefreshTime(Date.now());
+        await runSync();
+    }, [isSyncing, runSync, setLastRefreshTime]);
 
     // Auto-refresh when timer reaches 0
     useEffect(() => {

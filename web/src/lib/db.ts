@@ -45,8 +45,8 @@ export interface Article {
   url?: string;
   publishedAt?: Date;
   updatedAt?: Date;
-  isRead: boolean;
-  isBookmarked: boolean;
+  isRead: number; // 0 = unread, 1 = read
+  isBookmarked: number; // 0 = no, 1 = yes
   mediaKind: string; // 'none' | 'video' | 'audio'
   thumbnailPath?: string;
   duration?: number;

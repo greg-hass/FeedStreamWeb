@@ -26,9 +26,11 @@ export function TabBar() {
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         const [today, all, saved] = await Promise.all([
-            db.articles.filter(a => a.publishedAt instanceof Date && a.publishedAt >= todayStart && a.isRead === false).count(),
-            db.articles.filter(a => a.isRead === false).count(),
-            db.articles.filter(a => Boolean(a.isBookmarked)).count(),
+            db.articles.where('[isRead+publishedAt]')
+                .between([0, todayStart], [0, new Date(Date.now() + 86400000)])
+                .count(),
+            db.articles.where('isRead').equals(0).count(),
+            db.articles.where('isBookmarked').equals(1).count(),
         ]);
 
         return { today, all, saved };
@@ -60,12 +62,11 @@ export function TabBar() {
 
     const handleDeleteFolder = async () => {
         if (!editingFolder) return;
-        if (confirm('Delete this folder and ALL feeds inside it? This cannot be undone.')) {
+        if (confirm('Delete this folder? Feeds inside will be moved to Uncategorized.')) {
             const folderFeeds = feeds.filter(f => f.folderID === editingFolder.id);
             for (const feed of folderFeeds) {
-                await db.articles.where('feedID').equals(feed.id).delete();
+                await db.feeds.update(feed.id, { folderID: undefined });
             }
-            await db.feeds.where('folderID').equals(editingFolder.id).delete();
             await db.folders.delete(editingFolder.id);
             setEditingFolder(null);
         }

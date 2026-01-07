@@ -24,10 +24,10 @@ export class RulesEngine {
                     
                     switch (rule.action) {
                         case 'mark_read':
-                            modifiedArticle.isRead = true;
+                            modifiedArticle.isRead = 1;
                             break;
                         case 'star':
-                            modifiedArticle.isBookmarked = true;
+                            modifiedArticle.isBookmarked = 1;
                             break;
                         case 'delete':
                             shouldDelete = true;
