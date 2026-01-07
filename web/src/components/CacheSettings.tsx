@@ -91,7 +91,13 @@ export function CacheSettings() {
         if (granted) {
             setMessage('Persistent storage enabled');
         } else {
-            setMessage('Could not enable persistent storage');
+            // Check if iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS) {
+                setMessage('On iOS, add this app to your Home Screen (Share → Add to Home Screen) to enable persistent storage');
+            } else {
+                setMessage('Could not enable persistent storage. Try installing as a PWA.');
+            }
         }
     };
 
@@ -132,6 +138,9 @@ export function CacheSettings() {
                         <div className="flex-1">
                             <p className="text-sm text-yellow-800 dark:text-yellow-200">
                                 Your browser may automatically clear cached data. Enable persistent storage to prevent this.
+                            </p>
+                            <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                                <strong>iOS:</strong> Add to Home Screen (Share → Add to Home Screen)
                             </p>
                             <button
                                 onClick={handleRequestPersistent}
