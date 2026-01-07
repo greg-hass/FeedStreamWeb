@@ -308,9 +308,17 @@ function FeedRow({ feed, onDelete, onMove, isLast }: { feed: Feed; onDelete: () 
     };
     const Icon = getIcon();
     const [showMenu, setShowMenu] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState(feed.title);
 
     const handleTypeChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         await db.feeds.update(feed.id, { type: e.target.value as any });
+    };
+
+    const handleRename = async () => {
+        if (!editTitle.trim()) return;
+        await db.feeds.update(feed.id, { title: editTitle.trim() });
+        setIsEditing(false);
     };
 
     const isLocal = isNaN(parseInt(feed.id));
@@ -322,69 +330,106 @@ function FeedRow({ feed, onDelete, onMove, isLast }: { feed: Feed; onDelete: () 
         )}>
             <Icon size={16} className="text-zinc-400 shrink-0" />
             <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate flex items-center gap-2">
-                    {feed.title}
-                    {isLocal && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                            LOCAL
-                        </span>
-                    )}
-                </p>
-                <div className="flex items-center gap-2">
-                    <p className="text-xs text-zinc-500 truncate max-w-[200px]">{feed.feedURL}</p>
-                    <select
-                        value={feed.type || 'rss'}
-                        onChange={handleTypeChange}
-                        className="text-xs bg-zinc-100 dark:bg-zinc-800 border-none rounded px-1.5 py-0.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 focus:ring-0 cursor-pointer"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <option value="rss">RSS</option>
-                        <option value="podcast">Podcast</option>
-                        <option value="youtube">YouTube</option>
-                        <option value="reddit">Reddit</option>
-                    </select>
-                </div>
-            </div>
-
-            {/* Desktop Actions */}
-            <div className="hidden md:flex items-center gap-1">
-                <button onClick={onMove} className="p-2 text-zinc-400 hover:text-brand rounded-full hover:bg-brand/10 transition-colors" title="Move">
-                    <MoveRight size={16} />
-                </button>
-                <button onClick={onDelete} className="p-2 text-zinc-400 hover:text-red-500 rounded-full hover:bg-red-500/10 transition-colors" title="Delete">
-                    <Trash2 size={16} />
-                </button>
-            </div>
-
-            {/* Mobile Menu */}
-            <div className="md:hidden relative">
-                <button
-                    onClick={() => setShowMenu(!showMenu)}
-                    className="p-2 -mr-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                >
-                    <MoreVertical size={20} />
-                </button>
-
-                {showMenu && (
+                {isEditing ? (
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={editTitle}
+                            onChange={e => setEditTitle(e.target.value)}
+                            className="flex-1 px-2 py-1 text-sm rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800"
+                            autoFocus
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRename();
+                                if (e.key === 'Escape') { setIsEditing(false); setEditTitle(feed.title); }
+                            }}
+                        />
+                        <button onClick={handleRename} className="p-1 text-brand"><Check size={18} /></button>
+                        <button onClick={() => { setIsEditing(false); setEditTitle(feed.title); }} className="p-1 text-zinc-500"><X size={18} /></button>
+                    </div>
+                ) : (
                     <>
-                        <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-zinc-900 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-800 z-20 py-1">
-                            <button
-                                onClick={() => { setShowMenu(false); onMove(); }}
-                                className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
+                        <p className="font-medium text-sm truncate flex items-center gap-2">
+                            {feed.title}
+                            {isLocal && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                    LOCAL
+                                </span>
+                            )}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-xs text-zinc-500 truncate max-w-[200px]">{feed.feedURL}</p>
+                            <select
+                                value={feed.type || 'rss'}
+                                onChange={handleTypeChange}
+                                className="text-xs bg-zinc-100 dark:bg-zinc-800 border-none rounded px-1.5 py-0.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 focus:ring-0 cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
                             >
-                                <MoveRight size={16} /> Move to Folder
-                            </button>
-                            <button
-                                onClick={() => { setShowMenu(false); onDelete(); }}
-                                className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-                            >
-                                <Trash2 size={16} /> Delete Feed
-                            </button>
+                                <option value="rss">RSS</option>
+                                <option value="podcast">Podcast</option>
+                                <option value="youtube">YouTube</option>
+                                <option value="reddit">Reddit</option>
+                            </select>
                         </div>
                     </>
                 )}
             </div>
+
+            {/* Desktop Actions */}
+            {!isEditing && (
+                <div className="hidden md:flex items-center gap-1">
+                    <button
+                        onClick={() => { setIsEditing(true); setEditTitle(feed.title); }}
+                        className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                        title="Rename"
+                    >
+                        <Edit2 size={16} />
+                    </button>
+                    <button onClick={onMove} className="p-2 text-zinc-400 hover:text-brand rounded-full hover:bg-brand/10 transition-colors" title="Move">
+                        <MoveRight size={16} />
+                    </button>
+                    <button onClick={onDelete} className="p-2 text-zinc-400 hover:text-red-500 rounded-full hover:bg-red-500/10 transition-colors" title="Delete">
+                        <Trash2 size={16} />
+                    </button>
+                </div>
+            )}
+
+            {/* Mobile Menu */}
+            {!isEditing && (
+                <div className="md:hidden relative">
+                    <button
+                        onClick={() => setShowMenu(!showMenu)}
+                        className="p-2 -mr-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                    >
+                        <MoreVertical size={20} />
+                    </button>
+
+                    {showMenu && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-zinc-900 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-800 z-20 py-1">
+                                <button
+                                    onClick={() => { setShowMenu(false); setIsEditing(true); setEditTitle(feed.title); }}
+                                    className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
+                                >
+                                    <Edit2 size={16} /> Rename Feed
+                                </button>
+                                <button
+                                    onClick={() => { setShowMenu(false); onMove(); }}
+                                    className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
+                                >
+                                    <MoveRight size={16} /> Move to Folder
+                                </button>
+                                <button
+                                    onClick={() => { setShowMenu(false); onDelete(); }}
+                                    className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                >
+                                    <Trash2 size={16} /> Delete Feed
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
         </li>
     );
 }
