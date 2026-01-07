@@ -261,6 +261,12 @@ export class CacheManager {
      * Check if storage is persistent
      */
     static async isPersistent(): Promise<boolean> {
+        // iOS standalone mode (Home Screen PWA) - storage is automatically persistent
+        // but navigator.storage.persisted() often returns false incorrectly
+        if (this.isIOSStandalone()) {
+            return true;
+        }
+
         if ('storage' in navigator && 'persisted' in navigator.storage) {
             try {
                 return await navigator.storage.persisted();
@@ -269,5 +275,23 @@ export class CacheManager {
             }
         }
         return false;
+    }
+
+    /**
+     * Check if running as iOS standalone PWA (added to Home Screen)
+     */
+    static isIOSStandalone(): boolean {
+        if (typeof window === 'undefined') return false;
+
+        // iOS Safari standalone mode
+        const isIOSStandalone = (navigator as any).standalone === true;
+
+        // Also check display-mode media query (works on iOS 13+)
+        const isDisplayModeStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
+        // Check if iOS device
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+        return isIOS && (isIOSStandalone || isDisplayModeStandalone);
     }
 }
