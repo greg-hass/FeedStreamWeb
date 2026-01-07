@@ -35,6 +35,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.addEventListener('error', function(e) {
+                if (e.message && e.message.indexOf('Loading chunk') !== -1) {
+                  window.location.reload();
+                }
+              }, true);
+            `,
+          }}
+        />
+      </head>
       <body className="antialiased bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 h-screen w-screen overflow-hidden flex flex-row">
         <Sidebar className="hidden md:flex" />
 

@@ -143,18 +143,26 @@ export class FeedService {
 
         if (feedsToSync.length === 0) return 0;
 
-        const CONCURRENCY_LIMIT = 4;
+        const CONCURRENCY_LIMIT = 2; // Reduced to prevent UI freezing on mobile
         let completedCount = 0;
-        let currentIndex = 0;
+        let startedCount = 0;
         let totalNewArticles = 0;
+        const total = feedsToSync.length;
 
         const processNext = async (): Promise<void> => {
-            if (signal?.aborted || currentIndex >= feedsToSync.length) return;
+            if (signal?.aborted || startedCount >= total) return;
 
-            const feed = feedsToSync[currentIndex];
-            currentIndex++;
+            const feed = feedsToSync[startedCount];
+            startedCount++;
 
-            if (onProgress) onProgress(completedCount, feedsToSync.length, `Updating ${feed.title}...`);
+            // Use a stable progress update
+            if (onProgress) {
+                // Show progress based on completedCount but name from what we just started
+                onProgress(completedCount, total, `Updating ${feed.title}...`);
+            }
+
+            // YIELD TO MAIN THREAD: Critical for UI smoothness
+            await new Promise(resolve => setTimeout(resolve, 50));
 
             try {
                 const newCount = await this.refreshFeed(feed, signal);
@@ -163,7 +171,10 @@ export class FeedService {
                 console.error(e);
             } finally {
                 completedCount++;
-                if (onProgress && !signal?.aborted) onProgress(completedCount, feedsToSync.length, `Updating ${feed.title}...`);
+                // Final update for this feed
+                if (onProgress && !signal?.aborted) {
+                    onProgress(completedCount, total, completedCount === total ? 'Finished' : `Updating feeds...`);
+                }
                 await processNext();
             }
         };

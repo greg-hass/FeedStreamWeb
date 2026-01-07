@@ -6,19 +6,38 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+// Optimized HTML decoding (regex for speed, DOM as fallback)
+let decodingTextArea: HTMLTextAreaElement | null = null;
+const commonEntities: Record<string, string> = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#039;': "'",
+    '&apos;': "'"
+};
+
 export function decodeHTMLEntities(text: string): string {
-    if (typeof window === 'undefined') {
-        // Basic server-side decoding if needed, or rely on parser
-        return text
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#039;/g, "'");
+    if (!text) return '';
+    
+    // Quick regex pass for common entities
+    const quickDecode = text.replace(/&amp;|&lt;|&gt;|&quot;|&#039;|&apos;/g, (match) => commonEntities[match]);
+    
+    // If no other entities are left, return
+    if (quickDecode.indexOf('&') === -1) {
+        return quickDecode;
     }
-    const txt = document.createElement("textarea");
-    txt.innerHTML = text;
-    return txt.value;
+
+    if (typeof window === 'undefined') {
+        return quickDecode;
+    }
+
+    // Reuse textarea for complex entities
+    if (!decodingTextArea) {
+        decodingTextArea = document.createElement("textarea");
+    }
+    decodingTextArea.innerHTML = text;
+    return decodingTextArea.value;
 }
 
 import md5Lib from 'blueimp-md5';

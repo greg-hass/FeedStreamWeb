@@ -27,6 +27,11 @@ export function Sidebar({ className }: SidebarProps) {
 
     // Sidebar counts - Optimized with Indexes
     const liveCounts = useLiveQuery(async () => {
+        // PERF: If syncing, DO NOT run heavy queries. Return a marker to use previous state.
+        if (useUIStore.getState().isSyncing) {
+            return 'SYNCING_PAUSE';
+        }
+
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
@@ -65,11 +70,11 @@ export function Sidebar({ className }: SidebarProps) {
         return { today, all, saved, freshFolders };
     });
 
-    const [counts, setCounts] = useState(liveCounts || { today: 0, all: 0, saved: 0, freshFolders: new Set<string>() });
+    const [counts, setCounts] = useState(liveCounts && liveCounts !== 'SYNCING_PAUSE' ? liveCounts : { today: 0, all: 0, saved: 0, freshFolders: new Set<string>() });
 
     // Debounce counts update
     useEffect(() => {
-        if (!liveCounts) return;
+        if (!liveCounts || liveCounts === 'SYNCING_PAUSE') return;
         
         // Immediate update on first load
         if (counts.today === 0 && counts.all === 0 && counts.saved === 0) {
@@ -79,14 +84,18 @@ export function Sidebar({ className }: SidebarProps) {
 
         const handler = setTimeout(() => {
             setCounts(liveCounts);
-        }, isSyncing ? 3000 : 1000); // Increased debounce to prevent flickering
+        }, 500); // Standard debounce
 
         return () => clearTimeout(handler);
-    }, [liveCounts, isSyncing]);
+    }, [liveCounts]); // Removed isSyncing dependency as logic is now upstream
 
 
     // Smart Feed counts - Optimized
     const liveMediaCounts = useLiveQuery(async () => {
+        if (useUIStore.getState().isSyncing) {
+            return 'SYNCING_PAUSE';
+        }
+
         const [youtube, podcast, reddit, rss] = await Promise.all([
             // Simple index
             db.articles.where('mediaKind').equals('youtube').count(),
@@ -105,11 +114,11 @@ export function Sidebar({ className }: SidebarProps) {
         return { youtube, podcast, reddit, rss };
     });
 
-    const [mediaCounts, setMediaCounts] = useState(liveMediaCounts || { youtube: 0, podcast: 0, reddit: 0, rss: 0 });
+    const [mediaCounts, setMediaCounts] = useState(liveMediaCounts && liveMediaCounts !== 'SYNCING_PAUSE' ? liveMediaCounts : { youtube: 0, podcast: 0, reddit: 0, rss: 0 });
 
     // Debounce media counts
     useEffect(() => {
-        if (!liveMediaCounts) return;
+        if (!liveMediaCounts || liveMediaCounts === 'SYNCING_PAUSE') return;
         
         if (mediaCounts.rss === 0 && mediaCounts.youtube === 0) {
             setMediaCounts(liveMediaCounts);
@@ -118,10 +127,20 @@ export function Sidebar({ className }: SidebarProps) {
 
         const handler = setTimeout(() => {
             setMediaCounts(liveMediaCounts);
-        }, isSyncing ? 3000 : 1000);
+        }, 500);
 
         return () => clearTimeout(handler);
-    }, [liveMediaCounts, isSyncing]);
+    }, [liveMediaCounts]);
+
+    // Force update when sync finishes to ensure accuracy
+    useEffect(() => {
+        if (!isSyncing && liveCounts && liveCounts !== 'SYNCING_PAUSE') {
+            setCounts(liveCounts);
+        }
+        if (!isSyncing && liveMediaCounts && liveMediaCounts !== 'SYNCING_PAUSE') {
+            setMediaCounts(liveMediaCounts);
+        }
+    }, [isSyncing, liveCounts, liveMediaCounts]);
 
     const { sidebarWidth, setSidebarWidth } = useScrollStore();
     const [isResizing, setIsResizing] = useState(false);
