@@ -136,7 +136,20 @@ export class FeedStreamDB extends Dexie {
     });
 
     // Schema version 7: Sync Queue for offline-first cloud sync
+    // Note: Only new/changed tables need to be declared; others are inherited
     this.version(7).stores({
+        syncQueue: '++id, table, recordId, createdAt, attempts'
+    });
+
+    // Schema version 8: Fix potential schema issues - redeclare all tables
+    this.version(8).stores({
+        folders: 'id, position',
+        feeds: 'id, folderID, type, &feedURL, isPaused, sortOrder, isFavorite, dateAdded, iconURL',
+        articles: 'id, feedID, [feedID+isRead+publishedAt], [isRead+publishedAt], publishedAt, url, &content_hash, [contentPrefetchedAt+isRead], isBookmarked, mediaKind, [mediaKind+publishedAt], [isBookmarked+publishedAt], [feedID+publishedAt]',
+        playbackQueue: 'id, articleID, &position',
+        feedCollectionMembership: 'id, [feedID+folderID], folderID',
+        rules: 'id, name, isActive',
+        briefings: 'id, date, generatedAt',
         syncQueue: '++id, table, recordId, createdAt, attempts'
     });
   }
