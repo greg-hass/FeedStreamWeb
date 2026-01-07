@@ -9,8 +9,10 @@ import { OpmlService } from '@/lib/opml-service';
 import { FeverAPI } from '@/lib/fever-api';
 import { BackupService } from '@/lib/backup-service';
 import Link from 'next/link';
-import { Sparkles, Workflow, Loader2, CheckCircle, AlertCircle, Bell } from 'lucide-react';
+import { Sparkles, Workflow, Loader2, CheckCircle, AlertCircle, Bell, Cloud, HardDrive, Shield } from 'lucide-react';
 import { NotificationSettings } from '@/components/NotificationSettings';
+import { SyncSettings } from '@/components/SyncSettings';
+import { CacheSettings } from '@/components/CacheSettings';
 
 import { useUIStore } from '@/store/uiStore';
 
@@ -177,6 +179,24 @@ export default function SettingsPage() {
                         >
                             Save AI Key
                         </button>
+                    </div>
+                </section>
+
+                <section className="space-y-4">
+                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                        <Cloud size={14} /> Cloud Sync
+                    </h2>
+                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800">
+                        <SyncSettings />
+                    </div>
+                </section>
+
+                <section className="space-y-4">
+                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                        <HardDrive size={14} /> Storage & Cache
+                    </h2>
+                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800">
+                        <CacheSettings />
                     </div>
                 </section>
 

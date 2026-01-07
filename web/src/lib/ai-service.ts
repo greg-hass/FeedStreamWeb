@@ -2,13 +2,47 @@ import { db } from './db';
 import { useSettingsStore } from '@/store/settingsStore';
 import { format } from 'date-fns';
 
+/**
+ * Helper to call AI APIs through the secure proxy
+ */
+async function callAIProxy(
+    provider: 'openai' | 'gemini',
+    endpoint: string,
+    body: object,
+    userApiKey?: string
+): Promise<any> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    };
+
+    // If user has their own API key, pass it via header
+    if (userApiKey) {
+        headers['x-api-key'] = userApiKey;
+    }
+
+    const response = await fetch('/api/ai-proxy', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+            provider,
+            endpoint,
+            body,
+            useServerKey: !userApiKey, // Use server key if no user key provided
+        }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.error || `AI API Error: ${response.status}`);
+    }
+
+    return data;
+}
+
 export class AIService {
     static async generateDailyBriefing(): Promise<string> {
         const { openaiApiKey, geminiApiKey } = useSettingsStore.getState();
-        
-        if (!openaiApiKey && !geminiApiKey) {
-            throw new Error("No AI API Key found. Please add an OpenAI or Gemini key in Settings.");
-        }
 
         // 1. Get recent unread articles (last 24h, limited to 30)
         const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -20,7 +54,7 @@ export class AIService {
 
         // Filter for meaningful content
         const candidates = articles.filter(a => !a.isRead && (a.summary || a.contentHTML));
-        
+
         if (candidates.length === 0) {
             return "No recent unread articles to summarize.";
         }
@@ -34,44 +68,40 @@ export class AIService {
         const systemPrompt = "You are a smart news editor. Create a concise Daily Briefing. Group stories by topic. Format using HTML: Use <h3><u>Topic Header</u></h3> for topics, <ul><li> for stories, and <b> for key terms. Add <br/> between sections. Keep it under 300 words. Tone: Professional but conversational.";
         const userPrompt = `Articles:\n${articlesText}`;
 
-        // 3. Call AI API
+        // 3. Call AI API via secure proxy
         try {
             let briefingContent = "";
 
-            if (geminiApiKey) {
+            // Prefer Gemini, fall back to OpenAI
+            const useGemini = geminiApiKey || !openaiApiKey;
+
+            if (useGemini) {
                 // Use Gemini 2.5 Flash
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+                const data = await callAIProxy(
+                    'gemini',
+                    'gemini-2.5-flash:generateContent',
+                    {
                         contents: [{
                             parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
                         }]
-                    })
-                });
-
-                if (!response.ok) throw new Error(`Gemini API Error: ${await response.text()}`);
-                const data = await response.json();
+                    },
+                    geminiApiKey || undefined
+                );
                 briefingContent = data.candidates[0].content.parts[0].text;
             } else {
-                // Use OpenAI fallback
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${openaiApiKey}`
-                    },
-                    body: JSON.stringify({
+                // Use OpenAI
+                const data = await callAIProxy(
+                    'openai',
+                    'chat/completions',
+                    {
                         model: "gpt-4o-mini",
                         messages: [
                             { role: "system", content: systemPrompt },
                             { role: "user", content: userPrompt }
                         ]
-                    })
-                });
-
-                if (!response.ok) throw new Error(`OpenAI API Error: ${await response.text()}`);
-                const data = await response.json();
+                    },
+                    openaiApiKey || undefined
+                );
                 briefingContent = data.choices[0].message.content;
             }
 

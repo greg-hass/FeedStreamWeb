@@ -95,6 +95,7 @@ export class FeedStreamDB extends Dexie {
   feedCollectionMembership!: EntityTable<FeedCollectionMembership, 'id'>;
   rules!: EntityTable<AutomationRule, 'id'>;
   briefings!: EntityTable<DailyBriefing, 'id'>;
+  syncQueue!: EntityTable<SyncQueueItem, 'id'>;
 
   constructor() {
     super('FeedStreamDB');
@@ -133,6 +134,11 @@ export class FeedStreamDB extends Dexie {
     this.version(6).stores({
         articles: 'id, feedID, [feedID+isRead+publishedAt], [isRead+publishedAt], publishedAt, url, &content_hash, [contentPrefetchedAt+isRead], isBookmarked, mediaKind, [mediaKind+publishedAt], [isBookmarked+publishedAt], [feedID+publishedAt]'
     });
+
+    // Schema version 7: Sync Queue for offline-first cloud sync
+    this.version(7).stores({
+        syncQueue: '++id, table, recordId, createdAt, attempts'
+    });
   }
 
   async search(query: string, limit: number = 50): Promise<Article[]> {
@@ -165,6 +171,16 @@ export interface DailyBriefing {
   content: string; // Markdown content
   generatedAt: Date;
   articlesCovered: string[]; // List of article IDs included
+}
+
+export interface SyncQueueItem {
+  id?: number;
+  table: 'folders' | 'feeds' | 'articles';
+  recordId: string;
+  operation: 'insert' | 'update' | 'delete';
+  data: object;
+  createdAt: Date;
+  attempts: number;
 }
 
 export const db = new FeedStreamDB();

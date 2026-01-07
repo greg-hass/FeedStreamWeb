@@ -9,14 +9,48 @@ export interface FeedRecommendation {
     type: 'rss' | 'youtube' | 'reddit' | 'podcast';
 }
 
+/**
+ * Helper to call AI APIs through the secure proxy
+ */
+async function callAIProxy(
+    provider: 'openai' | 'gemini',
+    endpoint: string,
+    body: object,
+    userApiKey?: string
+): Promise<any> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    };
+
+    // If user has their own API key, pass it via header
+    if (userApiKey) {
+        headers['x-api-key'] = userApiKey;
+    }
+
+    const response = await fetch('/api/ai-proxy', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+            provider,
+            endpoint,
+            body,
+            useServerKey: !userApiKey,
+        }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.error || `AI API Error: ${response.status}`);
+    }
+
+    return data;
+}
+
 export class FeedDiscoveryService {
 
     static async generateRecommendations(): Promise<FeedRecommendation[]> {
         const { openaiApiKey, geminiApiKey } = useSettingsStore.getState();
-        
-        if (!openaiApiKey && !geminiApiKey) {
-            throw new Error("No AI API Key found. Please add an OpenAI or Gemini key in Settings.");
-        }
 
         // 1. Build User Profile from existing feeds
         const feeds = await db.feeds.toArray();
@@ -34,7 +68,7 @@ export class FeedDiscoveryService {
         const systemPrompt = `You are a Feed Discovery Engine.
         Analyze the user's subscriptions and suggest 5-8 high-quality, relevant NEW feeds they might like.
         Include a mix of RSS, YouTube Channels, and Subreddits if appropriate for their interests.
-        
+
         Output valid JSON ONLY in this format:
         [
             {
@@ -45,48 +79,44 @@ export class FeedDiscoveryService {
                 "type": "rss" | "youtube" | "reddit" | "podcast"
             }
         ]
-        
+
         IMPORTANT: Ensure URLs are valid feed URLs where possible (e.g. youtube.com/feeds/videos.xml?channel_id=... or reddit.com/r/name.rss) OR standard URLs that can be auto-discovered.`;
 
-        const userPrompt = profile 
+        const userPrompt = profile
             ? `My Subscriptions:\n${profile}\n\nSuggest new feeds based on these interests.`
             : `I am a new user interested in Technology, Science, and World News. Suggest some starter feeds.`;
 
         try {
             let jsonString = "";
 
-            if (geminiKey) {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+            // Prefer Gemini, fall back to OpenAI
+            const useGemini = geminiKey || !openaiKey;
+
+            if (useGemini) {
+                const data = await callAIProxy(
+                    'gemini',
+                    'gemini-2.0-flash:generateContent',
+                    {
                         contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
                         generationConfig: { responseMimeType: "application/json" }
-                    })
-                });
-
-                if (!response.ok) throw new Error(`Gemini API Error: ${await response.text()}`);
-                const data = await response.json();
+                    },
+                    geminiKey || undefined
+                );
                 jsonString = data.candidates[0].content.parts[0].text;
             } else {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${openaiKey}`
-                    },
-                    body: JSON.stringify({
+                const data = await callAIProxy(
+                    'openai',
+                    'chat/completions',
+                    {
                         model: "gpt-4o-mini",
                         messages: [
                             { role: "system", content: systemPrompt },
                             { role: "user", content: userPrompt }
                         ],
                         response_format: { type: "json_object" }
-                    })
-                });
-
-                if (!response.ok) throw new Error(`OpenAI API Error: ${await response.text()}`);
-                const data = await response.json();
+                    },
+                    openaiKey || undefined
+                );
                 jsonString = data.choices[0].message.content;
             }
 
