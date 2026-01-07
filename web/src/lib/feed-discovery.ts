@@ -41,7 +41,13 @@ async function callAIProxy(
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(data.error || `AI API Error: ${response.status}`);
+        // Handle nested error structures from OpenAI/Gemini
+        // OpenAI: { "error": { "message": "...", "type": "..." } }
+        // Gemini: { "error": { "code": 400, "message": "..." } }
+        const errorMessage = typeof data.error === 'string'
+            ? data.error
+            : data.error?.message || data.message || `AI API Error: ${response.status}`;
+        throw new Error(errorMessage);
     }
 
     return data;
