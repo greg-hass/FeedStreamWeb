@@ -5,6 +5,23 @@
 
 declare const self: ServiceWorkerGlobalScope;
 
+// Background Sync API types (not in standard lib)
+interface SyncEvent extends ExtendableEvent {
+    readonly tag: string;
+    readonly lastChance: boolean;
+}
+
+interface SyncManager {
+    register(tag: string): Promise<void>;
+    getTags(): Promise<string[]>;
+}
+
+declare global {
+    interface ServiceWorkerRegistration {
+        readonly sync: SyncManager;
+    }
+}
+
 // Background Sync Tags
 const SYNC_TAG_READ_STATE = 'sync-read-state';
 const SYNC_TAG_BOOKMARKS = 'sync-bookmarks';
