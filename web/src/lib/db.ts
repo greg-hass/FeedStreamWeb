@@ -198,15 +198,41 @@ export interface SyncQueueItem {
 
 export const db = new FeedStreamDB();
 
+// Track if we're currently recovering to prevent loops
+let isRecovering = false;
+
 /**
  * Reopen the database connection
  * Used when iOS Safari closes IndexedDB on background
  */
 export async function reopenDatabase(): Promise<void> {
-    if (!db.isOpen()) {
+    if (isRecovering) return;
+
+    isRecovering = true;
+    try {
+        db.close();
         await db.open();
+        console.log('[DB] Database reopened successfully');
+    } finally {
+        isRecovering = false;
     }
 }
+
+// Handle database errors globally - auto-recover from iOS background issues
+db.on('error', (err) => {
+    console.error('[DB] Database error:', err);
+
+    // Check for iOS-specific transaction/cursor errors
+    const errorMsg = err?.message || String(err);
+    const isIOSError = errorMsg.includes('cursor') ||
+                       errorMsg.includes('transaction') ||
+                       errorMsg.includes('database connection');
+
+    if (isIOSError && !isRecovering) {
+        console.log('[DB] Detected iOS background error, attempting recovery...');
+        reopenDatabase().catch(console.error);
+    }
+});
 
 /**
  * Setup visibility change handler to reopen DB on iOS
@@ -215,38 +241,34 @@ export async function reopenDatabase(): Promise<void> {
 export function setupDatabaseReconnection(): void {
     if (typeof document === 'undefined') return;
 
-    document.addEventListener('visibilitychange', async () => {
+    // Proactively reopen database when app becomes visible
+    const handleVisibilityChange = async () => {
         if (document.visibilityState === 'visible') {
-            try {
-                // Check if DB is still open, reopen if needed
-                if (!db.isOpen()) {
-                    console.log('[DB] Reopening database after visibility change');
-                    await db.open();
-                }
-            } catch (e) {
-                console.error('[DB] Failed to reopen database:', e);
-                // Force close and reopen
-                try {
-                    db.close();
-                    await db.open();
-                } catch (e2) {
-                    console.error('[DB] Failed to force reopen:', e2);
-                }
-            }
+            console.log('[DB] App became visible, ensuring database is open');
+            await reopenDatabase();
         }
-    });
+    };
+
+    // Handle focus event (sometimes fires before visibilitychange)
+    const handleFocus = async () => {
+        console.log('[DB] Window focused, ensuring database is open');
+        await reopenDatabase();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
 
     // Also handle page show event (iOS back-forward cache)
     window.addEventListener('pageshow', async (event) => {
         if (event.persisted) {
-            console.log('[DB] Page restored from bfcache, checking database');
-            try {
-                if (!db.isOpen()) {
-                    await db.open();
-                }
-            } catch (e) {
-                console.error('[DB] Failed to reopen after pageshow:', e);
-            }
+            console.log('[DB] Page restored from bfcache, reopening database');
+            await reopenDatabase();
         }
+    });
+
+    // Handle online event (reconnecting after being offline)
+    window.addEventListener('online', async () => {
+        console.log('[DB] Network online, ensuring database is open');
+        await reopenDatabase();
     });
 }

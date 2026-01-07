@@ -16,8 +16,9 @@ export default function GlobalError({
     console.error('Global Error:', error);
   }, [error]);
 
-  // Check if this is a database cursor error (common on iOS background/foreground)
+  // Check if this is a database error (common on iOS background/foreground)
   const isDatabaseError = error.message?.includes('cursor') ||
+                          error.message?.includes('transaction') ||
                           error.message?.includes('IndexedDB') ||
                           error.message?.includes('database');
 
