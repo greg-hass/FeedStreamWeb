@@ -70,11 +70,11 @@ export function Sidebar({ className }: SidebarProps) {
         return { today, all, saved, freshFolders };
     });
 
-    const [counts, setCounts] = useState(liveCounts && liveCounts !== 'SYNCING_PAUSE' ? liveCounts : { today: 0, all: 0, saved: 0, freshFolders: new Set<string>() });
+    const [counts, setCounts] = useState(liveCounts && typeof liveCounts !== 'string' ? liveCounts : { today: 0, all: 0, saved: 0, freshFolders: new Set<string>() });
 
     // Debounce counts update
     useEffect(() => {
-        if (!liveCounts || liveCounts === 'SYNCING_PAUSE') return;
+        if (!liveCounts || typeof liveCounts === 'string') return;
         
         // Immediate update on first load
         if (counts.today === 0 && counts.all === 0 && counts.saved === 0) {
@@ -114,11 +114,11 @@ export function Sidebar({ className }: SidebarProps) {
         return { youtube, podcast, reddit, rss };
     });
 
-    const [mediaCounts, setMediaCounts] = useState(liveMediaCounts && liveMediaCounts !== 'SYNCING_PAUSE' ? liveMediaCounts : { youtube: 0, podcast: 0, reddit: 0, rss: 0 });
+    const [mediaCounts, setMediaCounts] = useState(liveMediaCounts && typeof liveMediaCounts !== 'string' ? liveMediaCounts : { youtube: 0, podcast: 0, reddit: 0, rss: 0 });
 
     // Debounce media counts
     useEffect(() => {
-        if (!liveMediaCounts || liveMediaCounts === 'SYNCING_PAUSE') return;
+        if (!liveMediaCounts || typeof liveMediaCounts === 'string') return;
         
         if (mediaCounts.rss === 0 && mediaCounts.youtube === 0) {
             setMediaCounts(liveMediaCounts);
@@ -134,10 +134,10 @@ export function Sidebar({ className }: SidebarProps) {
 
     // Force update when sync finishes to ensure accuracy
     useEffect(() => {
-        if (!isSyncing && liveCounts && liveCounts !== 'SYNCING_PAUSE') {
+        if (!isSyncing && liveCounts && typeof liveCounts !== 'string') {
             setCounts(liveCounts);
         }
-        if (!isSyncing && liveMediaCounts && liveMediaCounts !== 'SYNCING_PAUSE') {
+        if (!isSyncing && liveMediaCounts && typeof liveMediaCounts !== 'string') {
             setMediaCounts(liveMediaCounts);
         }
     }, [isSyncing, liveCounts, liveMediaCounts]);

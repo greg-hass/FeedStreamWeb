@@ -14,6 +14,11 @@ export function useArticles(
 
     // Raw live query - updates on every DB change
     const liveArticles = useLiveQuery(async () => {
+        // PERF: Skip heavy queries during sync
+        if (useUIStore.getState().isSyncing) {
+            return 'SYNCING_PAUSE';
+        }
+
         let collection: any; // Use any to avoid Dexie's complex generic type issues
         const now = new Date();
 
@@ -55,13 +60,17 @@ export function useArticles(
         } else if (view === 'reddit') {
             const redditFeedIds = await db.feeds.where('type').equals('reddit').primaryKeys();
             if (redditFeedIds.length === 0) return [];
-            const redditSet = new Set(redditFeedIds);
-            collection = db.articles.orderBy('publishedAt').filter(a => redditSet.has(a.feedID));
+            // Use index instead of full scan filter
+            const results = await db.articles.where('feedID').anyOf(redditFeedIds as string[]).toArray();
+            results.sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0));
+            return results.slice(0, limit).map(a => ({ ...a, contentHTML: undefined, readerHTML: undefined }));
         } else if (view === 'rss') {
             const allowedFeedIds = await db.feeds.where('type').noneOf(['reddit', 'youtube', 'podcast']).primaryKeys();
             if (allowedFeedIds.length === 0) return [];
-            const allowedSet = new Set(allowedFeedIds);
-            collection = db.articles.orderBy('publishedAt').filter(a => allowedSet.has(a.feedID));
+            // Use index instead of full scan filter
+            const results = await db.articles.where('feedID').anyOf(allowedFeedIds as string[]).toArray();
+            results.sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0));
+            return results.slice(0, limit).map(a => ({ ...a, contentHTML: undefined, readerHTML: undefined }));
         } else if (view === 'all') {
             collection = db.articles.orderBy('publishedAt');
         } else {
@@ -127,52 +136,25 @@ export function useArticles(
 
     useEffect(() => {
         // If we don't have debouncedArticles yet, set them immediately (first load)
-        if (lastArticlesRef.current === undefined && liveArticles !== undefined) {
+        if (lastArticlesRef.current === undefined && liveArticles !== undefined && typeof liveArticles !== 'string') {
             lastArticlesRef.current = liveArticles;
             setDebouncedArticles(liveArticles);
             return;
         }
 
         // Skip if liveArticles hasn't changed (shallow reference check)
-        // or if the liveArticles are undefined
-        if (liveArticles === undefined) return;
+        // or if the liveArticles are undefined or we are pausing during sync
+        if (liveArticles === undefined || typeof liveArticles === 'string') return;
 
         // Clear any pending timer
         if (timerRef.current) {
             clearTimeout(timerRef.current);
         }
 
-        // Read isSyncing from the store synchronously when timer fires
-        // This prevents the effect dependency on isSyncing which resets the timer
+        // Standard debounce for regular updates
         timerRef.current = setTimeout(() => {
-            const currentSyncing = useUIStore.getState().isSyncing;
-            // If still syncing, re-schedule with longer delay instead of updating
-            if (currentSyncing) {
-                timerRef.current = setTimeout(() => {
-                    setDebouncedArticles(current => {
-                        if (!liveArticles) return current;
-                        // Compare by article IDs and key properties to avoid unnecessary updates
-                        if (current && current.length === liveArticles.length) {
-                            let isSame = true;
-                            for (let i = 0; i < current.length; i++) {
-                                if (current[i].id !== liveArticles[i].id ||
-                                    current[i].isRead !== liveArticles[i].isRead ||
-                                    current[i].isBookmarked !== liveArticles[i].isBookmarked) {
-                                    isSame = false;
-                                    break;
-                                }
-                            }
-                            if (isSame) return current;
-                        }
-                        lastArticlesRef.current = liveArticles;
-                        return liveArticles;
-                    });
-                }, 1500); // Additional delay while syncing
-                return;
-            }
-
             setDebouncedArticles(current => {
-                if (!liveArticles) return current;
+                if (!liveArticles || typeof liveArticles === 'string') return current;
                 // Compare by article IDs and key properties to avoid unnecessary updates
                 if (current && current.length === liveArticles.length) {
                     let isSame = true;
@@ -189,7 +171,7 @@ export function useArticles(
                 lastArticlesRef.current = liveArticles;
                 return liveArticles;
             });
-        }, 300); // Short initial debounce, sync-aware logic inside
+        }, 300);
 
         return () => {
             if (timerRef.current) {
@@ -197,6 +179,15 @@ export function useArticles(
             }
         };
     }, [liveArticles]); // Only depend on liveArticles, NOT isSyncing
+
+    // Force update when sync finishes
+    const isSyncing = useUIStore(s => s.isSyncing);
+    useEffect(() => {
+        if (!isSyncing && liveArticles && typeof liveArticles !== 'string') {
+            setDebouncedArticles(liveArticles);
+            lastArticlesRef.current = liveArticles;
+        }
+    }, [isSyncing, liveArticles]);
 
     return debouncedArticles;
 }
