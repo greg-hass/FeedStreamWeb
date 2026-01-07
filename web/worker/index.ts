@@ -16,9 +16,17 @@ interface SyncManager {
     getTags(): Promise<string[]>;
 }
 
+interface ServiceWorkerGlobalScopeEventMap {
+    sync: SyncEvent;
+    periodicsync: SyncEvent;
+}
+
 declare global {
     interface ServiceWorkerRegistration {
         readonly sync: SyncManager;
+    }
+    interface ServiceWorkerGlobalScope {
+        onsync: ((this: ServiceWorkerGlobalScope, ev: SyncEvent) => unknown) | null;
     }
 }
 
@@ -124,7 +132,8 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 });
 
 // Background Sync event handler
-self.addEventListener('sync', (event: SyncEvent) => {
+(self as unknown as { addEventListener(type: 'sync', listener: (event: SyncEvent) => void): void })
+    .addEventListener('sync', (event: SyncEvent) => {
     console.log('[SW] Background sync triggered:', event.tag);
 
     if (event.tag === SYNC_TAG_CLOUD) {
@@ -135,7 +144,8 @@ self.addEventListener('sync', (event: SyncEvent) => {
 });
 
 // Periodic Background Sync (if supported)
-self.addEventListener('periodicsync', (event: any) => {
+(self as unknown as { addEventListener(type: 'periodicsync', listener: (event: SyncEvent) => void): void })
+    .addEventListener('periodicsync', (event: SyncEvent) => {
     if (event.tag === 'sync-feeds') {
         event.waitUntil(syncCloudData());
     }
