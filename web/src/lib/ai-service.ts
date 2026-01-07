@@ -82,10 +82,10 @@ export class AIService {
             const useGemini = geminiApiKey || !openaiApiKey;
 
             if (useGemini) {
-                // Use Gemini 2.5 Flash
+                // Use Gemini 1.5 Flash (free tier compatible)
                 const data = await callAIProxy(
                     'gemini',
-                    'gemini-2.5-flash:generateContent',
+                    'gemini-1.5-flash:generateContent',
                     {
                         contents: [{
                             parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]

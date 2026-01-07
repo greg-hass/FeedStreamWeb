@@ -101,7 +101,7 @@ export class FeedDiscoveryService {
             if (useGemini) {
                 const data = await callAIProxy(
                     'gemini',
-                    'gemini-2.0-flash:generateContent',
+                    'gemini-1.5-flash:generateContent',
                     {
                         contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
                         generationConfig: { responseMimeType: "application/json" }
