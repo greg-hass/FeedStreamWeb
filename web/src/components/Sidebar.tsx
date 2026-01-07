@@ -144,7 +144,13 @@ export function Sidebar({ className }: SidebarProps) {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('feedstream-collapsed-folders');
             if (saved) {
-                setCollapsedFolders(new Set(JSON.parse(saved)));
+                try {
+                    setCollapsedFolders(new Set(JSON.parse(saved)));
+                } catch (e) {
+                    console.warn('Failed to parse collapsed folders state', e);
+                    // Reset invalid state
+                    localStorage.removeItem('feedstream-collapsed-folders');
+                }
             }
         }
     }, []);
