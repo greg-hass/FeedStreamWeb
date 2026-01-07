@@ -135,18 +135,74 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
     };
 
     const handleVideoClick = (e: React.MouseEvent) => {
-        // Desktop Check: If screen is wide (>= 1024px), let it click through to the detailed reader view
-        if (window.matchMedia('(min-width: 1024px)').matches) {
-            return; // Allow default Link behavior
-        }
-
-        // Mobile/Tablet: Play Inline
-        if (article.mediaKind === 'youtube' && videoId) {
-            e.preventDefault();
-            e.stopPropagation();
-            setIsVideoPlaying(true);
+        e.preventDefault();
+        e.stopPropagation();
+        setIsVideoPlaying(true);
+        
+        // Load YouTube API if not present
+        if (!window.YT) {
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
         }
     };
+
+    const videoRef = useRef<HTMLDivElement>(null);
+    const playerRef = useRef<any>(null);
+
+    useEffect(() => {
+        if (isVideoPlaying && article.mediaKind === 'youtube' && videoId && videoRef.current) {
+            const initPlayer = () => {
+                playerRef.current = new window.YT.Player(videoRef.current, {
+                    videoId: videoId,
+                    playerVars: {
+                        autoplay: 1,
+                        playsinline: 1,
+                        modestbranding: 1,
+                        rel: 0,
+                        start: Math.floor(article.playbackPosition || 0),
+                    },
+                    events: {
+                        onStateChange: (event: any) => {
+                            if (event.data === window.YT.PlayerState.PLAYING) {
+                                const interval = setInterval(() => {
+                                    if (playerRef.current?.getCurrentTime) {
+                                        db.articles.update(article.id, { playbackPosition: playerRef.current.getCurrentTime() });
+                                    }
+                                }, 5000);
+                                playerRef.current._posInterval = interval;
+                            } else {
+                                if (playerRef.current?._posInterval) clearInterval(playerRef.current._posInterval);
+                                if (playerRef.current?.getCurrentTime) {
+                                    db.articles.update(article.id, { playbackPosition: playerRef.current.getCurrentTime() });
+                                }
+                            }
+                        }
+                    }
+                });
+            };
+
+            if (window.YT && window.YT.Player) initPlayer();
+            else {
+                const prev = window.onYouTubeIframeAPIReady;
+                window.onYouTubeIframeAPIReady = () => {
+                    if (prev) prev();
+                    initPlayer();
+                };
+            }
+        }
+
+        return () => {
+            if (playerRef.current) {
+                if (playerRef.current._posInterval) clearInterval(playerRef.current._posInterval);
+                playerRef.current.destroy();
+                playerRef.current = null;
+            }
+        };
+    }, [isVideoPlaying, videoId, article.id]);
+
+    const isLocal = isNaN(parseInt(article.id));
 
     return (
         <ArticleSwipeRow
@@ -257,13 +313,17 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                 {/* Show embedded video on mobile when playing */}
                                 {isVideoPlaying && videoId ? (
                                     <div className="w-full h-full bg-black rounded-lg overflow-hidden">
-                                        <iframe
-                                            src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0`}
-                                            className="w-full h-full"
-                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-                                            allowFullScreen
-                                            style={{ border: 0, minHeight: '180px' }}
-                                        />
+                                        {article.mediaKind === 'youtube' ? (
+                                            <div ref={videoRef} className="w-full h-full" />
+                                        ) : (
+                                            <iframe
+                                                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0`}
+                                                className="w-full h-full"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                                                allowFullScreen
+                                                style={{ border: 0, minHeight: '180px' }}
+                                            />
+                                        )}
                                     </div>
                                 ) : (
                                     <img

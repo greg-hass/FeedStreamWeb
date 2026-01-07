@@ -211,25 +211,8 @@ export function Reader({ article }: ReaderProps) {
                 } catch (e) { }
 
                 if (videoId) {
-                    const iframeHtml = `
-                        <div style="margin-bottom: 24px;">
-                            <iframe 
-                                width="100%" 
-                                height="auto" 
-                                style="aspect-ratio: 16/9; border-radius: 12px;" 
-                                src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0" 
-                                frameborder="0" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                allowfullscreen>
-                            </iframe>
-                        </div>
-                        <hr style="margin: 24px 0; border-color: #3f3f46;" />
-                    `;
-                    
-                    setContent(prev => {
-                        if (prev.includes(videoId!)) return prev;
-                        return iframeHtml + prev;
-                    });
+                    // We render the video separately now to allow for position tracking
+                    setYoutubeVideoId(videoId);
                 }
             }
         };
@@ -237,7 +220,9 @@ export function Reader({ article }: ReaderProps) {
         // Defer enhancement to next tick to allow initial render
         const timer = setTimeout(enhanceContent, 0);
         return () => clearTimeout(timer);
-    }, [article.id, article.url, article.mediaKind, article.readerHTML]); // Removed 'content' dependency to avoid loops
+    }, [article.id, article.url, article.mediaKind, article.readerHTML]);
+
+    const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
 
     const toggleReaderMode = async () => {
         if (isReaderMode) {
@@ -463,6 +448,17 @@ export function Reader({ article }: ReaderProps) {
                 `}</style>
 
                 {/* Content */}
+                {youtubeVideoId && (
+                    <div className="mb-8">
+                        <YouTubePlayer
+                            videoId={youtubeVideoId}
+                            articleId={article.id}
+                            initialPosition={article.playbackPosition}
+                        />
+                        <hr className="my-8 border-zinc-200 dark:border-zinc-800" />
+                    </div>
+                )}
+
                 <div
                     className="reader-content prose prose-zinc dark:prose-invert prose-lg max-w-none"
                     style={{ fontSize: `${zoom}%` }}
@@ -479,4 +475,91 @@ export function Reader({ article }: ReaderProps) {
             </div>
         </div >
     );
+}
+
+function YouTubePlayer({ videoId, articleId, initialPosition = 0 }: { videoId: string; articleId: string; initialPosition?: number }) {
+    const playerRef = useRef<any>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        // Load YouTube IFrame API if not already loaded
+        if (!window.YT) {
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+        }
+
+        const initPlayer = () => {
+            playerRef.current = new window.YT.Player(containerRef.current, {
+                videoId: videoId,
+                playerVars: {
+                    autoplay: 1,
+                    playsinline: 1,
+                    modestbranding: 1,
+                    rel: 0,
+                    start: Math.floor(initialPosition),
+                },
+                events: {
+                    onStateChange: (event: any) => {
+                        // When video is playing, periodically save position
+                        if (event.data === window.YT.PlayerState.PLAYING) {
+                            const interval = setInterval(() => {
+                                if (playerRef.current && playerRef.current.getCurrentTime) {
+                                    const currentTime = playerRef.current.getCurrentTime();
+                                    db.articles.update(articleId, { playbackPosition: currentTime });
+                                } else {
+                                    clearInterval(interval);
+                                }
+                            }, 5000); // Save every 5 seconds
+                            
+                            // Store interval on player object to clear it later
+                            (playerRef.current as any)._posInterval = interval;
+                        } else {
+                            if ((playerRef.current as any)._posInterval) {
+                                clearInterval((playerRef.current as any)._posInterval);
+                            }
+                            // Save final position when paused/ended
+                            if (playerRef.current && playerRef.current.getCurrentTime) {
+                                const currentTime = playerRef.current.getCurrentTime();
+                                db.articles.update(articleId, { playbackPosition: currentTime });
+                            }
+                        }
+                    }
+                }
+            });
+        };
+
+        if (window.YT && window.YT.Player) {
+            initPlayer();
+        } else {
+            const previousOnYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady;
+            window.onYouTubeIframeAPIReady = () => {
+                if (previousOnYouTubeIframeAPIReady) previousOnYouTubeIframeAPIReady();
+                initPlayer();
+            };
+        }
+
+        return () => {
+            if (playerRef.current) {
+                if ((playerRef.current as any)._posInterval) {
+                    clearInterval((playerRef.current as any)._posInterval);
+                }
+                playerRef.current.destroy();
+            }
+        };
+    }, [videoId, articleId]);
+
+    return (
+        <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black shadow-lg">
+            <div ref={containerRef} className="w-full h-full" />
+        </div>
+    );
+}
+
+declare global {
+    interface Window {
+        YT: any;
+        onYouTubeIframeAPIReady: () => void;
+    }
 }
