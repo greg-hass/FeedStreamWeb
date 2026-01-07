@@ -152,6 +152,18 @@ export class FeedStreamDB extends Dexie {
         briefings: 'id, date, generatedAt',
         syncQueue: '++id, table, recordId, createdAt, attempts'
     });
+
+    // Schema version 9: Remove unique constraint from content_hash (null values conflict)
+    this.version(9).stores({
+        folders: 'id, position',
+        feeds: 'id, folderID, type, &feedURL, isPaused, sortOrder, isFavorite, dateAdded, iconURL',
+        articles: 'id, feedID, [feedID+isRead+publishedAt], [isRead+publishedAt], publishedAt, url, content_hash, [contentPrefetchedAt+isRead], isBookmarked, mediaKind, [mediaKind+publishedAt], [isBookmarked+publishedAt], [feedID+publishedAt]',
+        playbackQueue: 'id, articleID, position',
+        feedCollectionMembership: 'id, [feedID+folderID], folderID',
+        rules: 'id, name, isActive',
+        briefings: 'id, date, generatedAt',
+        syncQueue: '++id, table, recordId, createdAt, attempts'
+    });
   }
 
   async search(query: string, limit: number = 50): Promise<Article[]> {
