@@ -93,7 +93,7 @@ export async function encrypt(
   const ciphertext = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
-      iv,
+      iv: iv as BufferSource,
     },
     key,
     new TextEncoder().encode(plaintext)
@@ -139,7 +139,7 @@ export async function decrypt(
     const decrypted = await crypto.subtle.decrypt(
       {
         name: 'AES-GCM',
-        iv: new Uint8Array(iv),
+        iv: new Uint8Array(iv) as BufferSource,
       },
       key,
       ciphertext
@@ -165,7 +165,7 @@ export async function hashPassword(
     ...new TextEncoder().encode(password),
   ]);
 
-  const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', combined as BufferSource);
 
   return {
     hash: arrayBufferToBase64(hashBuffer),
