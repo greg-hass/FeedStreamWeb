@@ -219,20 +219,33 @@ export async function reopenDatabase(): Promise<void> {
 }
 
 // Handle database errors globally - auto-recover from iOS background issues
-db.on('error', (err) => {
-    console.error('[DB] Database error:', err);
+// Use window error handler since Dexie doesn't expose a global error event
+if (typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', (event) => {
+        const errorMsg = event.reason?.message || String(event.reason);
 
-    // Check for iOS-specific transaction/cursor errors
-    const errorMsg = err?.message || String(err);
-    const isIOSError = errorMsg.includes('cursor') ||
-                       errorMsg.includes('transaction') ||
-                       errorMsg.includes('database connection');
+        // Check for iOS-specific transaction/cursor errors
+        const isIOSDBError = (
+            errorMsg.includes('cursor') ||
+            errorMsg.includes('transaction') ||
+            errorMsg.includes('database connection') ||
+            errorMsg.includes('UnknownError')
+        ) && (
+            errorMsg.includes('database') ||
+            errorMsg.includes('IndexedDB') ||
+            errorMsg.includes('Dexie')
+        );
 
-    if (isIOSError && !isRecovering) {
-        console.log('[DB] Detected iOS background error, attempting recovery...');
-        reopenDatabase().catch(console.error);
-    }
-});
+        if (isIOSDBError && !isRecovering) {
+            console.log('[DB] Detected iOS background error, attempting recovery...');
+            event.preventDefault(); // Prevent error from propagating
+            reopenDatabase().then(() => {
+                // Reload the page to reset React state
+                window.location.reload();
+            }).catch(console.error);
+        }
+    });
+}
 
 /**
  * Setup visibility change handler to reopen DB on iOS
