@@ -107,13 +107,9 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
             return;
         }
 
-        // Debounce subsequent updates
+        // Debounce subsequent updates - use length check instead of expensive JSON.stringify
         const handler = setTimeout(() => {
-            setFeeds(current => {
-                // Prevent unnecessary updates if data hasn't actually changed
-                if (JSON.stringify(current) === JSON.stringify(rawFeeds)) return current;
-                return rawFeeds ?? [];
-            });
+            setFeeds(rawFeeds ?? []);
         }, 1000); // 1 second debounce for feed metadata updates (icons, lastSync, etc)
 
         return () => clearTimeout(handler);
@@ -127,19 +123,19 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
         return map;
     }, [feeds]);
 
-    const handleToggleRead = async (id: string) => {
+    const handleToggleRead = useCallback(async (id: string) => {
         const article = await db.articles.get(id);
         if (article) {
             await FeedService.toggleReadStatus(id, !article.isRead);
         }
-    };
+    }, []);
 
-    const handleToggleBookmark = async (id: string) => {
+    const handleToggleBookmark = useCallback(async (id: string) => {
         const article = await db.articles.get(id);
         if (article) {
             await FeedService.toggleBookmark(id, !article.isBookmarked);
         }
-    };
+    }, []);
 
     // Keyboard Navigation
     const { selectedIndex } = useKeyboardNav({
@@ -167,6 +163,17 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     const [atTop, setAtTop] = React.useState(true);
     const [showNewItems, setShowNewItems] = React.useState(false);
     const prevArticlesLength = useRef(articles?.length || 0);
+
+    // Stable callback for rangeChanged to prevent re-renders
+    const handleRangeChanged = useCallback((range: { startIndex: number }) => {
+        // Debounce scroll position updates to prevent jank
+        // Only save every 5 items to reduce store updates
+        const roundedIndex = Math.floor(range.startIndex / 5) * 5;
+        setScrollPosition(pathname, roundedIndex);
+        if (range.startIndex === 0) {
+            setShowNewItems(false);
+        }
+    }, [pathname, setScrollPosition]);
 
     // Detect new items
     useEffect(() => {
@@ -287,15 +294,7 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                             onToggleBookmark={handleToggleBookmark}
                         />
                     )}
-                    rangeChanged={useCallback((range: { startIndex: number }) => {
-                        // Debounce scroll position updates to prevent jank
-                        // Only save every 5 items to reduce store updates
-                        const roundedIndex = Math.floor(range.startIndex / 5) * 5;
-                        setScrollPosition(pathname, roundedIndex);
-                        if (range.startIndex === 0) {
-                            setShowNewItems(false);
-                        }
-                    }, [pathname, setScrollPosition])}
+                    rangeChanged={handleRangeChanged}
                     className="w-full h-full article-list-container ios-scroll"
                 />
             </div>

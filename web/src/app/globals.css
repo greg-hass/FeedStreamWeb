@@ -109,7 +109,11 @@ body {
 /* Note: content-visibility: auto was removed as it causes ghosting on scroll */
 /* Virtuoso already handles virtualization, so we don't need additional containment */
 .article-item {
-  /* Keep items simple - let Virtuoso handle the heavy lifting */
+  /* Contain layout to prevent reflows from affecting other items */
+  contain: layout style;
+  /* Force GPU compositing for smoother scrolling */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 /* Prevent iOS rubber-banding during swipe gestures */
