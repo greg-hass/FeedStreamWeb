@@ -19,7 +19,10 @@ export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const { isSyncing } = useUIStore();
     const folders = useLiveQuery(() => db.folders.orderBy('position').toArray()) || [];
-    const feeds = useLiveQuery(() => db.feeds.toArray()) || [];
+    const feeds = useLiveQuery(async () => {
+        const all = await db.feeds.toArray();
+        return all.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    }) || [];
     const [searchQuery, setSearchQuery] = useState('');
 
     // Sidebar counts - Optimized with Indexes
@@ -76,7 +79,7 @@ export function Sidebar({ className }: SidebarProps) {
 
         const handler = setTimeout(() => {
             setCounts(liveCounts);
-        }, isSyncing ? 2000 : 500);
+        }, isSyncing ? 3000 : 1000); // Increased debounce to prevent flickering
 
         return () => clearTimeout(handler);
     }, [liveCounts, isSyncing]);
@@ -115,7 +118,7 @@ export function Sidebar({ className }: SidebarProps) {
 
         const handler = setTimeout(() => {
             setMediaCounts(liveMediaCounts);
-        }, isSyncing ? 2000 : 500);
+        }, isSyncing ? 3000 : 1000);
 
         return () => clearTimeout(handler);
     }, [liveMediaCounts, isSyncing]);

@@ -28,9 +28,20 @@ export function useArticles(
             const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             collection = db.articles.where('publishedAt').above(lastWeek);
         } else if (view === 'saved') {
-            collection = db.articles
-                .where('[isBookmarked+publishedAt]')
-                .between([1, Dexie.minKey], [1, Dexie.maxKey]);
+            // Use simple index which is proven to work in Sidebar
+            const allSaved = await db.articles.where('isBookmarked').equals(1).toArray();
+            // Sort in memory (newest first)
+            allSaved.sort((a, b) => {
+                const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+                const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+                return dateB - dateA;
+            });
+            // Apply limit and map
+            return allSaved.slice(0, limit).map(a => ({
+                ...a,
+                contentHTML: undefined,
+                readerHTML: undefined,
+            }));
         } else if (view === 'history') {
             collection = db.articles.where('isRead').equals(1);
         } else if (view === 'youtube') {
