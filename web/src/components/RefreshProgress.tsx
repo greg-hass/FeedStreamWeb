@@ -8,9 +8,10 @@ interface RefreshProgressProps {
     total: number;
     currentFeedName?: string;
     onDismiss?: () => void;
+    title?: string;
 }
 
-export function RefreshProgress({ current, total, currentFeedName, onDismiss }: RefreshProgressProps) {
+export function RefreshProgress({ current, total, currentFeedName, onDismiss, title = "Refreshing Feeds" }: RefreshProgressProps) {
     const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
 
     return (
@@ -25,7 +26,7 @@ export function RefreshProgress({ current, total, currentFeedName, onDismiss }: 
                         </div>
                         
                         <div className="flex flex-col min-w-0">
-                            <h4 className="font-semibold text-sm leading-none truncate">Refreshing Feeds</h4>
+                            <h4 className="font-semibold text-sm leading-none truncate">{title}</h4>
                             <p className="text-xs text-zinc-400 leading-none mt-1.5 truncate">
                                 {current} / {total} {currentFeedName && `• ${currentFeedName}`}
                             </p>

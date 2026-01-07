@@ -12,14 +12,16 @@ import Link from 'next/link';
 import { Sparkles, Workflow, Loader2, CheckCircle, AlertCircle, Bell } from 'lucide-react';
 import { NotificationSettings } from '@/components/NotificationSettings';
 
+import { useUIStore } from '@/store/uiStore';
+
 export default function SettingsPage() {
     const { syncEndpoint, syncUsername, syncApiKey, setSyncConfig, setSyncEnabled, openaiApiKey, setOpenaiApiKey, geminiApiKey, setGeminiApiKey, backupFrequency, setBackupFrequency } = useSettingsStore();
+    const { isImporting, current, total, feedName, startImport, setImportProgress, endImport } = useUIStore();
     const [endpoint, setEndpoint] = useState('');
     const [username, setUsername] = useState('');
     const [apiKey, setApiKey] = useState('');
     const [aiKey, setAiKey] = useState('');
     const [gKey, setGKey] = useState('');
-    const [importProgress, setImportProgress] = useState<{ current: number, total: number, message: string } | null>(null);
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [testMessage, setTestMessage] = useState('');
 
@@ -186,16 +188,16 @@ export default function SettingsPage() {
                         <div>
                             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">Import OPML</p>
 
-                            {importProgress ? (
+                            {isImporting ? (
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-xs text-zinc-500">
-                                        <span>{importProgress.message}</span>
-                                        <span>{Math.round((importProgress.current / importProgress.total) * 100)}%</span>
+                                        <span>{feedName || 'Importing...'}</span>
+                                        <span>{Math.round((current / total) * 100)}%</span>
                                     </div>
                                     <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-brand transition-all duration-300 ease-out"
-                                            style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                                            style={{ width: `${(current / total) * 100}%` }}
                                         />
                                     </div>
                                 </div>
@@ -209,16 +211,17 @@ export default function SettingsPage() {
                                         if (!file) return;
                                         try {
                                             const text = await file.text();
-                                            await OpmlService.importOPML(text, (current, total, message) => {
-                                                setImportProgress({ current, total, message });
+                                            // Initialize global progress
+                                            startImport(0); 
+                                            await OpmlService.importOPML(text, (curr, tot, msg) => {
+                                                if (tot > 0) setImportProgress(curr, tot, msg);
                                             });
-                                            setImportProgress(null);
+                                            endImport();
                                             alert('Import Successful!');
-                                            // Reset input 
                                             e.target.value = '';
                                         } catch (err: any) {
                                             console.error(err);
-                                            setImportProgress(null);
+                                            endImport();
                                             alert('Import Failed: ' + (err.message || 'Unknown error'));
                                         }
                                     }}

@@ -9,7 +9,7 @@ import { AlertCircle, Download, X } from "lucide-react";
 import { BackupService } from "@/lib/backup-service";
 
 export function GlobalUI() {
-    const { isSyncing, current, total, feedName, endSync, cancelSync } = useUIStore();
+    const { isSyncing, isImporting, current, total, feedName, endSync, cancelSync, endImport } = useUIStore();
     const { backupFrequency, lastBackupAt } = useSettingsStore();
     const [showBackupReminder, setShowBackupReminder] = useState(false);
 
@@ -51,13 +51,14 @@ export function GlobalUI() {
 
     return (
         <>
-            {/* Sync Progress */}
-            {isSyncing && (
+            {/* Sync Progress or Import Progress */}
+            {(isSyncing || isImporting) && (
                 <RefreshProgress
                     current={current}
                     total={total}
                     currentFeedName={feedName}
-                    onDismiss={cancelSync}
+                    onDismiss={isSyncing ? cancelSync : undefined}
+                    title={isSyncing ? "Refreshing Feeds" : "Importing OPML"}
                 />
             )}
 
