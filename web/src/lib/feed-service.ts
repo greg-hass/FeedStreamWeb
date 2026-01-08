@@ -58,11 +58,11 @@ export class FeedService {
         return feedId;
     }
 
-    static async refreshFeed(feed: Feed, signal?: AbortSignal): Promise<number> {
+    static async refreshFeed(feed: Feed, signal?: AbortSignal, baseUrl: string = ''): Promise<number> {
         console.log(`[RefreshFeed] Starting refresh for: ${feed.title}`);
         try {
             if (signal?.aborted) return 0;
-            const proxyUrl = `/api/proxy?url=${encodeURIComponent(feed.feedURL)}`;
+            const proxyUrl = `${baseUrl}/api/proxy?url=${encodeURIComponent(feed.feedURL)}`;
 
             // Build headers with conditional caching
             const headers: Record<string, string> = {};

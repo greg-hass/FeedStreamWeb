@@ -8,6 +8,7 @@ import { differenceInDays, parseISO } from "date-fns";
 import { AlertCircle, Download, X } from "lucide-react";
 import { BackupService } from "@/lib/backup-service";
 import { setupDatabaseReconnection } from "@/lib/db";
+import { SyncService } from "@/lib/sync-service";
 
 export function GlobalUI() {
     const { isSyncing, isImporting, current, total, feedName, endSync, cancelSync, endImport } = useUIStore();
@@ -18,6 +19,9 @@ export function GlobalUI() {
     useEffect(() => {
         // Setup database reconnection for iOS background/foreground
         setupDatabaseReconnection();
+        
+        // Initialize Sync Service (Supabase)
+        SyncService.initialize().catch(console.error);
 
         if (navigator.storage && navigator.storage.persist) {
             navigator.storage.persist().then(persistent => {

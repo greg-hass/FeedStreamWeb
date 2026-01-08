@@ -11,7 +11,7 @@ self.onmessage = async (e: MessageEvent) => {
     const { type, payload } = e.data;
 
     if (type === 'START_SYNC') {
-        const { feeds } = payload;
+        const { feeds, baseUrl } = payload;
         
         try {
             let totalNewArticles = 0;
@@ -34,7 +34,7 @@ self.onmessage = async (e: MessageEvent) => {
 
                 try {
                     // refreshFeed performs fetch + parse + merge
-                    const newCount = await FeedService.refreshFeed(feed);
+                    const newCount = await FeedService.refreshFeed(feed, undefined, baseUrl);
                     totalNewArticles += newCount;
                 } catch (err) {
                     console.error(`Worker failed to sync ${feed.title}:`, err);

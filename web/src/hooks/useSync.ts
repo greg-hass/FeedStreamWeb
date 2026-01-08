@@ -39,7 +39,10 @@ export function useSync() {
 
         workerRef.current.postMessage({
             type: 'START_SYNC',
-            payload: { feeds: feedsToSync }
+            payload: { 
+                feeds: feedsToSync,
+                baseUrl: window.location.origin
+            }
         });
 
     }, [startSync, setProgress, endSync]);
