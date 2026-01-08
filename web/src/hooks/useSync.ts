@@ -1,49 +1,35 @@
 
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { db } from '@/lib/db';
+import { FeedService } from '@/lib/feed-service';
 
 export function useSync() {
     const { startSync, setProgress, endSync } = useUIStore();
-    const workerRef = useRef<Worker | null>(null);
 
     const runSync = useCallback(async () => {
         const localFeeds = await db.feeds.toArray();
         const feedsToSync = localFeeds.filter(f => !f.isPaused);
 
-        if (feedsToSync.length === 0) return;
+        console.log(`[useSync] Found ${localFeeds.length} feeds, ${feedsToSync.length} to sync`);
+
+        if (feedsToSync.length === 0) {
+            console.log('[useSync] No feeds to sync');
+            return;
+        }
 
         startSync(feedsToSync.length);
 
-        if (!workerRef.current) {
-            // Create the worker
-            workerRef.current = new Worker(new URL('../workers/sync.ts', import.meta.url));
+        try {
+            // Use FeedService directly on main thread (more reliable than web worker)
+            await FeedService.refreshAllFeeds((completed, total, message) => {
+                setProgress(completed, total, message);
+            });
+        } catch (e) {
+            console.error('[useSync] Refresh failed:', e);
+        } finally {
+            endSync();
         }
-
-        workerRef.current.onmessage = (e) => {
-            const { type, payload } = e.data;
-
-            switch (type) {
-                case 'PROGRESS':
-                    setProgress(payload.completed, payload.total, payload.feedName);
-                    break;
-                case 'COMPLETE':
-                    endSync();
-                    break;
-                case 'ERROR':
-                    console.error('Sync Worker Error:', payload);
-                    endSync();
-                    break;
-            }
-        };
-
-        workerRef.current.postMessage({
-            type: 'START_SYNC',
-            payload: { 
-                feeds: feedsToSync,
-                baseUrl: window.location.origin
-            }
-        });
 
     }, [startSync, setProgress, endSync]);
 
