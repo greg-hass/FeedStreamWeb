@@ -268,11 +268,14 @@ export class SupabaseDB {
     static async getFolders(since?: Date): Promise<SyncFolder[]> {
         let query = getSupabase()
             .from('sync_folders')
-            .select('*')
-            .is('deleted_at', null);
+            .select('*');
 
         if (since) {
+            // When doing incremental sync, include recently deleted items
             query = query.gte('updated_at', since.toISOString());
+        } else {
+            // For full sync, only get non-deleted items
+            query = query.is('deleted_at', null);
         }
 
         const { data, error } = await query;
@@ -305,11 +308,14 @@ export class SupabaseDB {
     static async getFeeds(since?: Date): Promise<SyncFeed[]> {
         let query = getSupabase()
             .from('sync_feeds')
-            .select('*')
-            .is('deleted_at', null);
+            .select('*');
 
         if (since) {
+            // When doing incremental sync, include recently deleted items
             query = query.gte('updated_at', since.toISOString());
+        } else {
+            // For full sync, only get non-deleted items
+            query = query.is('deleted_at', null);
         }
 
         const { data, error } = await query;

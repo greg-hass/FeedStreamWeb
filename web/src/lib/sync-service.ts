@@ -401,9 +401,13 @@ export class SyncService {
             if (remote.deleted_at) {
                 if (local) {
                     await db.feeds.delete(remote.id);
-                    // Optionally delete articles too, but maybe keep them? 
-                    // FeedService.deleteFeed deletes articles, so let's mirror that if we want full sync
                     await db.articles.where('feedID').equals(remote.id).delete();
+                }
+                // Also check if there's a local feed with same URL (different ID) that was "deleted" remotely
+                const existingByUrl = await db.feeds.where('feedURL').equals(remote.feed_url).first();
+                if (existingByUrl && existingByUrl.id !== remote.id) {
+                    // Don't delete local feeds that have different IDs - they may be legitimate
+                    console.log(`[Sync] Remote deleted ${remote.id}, but local ${existingByUrl.id} has same URL - keeping local`);
                 }
                 return;
             }
@@ -413,13 +417,21 @@ export class SyncService {
             if (!local) {
                 // Check for URL conflict (same feed, different ID)
                 const existingByUrl = await db.feeds.where('feedURL').equals(feedData.feedURL).first();
-                
+
                 if (existingByUrl) {
-                    console.log(`[Sync] Found duplicate feed by URL: ${existingByUrl.title}. Migrating to remote ID...`);
-                    // Migration: Move articles to new ID, delete old feed, add new feed
-                    await db.articles.where('feedID').equals(existingByUrl.id).modify({ feedID: remote.id });
-                    await db.feeds.delete(existingByUrl.id);
-                    await db.feeds.add(feedData);
+                    // Feed already exists locally with different ID - just update it, don't delete/re-add
+                    console.log(`[Sync] Feed exists locally (${existingByUrl.id}) with same URL as remote (${remote.id}). Updating local.`);
+                    await db.feeds.update(existingByUrl.id, {
+                        title: feedData.title,
+                        siteURL: feedData.siteURL,
+                        folderID: feedData.folderID,
+                        iconURL: feedData.iconURL,
+                        type: feedData.type,
+                        isPaused: feedData.isPaused,
+                        sortOrder: feedData.sortOrder,
+                        isFavorite: feedData.isFavorite,
+                    });
+                    // Don't migrate IDs - keep local ID stable to avoid loops
                 } else {
                     await db.feeds.add(feedData);
                 }
