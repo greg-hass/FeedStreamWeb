@@ -9,13 +9,14 @@ export function useArticles(
     limit = 100,
     searchQuery: string = ''
 ) {
-    // Note: We check isSyncing via useUIStore.getState() in the debounce effect
-    // to avoid re-running the effect when sync status changes
+    // Subscribe to syncVersion to force re-query when sync completes
+    const syncVersion = useUIStore(s => s.syncVersion);
+    const isSyncing = useUIStore(s => s.isSyncing);
 
     // Raw live query - updates on every DB change
     const liveArticles = useLiveQuery(async () => {
-        // PERF: Skip heavy queries during sync
-        if (useUIStore.getState().isSyncing) {
+        // PERF: Skip heavy queries during active sync
+        if (isSyncing) {
             return 'SYNCING_PAUSE';
         }
 
@@ -105,7 +106,7 @@ export function useArticles(
             readerHTML: undefined,
         })) as Article[];
 
-    }, [view, limit, searchQuery]);
+    }, [view, limit, searchQuery, syncVersion, isSyncing]);
 
     // Debounce to prevent flickering during rapid sync updates
     // Use longer debounce (2s) during active sync, shorter (500ms) when idle
@@ -170,16 +171,7 @@ export function useArticles(
                 clearTimeout(timerRef.current);
             }
         };
-    }, [liveArticles]); // Only depend on liveArticles, NOT isSyncing
-
-    // Force update when sync finishes
-    const isSyncing = useUIStore(s => s.isSyncing);
-    useEffect(() => {
-        if (!isSyncing && liveArticles && typeof liveArticles !== 'string') {
-            setDebouncedArticles(liveArticles);
-            lastArticlesRef.current = liveArticles;
-        }
-    }, [isSyncing, liveArticles]);
+    }, [liveArticles]);
 
     return debouncedArticles;
 }

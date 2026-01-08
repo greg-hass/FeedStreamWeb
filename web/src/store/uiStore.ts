@@ -8,6 +8,7 @@ interface RefreshProgressState {
     feedName?: string;
     lastUpdate?: number;
     abortController: AbortController | null;
+    syncVersion: number; // Increments when sync completes - used to trigger re-queries
     setProgress: (current: number, total: number, feedName?: string) => void;
     setImportProgress: (current: number, total: number, message?: string) => void;
     startSync: (total: number) => void;
@@ -24,6 +25,7 @@ export const useUIStore = create<RefreshProgressState>((set, get) => ({
     total: 0,
     feedName: undefined,
     abortController: null,
+    syncVersion: 0,
     
     startSync: (total: number) => {
         // Cancel previous if exists
@@ -44,7 +46,15 @@ export const useUIStore = create<RefreshProgressState>((set, get) => ({
     setImportProgress: (current, total, message) => {
         set({ current, total, feedName: message, lastUpdate: Date.now() });
     },
-    endSync: () => set({ isSyncing: false, current: 0, total: 0, feedName: undefined, abortController: null, lastUpdate: 0 }),
+    endSync: () => set((state) => ({
+        isSyncing: false,
+        current: 0,
+        total: 0,
+        feedName: undefined,
+        abortController: null,
+        lastUpdate: 0,
+        syncVersion: state.syncVersion + 1 // Trigger re-queries
+    })),
     endImport: () => set({ isImporting: false, current: 0, total: 0, feedName: undefined, lastUpdate: 0 }),
     cancelSync: () => {
         get().abortController?.abort();
