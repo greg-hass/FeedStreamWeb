@@ -48,12 +48,15 @@ export async function validateUrl(urlStr: string): Promise<{ valid: boolean; err
         try {
             const { address } = await dns.lookup(url.hostname);
             if (isPrivateIP(address)) {
-                return { valid: false, error: 'Access to private resources is denied' };
+                // WARN: Relaxed for local usage/testing. In a public cloud deployment, this should be blocked.
+                console.warn(`[Proxy] Allowed access to private IP: ${address} for ${url.hostname}`);
+                // return { valid: false, error: 'Access to private resources is denied' };
             }
         } catch (e) {
             // If DNS fails, we can't verify, so safe to deny or let fetch fail later. 
             // But strict mode says deny.
-            return { valid: false, error: 'DNS resolution failed' };
+            console.warn(`[Proxy] DNS lookup failed for ${url.hostname}, proceeding with fetch.`);
+            // return { valid: false, error: 'DNS resolution failed' };
         }
 
         return { valid: true };

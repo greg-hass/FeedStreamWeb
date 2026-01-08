@@ -364,7 +364,25 @@ export class SyncService {
 
         if (!local) {
             // New folder from cloud
-            await db.folders.add(this.syncFolderToLocal(remote));
+            // Check for name conflict (duplicate folder with different ID)
+            const existingByName = await db.folders.where('name').equals(remote.name).first();
+
+            if (existingByName) {
+                console.log(`[Sync] Found duplicate folder by name: ${existingByName.name}. Migrating to remote ID...`);
+                
+                await db.transaction('rw', db.folders, db.feeds, async () => {
+                    // 1. Move all feeds from old folder to new folder ID
+                    await db.feeds.where('folderID').equals(existingByName.id).modify({ folderID: remote.id });
+                    
+                    // 2. Delete the old local folder
+                    await db.folders.delete(existingByName.id);
+                    
+                    // 3. Add the new folder from remote
+                    await db.folders.add(this.syncFolderToLocal(remote));
+                });
+            } else {
+                await db.folders.add(this.syncFolderToLocal(remote));
+            }
         } else {
             // Merge: last-write-wins based on updated_at
             // Local doesn't have updated_at, so we always take remote if newer

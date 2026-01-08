@@ -141,7 +141,12 @@ export class FeedService {
         const localFeeds = await db.feeds.toArray();
         const feedsToSync = localFeeds.filter(f => !f.isPaused);
 
-        if (feedsToSync.length === 0) return 0;
+        console.log(`[RefreshAll] Found ${localFeeds.length} feeds, syncing ${feedsToSync.length}`);
+
+        if (feedsToSync.length === 0) {
+            console.log('[RefreshAll] No feeds to sync.');
+            return 0;
+        }
 
         const CONCURRENCY_LIMIT = 2; // Reduced to prevent UI freezing on mobile
         let completedCount = 0;
