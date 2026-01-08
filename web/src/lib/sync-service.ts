@@ -365,7 +365,8 @@ export class SyncService {
         if (!local) {
             // New folder from cloud
             // Check for name conflict (duplicate folder with different ID)
-            const existingByName = await db.folders.where('name').equals(remote.name).first();
+            // Note: Using filter() instead of where() since 'name' is not indexed
+            const existingByName = await db.folders.filter(f => f.name === remote.name).first();
 
             if (existingByName) {
                 console.log(`[Sync] Found duplicate folder by name: ${existingByName.name}. Migrating to remote ID...`);
