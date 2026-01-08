@@ -367,7 +367,6 @@ export class SyncService {
             await db.folders.add(this.syncFolderToLocal(remote));
         } else {
             // Merge: last-write-wins based on updated_at
-            const remoteTime = new Date(remote.updated_at).getTime();
             // Local doesn't have updated_at, so we always take remote if newer
             await db.folders.update(remote.id, this.syncFolderToLocal(remote));
         }
@@ -377,20 +376,38 @@ export class SyncService {
      * Merge remote feed with local
      */
     private static async mergeFeed(remote: SyncFeed): Promise<void> {
-        const local = await db.feeds.get(remote.id);
+        await db.transaction('rw', db.feeds, db.articles, async () => {
+            const local = await db.feeds.get(remote.id);
 
-        if (remote.deleted_at) {
-            if (local) {
-                await db.feeds.delete(remote.id);
+            if (remote.deleted_at) {
+                if (local) {
+                    await db.feeds.delete(remote.id);
+                    // Optionally delete articles too, but maybe keep them? 
+                    // FeedService.deleteFeed deletes articles, so let's mirror that if we want full sync
+                    await db.articles.where('feedID').equals(remote.id).delete();
+                }
+                return;
             }
-            return;
-        }
 
-        if (!local) {
-            await db.feeds.add(this.syncFeedToLocal(remote));
-        } else {
-            await db.feeds.update(remote.id, this.syncFeedToLocal(remote));
-        }
+            const feedData = this.syncFeedToLocal(remote);
+
+            if (!local) {
+                // Check for URL conflict (same feed, different ID)
+                const existingByUrl = await db.feeds.where('feedURL').equals(feedData.feedURL).first();
+                
+                if (existingByUrl) {
+                    console.log(`[Sync] Found duplicate feed by URL: ${existingByUrl.title}. Migrating to remote ID...`);
+                    // Migration: Move articles to new ID, delete old feed, add new feed
+                    await db.articles.where('feedID').equals(existingByUrl.id).modify({ feedID: remote.id });
+                    await db.feeds.delete(existingByUrl.id);
+                    await db.feeds.add(feedData);
+                } else {
+                    await db.feeds.add(feedData);
+                }
+            } else {
+                await db.feeds.update(remote.id, feedData);
+            }
+        });
     }
 
     /**
