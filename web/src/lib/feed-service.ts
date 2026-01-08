@@ -138,20 +138,10 @@ export class FeedService {
     }
 
     static async refreshAllFeeds(onProgress?: (completed: number, total: number, message: string) => void, signal?: AbortSignal): Promise<number> {
-        console.log('[RefreshAll] Starting refreshAllFeeds...');
-
-        let localFeeds;
-        try {
-            localFeeds = await db.feeds.toArray();
-            console.log(`[RefreshAll] Got ${localFeeds.length} feeds from db`);
-        } catch (e) {
-            console.error('[RefreshAll] Failed to get feeds from db:', e);
-            throw e;
-        }
-
+        const localFeeds = await db.feeds.toArray();
         const feedsToSync = localFeeds.filter(f => !f.isPaused);
 
-        console.log(`[RefreshAll] Found ${localFeeds.length} feeds, syncing ${feedsToSync.length} (${localFeeds.length - feedsToSync.length} paused)`);
+        console.log(`[RefreshAll] Found ${localFeeds.length} feeds, syncing ${feedsToSync.length}`);
 
         if (feedsToSync.length === 0) {
             console.log('[RefreshAll] No feeds to sync.');
@@ -165,25 +155,12 @@ export class FeedService {
         const total = feedsToSync.length;
 
         const processNext = async (): Promise<void> => {
-            console.log(`[RefreshAll] processNext called, startedCount=${startedCount}, total=${total}`);
-
-            if (signal?.aborted) {
-                console.log('[RefreshAll] Aborted');
-                return;
-            }
-            if (startedCount >= total) {
-                console.log('[RefreshAll] All feeds started');
-                return;
-            }
+            if (signal?.aborted || startedCount >= total) return;
 
             const feed = feedsToSync[startedCount];
             startedCount++;
 
-            console.log(`[RefreshAll] Starting feed ${startedCount}/${total}: ${feed.title}`);
-
-            // Use a stable progress update
             if (onProgress) {
-                // Show progress based on completedCount but name from what we just started
                 onProgress(completedCount, total, `Updating ${feed.title}...`);
             }
 
@@ -191,16 +168,12 @@ export class FeedService {
             await new Promise(resolve => setTimeout(resolve, 50));
 
             try {
-                console.log(`[RefreshAll] Calling refreshFeed for ${feed.title}`);
                 const newCount = await this.refreshFeed(feed, signal);
-                console.log(`[RefreshAll] Finished ${feed.title}, got ${newCount} new articles`);
                 totalNewArticles += newCount;
             } catch (e) {
                 console.error(`[RefreshAll] Error refreshing ${feed.title}:`, e);
             } finally {
                 completedCount++;
-                console.log(`[RefreshAll] Completed ${completedCount}/${total}`);
-                // Final update for this feed
                 if (onProgress && !signal?.aborted) {
                     onProgress(completedCount, total, completedCount === total ? 'Finished' : `Updating feeds...`);
                 }
@@ -208,15 +181,12 @@ export class FeedService {
             }
         };
 
-        console.log(`[RefreshAll] Creating ${Math.min(CONCURRENCY_LIMIT, feedsToSync.length)} workers`);
-
         const workers = Array(Math.min(CONCURRENCY_LIMIT, feedsToSync.length))
             .fill(null)
             .map(() => processNext());
 
-        console.log('[RefreshAll] Waiting for workers to complete...');
         await Promise.all(workers);
-        console.log(`[RefreshAll] All done! Total new articles: ${totalNewArticles}`);
+        console.log(`[RefreshAll] Completed, ${totalNewArticles} new articles`);
         return totalNewArticles;
     }
 
