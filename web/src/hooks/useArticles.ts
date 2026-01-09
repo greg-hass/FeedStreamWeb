@@ -11,15 +11,9 @@ export function useArticles(
 ) {
     // Subscribe to syncVersion to force re-query when sync completes
     const syncVersion = useUIStore(s => s.syncVersion);
-    const isSyncing = useUIStore(s => s.isSyncing);
 
     // Raw live query - updates on every DB change
     const liveArticles = useLiveQuery(async () => {
-        // PERF: Skip heavy queries during active sync
-        if (isSyncing) {
-            return 'SYNCING_PAUSE';
-        }
-
         let collection: any; // Use any to avoid Dexie's complex generic type issues
         const now = new Date();
 
@@ -106,7 +100,7 @@ export function useArticles(
             readerHTML: undefined,
         })) as Article[];
 
-    }, [view, limit, searchQuery, syncVersion, isSyncing]);
+    }, [view, limit, searchQuery, syncVersion]);
 
     // Debounce to prevent flickering during rapid sync updates
     // Use longer debounce (2s) during active sync, shorter (500ms) when idle
@@ -129,15 +123,14 @@ export function useArticles(
 
     useEffect(() => {
         // If we don't have debouncedArticles yet, set them immediately (first load)
-        if (lastArticlesRef.current === undefined && liveArticles !== undefined && typeof liveArticles !== 'string') {
+        if (lastArticlesRef.current === undefined && liveArticles !== undefined) {
             lastArticlesRef.current = liveArticles;
             setDebouncedArticles(liveArticles);
             return;
         }
 
-        // Skip if liveArticles hasn't changed (shallow reference check)
-        // or if the liveArticles are undefined or we are pausing during sync
-        if (liveArticles === undefined || typeof liveArticles === 'string') return;
+        // Skip if liveArticles hasn't changed (shallow reference check) or undefined
+        if (liveArticles === undefined) return;
 
         // Clear any pending timer
         if (timerRef.current) {
@@ -147,7 +140,7 @@ export function useArticles(
         // Standard debounce for regular updates
         timerRef.current = setTimeout(() => {
             setDebouncedArticles(current => {
-                if (!liveArticles || typeof liveArticles === 'string') return current;
+                if (!liveArticles) return current;
                 // Compare by article IDs and key properties to avoid unnecessary updates
                 if (current && current.length === liveArticles.length) {
                     let isSame = true;

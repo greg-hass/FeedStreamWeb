@@ -216,6 +216,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                     "article-item relative px-4 sm:px-6 py-4 transition-colors select-none",
                     "hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50",
                     "border-b border-zinc-100 dark:border-zinc-800/50",
+                    "animate-in fade-in duration-300",
                     isSelected && "bg-brand/5 dark:bg-brand/10 border-l-4 border-l-brand pl-3 sm:pl-5"
                 )}>
                     {/* Mobile: Vertical Layout | Desktop: Horizontal Layout */}
