@@ -11,16 +11,39 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const [isRetrying, setIsRetrying] = useState(false);
-
-  useEffect(() => {
-    console.error('Global Error:', error);
-  }, [error]);
+  const [autoRetryAttempts, setAutoRetryAttempts] = useState(0);
 
   // Check if this is a database error (common on iOS background/foreground)
   const isDatabaseError = error.message?.includes('cursor') ||
+                          error.message?.includes('iterate') ||
                           error.message?.includes('transaction') ||
                           error.message?.includes('IndexedDB') ||
-                          error.message?.includes('database');
+                          error.message?.includes('database') ||
+                          error.message?.includes('UnknownError') ||
+                          error.message?.includes('InvalidStateError');
+
+  useEffect(() => {
+    console.error('Global Error:', error);
+
+    // Auto-retry database errors once (common iOS backgrounding issue)
+    if (isDatabaseError && autoRetryAttempts === 0) {
+      setAutoRetryAttempts(1);
+      console.log('[Error Recovery] Auto-retrying database error...');
+
+      const retryTimer = setTimeout(async () => {
+        try {
+          const { reopenDatabase } = await import('@/lib/db');
+          await reopenDatabase();
+          reset();
+        } catch (e) {
+          console.error('[Error Recovery] Auto-retry failed:', e);
+          // Error will remain visible for manual retry
+        }
+      }, 500);
+
+      return () => clearTimeout(retryTimer);
+    }
+  }, [error, isDatabaseError, autoRetryAttempts, reset]);
 
   const handleRetry = async () => {
     setIsRetrying(true);

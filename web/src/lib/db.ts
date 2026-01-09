@@ -214,6 +214,21 @@ export const db = new FeedStreamDB();
 let isRecovering = false;
 
 /**
+ * Check if an error is related to database cursor/connection issues
+ */
+export function isDatabaseConnectionError(error: any): boolean {
+    const errorMsg = error?.message || String(error);
+    return (
+        errorMsg.includes('cursor') ||
+        errorMsg.includes('iterate') ||
+        errorMsg.includes('transaction') ||
+        errorMsg.includes('database connection') ||
+        errorMsg.includes('UnknownError') ||
+        errorMsg.includes('InvalidStateError')
+    );
+}
+
+/**
  * Reopen the database connection
  * Used when iOS Safari closes IndexedDB on background
  */
@@ -230,26 +245,57 @@ export async function reopenDatabase(): Promise<void> {
     }
 }
 
+/**
+ * Wrapper for database operations that automatically retries on iOS cursor errors
+ * Use this to wrap any db query that uses cursors (.toArray(), .filter(), etc.)
+ *
+ * @example
+ * // For critical operations that must succeed:
+ * const articles = await withDatabaseRetry(() =>
+ *   db.articles.where('feedID').equals(feedId).toArray()
+ * );
+ *
+ * @example
+ * // For operations in useEffect or event handlers:
+ * useEffect(() => {
+ *   withDatabaseRetry(async () => {
+ *     const feeds = await db.feeds.toArray();
+ *     setFeeds(feeds);
+ *   }).catch(console.error);
+ * }, []);
+ */
+export async function withDatabaseRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 2
+): Promise<T> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await operation();
+        } catch (error) {
+            const isLastAttempt = attempt === maxRetries;
+
+            if (isDatabaseConnectionError(error) && !isLastAttempt) {
+                console.log(`[DB] Cursor/connection error detected (attempt ${attempt + 1}/${maxRetries + 1}), reopening database...`);
+                await reopenDatabase();
+                // Wait a bit before retrying
+                await new Promise(resolve => setTimeout(resolve, 100));
+            } else {
+                // Either not a DB error, or we've exhausted retries
+                throw error;
+            }
+        }
+    }
+
+    // This should never be reached, but TypeScript needs it
+    throw new Error('Database operation failed after all retries');
+}
+
 // Handle database errors globally - auto-recover from iOS background issues
 // Use window error handler since Dexie doesn't expose a global error event
 if (typeof window !== 'undefined') {
     window.addEventListener('unhandledrejection', (event) => {
-        const errorMsg = event.reason?.message || String(event.reason);
-
-        // Check for iOS-specific transaction/cursor errors
-        const isIOSDBError = (
-            errorMsg.includes('cursor') ||
-            errorMsg.includes('transaction') ||
-            errorMsg.includes('database connection') ||
-            errorMsg.includes('UnknownError')
-        ) && (
-            errorMsg.includes('database') ||
-            errorMsg.includes('IndexedDB') ||
-            errorMsg.includes('Dexie')
-        );
-
-        if (isIOSDBError && !isRecovering) {
-            console.log('[DB] Detected iOS background error, attempting recovery...');
+        if (isDatabaseConnectionError(event.reason) && !isRecovering) {
+            console.log('[DB] Detected unhandled database error, attempting recovery...');
             event.preventDefault(); // Prevent error from propagating
             reopenDatabase().then(() => {
                 // Reload the page to reset React state
@@ -270,30 +316,57 @@ export function setupDatabaseReconnection(): void {
     const handleVisibilityChange = async () => {
         if (document.visibilityState === 'visible') {
             console.log('[DB] App became visible, ensuring database is open');
-            await reopenDatabase();
+            try {
+                await reopenDatabase();
+            } catch (error) {
+                console.error('[DB] Failed to reopen database on visibility change:', error);
+            }
         }
     };
 
     // Handle focus event (sometimes fires before visibilitychange)
     const handleFocus = async () => {
         console.log('[DB] Window focused, ensuring database is open');
-        await reopenDatabase();
+        try {
+            await reopenDatabase();
+        } catch (error) {
+            console.error('[DB] Failed to reopen database on focus:', error);
+        }
+    };
+
+    // Handle resume event (iOS-specific, fires when app returns from background)
+    const handleResume = async () => {
+        console.log('[DB] App resumed, ensuring database is open');
+        try {
+            await reopenDatabase();
+        } catch (error) {
+            console.error('[DB] Failed to reopen database on resume:', error);
+        }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('resume', handleResume); // iOS PWA specific
 
     // Also handle page show event (iOS back-forward cache)
     window.addEventListener('pageshow', async (event) => {
         if (event.persisted) {
             console.log('[DB] Page restored from bfcache, reopening database');
-            await reopenDatabase();
+            try {
+                await reopenDatabase();
+            } catch (error) {
+                console.error('[DB] Failed to reopen database from bfcache:', error);
+            }
         }
     });
 
     // Handle online event (reconnecting after being offline)
     window.addEventListener('online', async () => {
         console.log('[DB] Network online, ensuring database is open');
-        await reopenDatabase();
+        try {
+            await reopenDatabase();
+        } catch (error) {
+            console.error('[DB] Failed to reopen database when online:', error);
+        }
     });
 }
