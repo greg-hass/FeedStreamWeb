@@ -35,7 +35,7 @@ export function AppHeader({
     onMarkAllRead
 }: AppHeaderProps) {
     const { isSyncing } = useUIStore();
-    const { lastRefreshTime, setLastRefreshTime } = useSettingsStore();
+    const { lastRefreshTime, setLastRefreshTime, syncInterval } = useSettingsStore();
     const [timeRemaining, setTimeRemaining] = useState<string>('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const { runSync } = useSync();
@@ -43,12 +43,13 @@ export function AppHeader({
     // Update countdown every second
     useEffect(() => {
         const updateTimer = () => {
-            if (!lastRefreshTime) {
+            // If syncInterval is 0 (Manual), don't show or run the timer
+            if (!lastRefreshTime || syncInterval === 0) {
                 setTimeRemaining('');
                 return;
             }
             const now = Date.now();
-            const nextRefresh = lastRefreshTime + 15 * 60 * 1000; // 15 minutes
+            const nextRefresh = lastRefreshTime + (syncInterval * 60 * 1000);
             const diff = nextRefresh - now;
 
             if (diff <= 0) {
@@ -63,7 +64,7 @@ export function AppHeader({
         updateTimer();
         const interval = setInterval(updateTimer, 10000); // 10 seconds (battery optimization)
         return () => clearInterval(interval);
-    }, [lastRefreshTime]);
+    }, [lastRefreshTime, syncInterval]);
 
     const performSync = useCallback(async () => {
         if (isSyncing) return;
@@ -73,13 +74,14 @@ export function AppHeader({
 
     // Auto-refresh when timer reaches 0
     useEffect(() => {
-        if (!showRefresh) return;
+        // Disable auto-refresh if explicitly turned off or if syncInterval is 0
+        if (!showRefresh || syncInterval === 0) return;
 
         const checkAutoRefresh = async () => {
             if (!lastRefreshTime || isSyncing) return;
 
             const now = Date.now();
-            const nextRefresh = lastRefreshTime + 15 * 60 * 1000;
+            const nextRefresh = lastRefreshTime + (syncInterval * 60 * 1000);
 
             if (now >= nextRefresh) {
                 console.log('[AutoRefresh] Timer expired, triggering refresh...');
@@ -87,10 +89,10 @@ export function AppHeader({
             }
         };
 
-        const interval = setInterval(checkAutoRefresh, 60000); // Check every 60 seconds (battery optimization)
+        const interval = setInterval(checkAutoRefresh, 60000); // Check every 60 seconds
         checkAutoRefresh(); // Also check immediately
         return () => clearInterval(interval);
-    }, [lastRefreshTime, isSyncing, showRefresh, performSync]); // Depend on performSync
+    }, [lastRefreshTime, isSyncing, showRefresh, performSync, syncInterval]);
 
     const handleSync = () => {
         performSync();

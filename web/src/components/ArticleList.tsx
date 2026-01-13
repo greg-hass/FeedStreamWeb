@@ -30,12 +30,41 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     const { getScrollPosition, setScrollPosition } = useScrollStore();
 
     // Pull to Refresh State
-    const [pullDistance, setPullDistance] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const pullDistanceRef = useRef(0);
+    const pullIndicatorRef = useRef<HTMLDivElement>(null);
+    const contentContainerRef = useRef<HTMLDivElement>(null);
+    
     const touchStartY = useRef(0);
     const isDragging = useRef(false);
     const lastSyncTime = useRef<number>(0);
-    const { startSync, setProgress, endSync, isSyncing, abortController } = useUIStore(); // Use global store
+    const { startSync, setProgress, endSync, isSyncing } = useUIStore();
+
+    const updatePullPosition = (distance: number, animate = false) => {
+        pullDistanceRef.current = distance;
+        
+        if (pullIndicatorRef.current) {
+            pullIndicatorRef.current.style.transition = animate ? 'all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none';
+            pullIndicatorRef.current.style.transform = `translateY(${distance}px)`;
+            pullIndicatorRef.current.style.opacity = distance > 0 ? '1' : '0';
+            
+            // Rotate the arrow icon if it exists
+            const arrow = pullIndicatorRef.current.querySelector('.pull-arrow');
+            if (arrow) {
+                (arrow as HTMLElement).style.transform = `rotate(${distance * 2}deg)`;
+                if (distance > 60) {
+                    arrow.classList.add('text-brand');
+                } else {
+                    arrow.classList.remove('text-brand');
+                }
+            }
+        }
+        
+        if (contentContainerRef.current) {
+            contentContainerRef.current.style.transition = animate ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none';
+            contentContainerRef.current.style.transform = `translateY(${distance}px) translateZ(0)`;
+        }
+    };
 
     const handleTouchStart = (e: React.TouchEvent) => {
         if (atTop && !isRefreshing) {
@@ -53,9 +82,9 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
         if (delta > 0) {
             // Add resistance
             const damped = Math.min(delta * 0.5, 120);
-            setPullDistance(damped);
+            updatePullPosition(damped);
         } else {
-            setPullDistance(0);
+            updatePullPosition(0);
         }
     };
 
@@ -63,24 +92,18 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
         if (!isDragging.current) return;
         isDragging.current = false;
 
-        if (pullDistance > 60) {
+        const finalDistance = pullDistanceRef.current;
+
+        if (finalDistance > 60) {
             // Trigger Refresh
             setIsRefreshing(true);
-            setPullDistance(60); // Snap to loading position
+            updatePullPosition(60, true); // Snap to loading position
 
-            // Show global progress for manual refresh
-            startSync(0); // This creates a NEW abortController in store
-
-            // Get the FRESH controller instance immediately after startSync update
-            // However, React state update is async.
-            // Better pattern: startSync returns the controller OR we access the store instance directly.
-            // But useUIStore.getState().abortController is synchronous.
+            startSync(0);
             const controller = useUIStore.getState().abortController;
-
             setProgress(0, 0, 'Refreshing...');
 
             try {
-                // Determine if we should Sync (Fever) or Refresh All (Local)
                 await FeedService.refreshAllFeeds((completed, total, message) => {
                     setProgress(completed, total, message);
                 }, controller?.signal);
@@ -88,11 +111,11 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
                 console.error("Refresh failed", e);
             } finally {
                 setIsRefreshing(false);
-                setPullDistance(0);
+                updatePullPosition(0, true);
                 endSync();
             }
         } else {
-            setPullDistance(0);
+            updatePullPosition(0, true);
         }
     };
 
@@ -231,20 +254,16 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
 
             {/* Pull Indicator */}
             <div
-                className="absolute top-0 left-0 right-0 flex items-center justify-center h-16 -mt-16 pointer-events-none z-10"
-                style={{
-                    transform: `translateY(${pullDistance}px)`,
-                    opacity: pullDistance > 0 ? 1 : 0,
-                    transition: isDragging.current ? 'none' : 'all 0.3s ease-out'
-                }}
+                ref={pullIndicatorRef}
+                className="absolute top-0 left-0 right-0 flex items-center justify-center h-16 -mt-16 pointer-events-none z-10 opacity-0"
             >
                 {isRefreshing ? (
                     <div className="bg-white dark:bg-zinc-800 rounded-full p-2 shadow-lg border border-zinc-200 dark:border-zinc-700">
                         <Loader2 className="animate-spin text-brand" size={20} />
                     </div>
                 ) : (
-                    <div className="bg-white dark:bg-zinc-800 rounded-full p-2 shadow-lg border border-zinc-200 dark:border-zinc-700" style={{ transform: `rotate(${pullDistance * 2}deg)` }}>
-                        <ArrowDown className={clsx("text-zinc-500", pullDistance > 60 && "text-brand")} size={20} />
+                    <div className="bg-white dark:bg-zinc-800 rounded-full p-2 shadow-lg border border-zinc-200 dark:border-zinc-700">
+                        <ArrowDown className="pull-arrow text-zinc-500" size={20} />
                     </div>
                 )}
             </div>
@@ -269,11 +288,8 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
             )}
 
             <div
+                ref={contentContainerRef}
                 className="h-full w-full pull-refresh-content"
-                style={{
-                    transform: `translateY(${pullDistance}px) translateZ(0)`,
-                    transition: isDragging.current ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
-                }}
             >
                 <Virtuoso
                     ref={virtuosoRef}

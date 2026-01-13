@@ -65,6 +65,7 @@ export function ArticleSwipeRow({ children, onSwipeLeft, onSwipeRight, isRead, i
         currentX.current = resistedX;
 
         if (contentRef.current) {
+            // Using requestAnimationFrame to ensure smooth movement without jank
             contentRef.current.style.transform = `translateX(${resistedX}px)`;
         }
     };

@@ -76,7 +76,7 @@ export const useSettingsStore = create<SettingsState>()(
             supabaseEmail: '',
             lastSyncAt: null,
             syncOnStartup: true,
-            syncInterval: 15, // 15 minutes default
+            syncInterval: 0, // Manual only by default
 
             // Cache & Storage Settings
             maxArticleAge: 30, // 30 days default
