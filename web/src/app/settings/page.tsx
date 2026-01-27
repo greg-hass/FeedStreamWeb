@@ -12,7 +12,7 @@ import { NotificationSettings } from '@/components/NotificationSettings';
 import { useUIStore } from '@/store/uiStore';
 
 export default function SettingsPage() {
-    const { geminiApiKey, setGeminiApiKey, backupFrequency, setBackupFrequency } = useSettingsStore();
+    const { geminiApiKey, setGeminiApiKey } = useSettingsStore();
     const { isImporting, current, total, feedName, startImport, setImportProgress, endImport } = useUIStore();
     const [gKey, setGKey] = useState('');
 
@@ -179,28 +179,6 @@ export default function SettingsPage() {
                             >
                                 Download OPML File
                             </button>
-                        </div>
-
-                        <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
-
-                        {/* Backup Schedule */}
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Backup Reminders</p>
-                                <select
-                                    value={backupFrequency}
-                                    onChange={(e) => setBackupFrequency(e.target.value as any)}
-                                    className="text-xs bg-zinc-100 dark:bg-zinc-800 border-none rounded px-2 py-1 text-zinc-600 dark:text-zinc-400 focus:ring-0 cursor-pointer"
-                                >
-                                    <option value="daily">Daily</option>
-                                    <option value="weekly">Weekly</option>
-                                    <option value="monthly">Monthly</option>
-                                    <option value="never">Never</option>
-                                </select>
-                            </div>
-                            <p className="text-xs text-zinc-500">
-                                Get reminded to download a backup of your data.
-                            </p>
                         </div>
 
                         <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
