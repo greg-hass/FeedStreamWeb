@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { feeds, articles, articleStates } from '../db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { parseFeed } from './feed-parser';
 
 export class FeedService {
@@ -146,8 +146,9 @@ export class FeedService {
       }
 
       // Skip feeds with too many consecutive failures
-      if (feed.consecutiveFailures >= 5) {
-        console.log(`Skipping ${feed.title} - ${feed.consecutiveFailures} consecutive failures`);
+      const failures = feed.consecutiveFailures ?? 0;
+      if (failures >= 5) {
+        console.log(`Skipping ${feed.title} - ${failures} consecutive failures`);
         continue;
       }
 
@@ -210,21 +211,27 @@ export class FeedService {
       where: eq(articles.userId, userId),
       orderBy: desc(articles.publishedAt),
       limit: limit * 2, // Get more to filter
-      with: {
-        states: {
-          where: eq(articleStates.userId, userId),
-        },
-      },
     });
 
-    // Filter unread and format
+    const articleIds = result.map(a => a.id);
+    const states = articleIds.length
+      ? await db.query.articleStates.findMany({
+          where: and(
+            eq(articleStates.userId, userId),
+            inArray(articleStates.articleId, articleIds)
+          ),
+        })
+      : [];
+
+    const statesMap = new Map(states.map(s => [s.articleId, s]));
+
     const unread = result
-      .filter(a => !a.states?.[0]?.isRead)
+      .filter(a => !statesMap.get(a.id)?.isRead)
       .slice(0, limit)
       .map(a => ({
         article: a,
-        isRead: a.states?.[0]?.isRead || false,
-        isBookmarked: a.states?.[0]?.isBookmarked || false,
+        isRead: statesMap.get(a.id)?.isRead || false,
+        isBookmarked: statesMap.get(a.id)?.isBookmarked || false,
       }));
 
     return unread;

@@ -1,4 +1,5 @@
 import { db } from './db';
+import { sql } from 'drizzle-orm';
 
 export async function checkDatabaseHealth(): Promise<{
   status: 'healthy' | 'unhealthy';
@@ -10,7 +11,7 @@ export async function checkDatabaseHealth(): Promise<{
   
   try {
     // Simple query to test connection
-    const result = await db.execute({ sql: 'SELECT 1' });
+    await db.execute(sql`SELECT 1`);
     const latency = Date.now() - start;
     
     return {

@@ -1,8 +1,9 @@
 import { FastifyInstance } from 'fastify';
+import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db } from '../db';
-import { feeds, articles, folders, articleStates, briefings, syncQueue, userSettings } from '../db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { users, feeds, articles, folders, articleStates, briefings, syncQueue, userSettings } from '../db/schema';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { FeedService } from '../services/feed';
 import { AIService } from '../services/ai';
 
@@ -18,12 +19,12 @@ async function authenticate(request: any, reply: any) {
   }
 
   let user = await db.query.users.findFirst({
-    where: eq(sql`device_id`, deviceId),
+    where: eq(users.deviceId, deviceId),
   });
 
   if (!user) {
     // Create new user
-    const [newUser] = await db.insert(sql`users`).values({
+    const [newUser] = await db.insert(users).values({
       deviceId,
     }).returning();
     user = newUser;
@@ -88,7 +89,7 @@ export async function routes(app: FastifyInstance) {
     }
 
     const text = await response.text();
-    const { parseFeed } = await import('../services/feed-parser');
+    const { parseFeed } = await import('../services/feed-parser.js');
     const parsed = await parseFeed(text, body.url);
 
     // Create feed
@@ -165,12 +166,14 @@ export async function routes(app: FastifyInstance) {
 
     // Get states for each article
     const articleIds = result.map(a => a.id);
-    const states = await db.query.articleStates.findMany({
-      where: and(
-        eq(articleStates.userId, request.user.id),
-        sql`${articleStates.articleId} IN (${articleIds.join(',')})`
-      ),
-    });
+    const states = articleIds.length
+      ? await db.query.articleStates.findMany({
+          where: and(
+            eq(articleStates.userId, request.user.id),
+            inArray(articleStates.articleId, articleIds)
+          ),
+        })
+      : [];
 
     const statesMap = new Map(states.map(s => [s.articleId, s]));
 
@@ -327,7 +330,7 @@ export async function routes(app: FastifyInstance) {
       });
 
       const recommendations = await aiService.generateFeedRecommendations(
-        userFeeds.map(f => ({ title: f.title, type: f.type }))
+        userFeeds.map(f => ({ title: f.title, type: f.type ?? 'rss' }))
       );
 
       return recommendations;
