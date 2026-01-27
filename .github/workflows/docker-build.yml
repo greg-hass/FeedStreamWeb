@@ -4,8 +4,6 @@ on:
   push:
     branches: [ main, master ]
     tags: [ 'v*' ]
-  pull_request:
-    branches: [ main, master ]
 
 env:
   REGISTRY: ghcr.io
@@ -49,7 +47,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: ./backend
-        push: ${{ github.event_name != 'pull_request' }}
+        push: true
         tags: ${{ steps.meta-api.outputs.tags }}
         labels: ${{ steps.meta-api.outputs.labels }}
         cache-from: type=gha
@@ -92,7 +90,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: ./web
-        push: ${{ github.event_name != 'pull_request' }}
+        push: true
         tags: ${{ steps.meta-web.outputs.tags }}
         labels: ${{ steps.meta-web.outputs.labels }}
         cache-from: type=gha
