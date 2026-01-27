@@ -1,5 +1,4 @@
 import { FastifyInstance } from 'fastify';
-import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db } from '../db';
 import { users, feeds, articles, folders, articleStates, briefings, syncQueue, userSettings } from '../db/schema';
