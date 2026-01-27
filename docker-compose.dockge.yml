@@ -24,7 +24,7 @@ services:
 
   # Backend API
   api:
-    image: ghcr.io/greg-hass/feedstream-api:latest
+    image: ghcr.io/greg-hass/feedstreamweb-api:latest
     container_name: feedstream-api
     restart: unless-stopped
     environment:
@@ -51,7 +51,7 @@ services:
 
   # Frontend (Next.js)
   web:
-    image: ghcr.io/greg-hass/feedstream-web:latest
+    image: ghcr.io/greg-hass/feedstreamweb-web:latest
     container_name: feedstream-web
     restart: unless-stopped
     environment:
