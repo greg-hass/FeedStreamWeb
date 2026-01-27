@@ -55,7 +55,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Create startup script for runtime env injection
 USER root
-RUN echo '#!/bin/sh\necho "window.__ENV__ = { NEXT_PUBLIC_API_URL: \"${NEXT_PUBLIC_API_URL}\" };" > /app/public/env-config.js\nexec node server.js' > /app/start.sh && chmod +x /app/start.sh
+RUN mkdir -p /app/public && \
+    echo '#!/bin/sh' > /app/start.sh && \
+    echo 'echo "window.__ENV__ = { NEXT_PUBLIC_API_URL: \"${NEXT_PUBLIC_API_URL}\" };" > /app/public/env-config.js' >> /app/start.sh && \
+    echo 'exec node server.js' >> /app/start.sh && \
+    chmod +x /app/start.sh && \
+    chown nextjs:nodejs /app/start.sh /app/public
 USER nextjs
 
 EXPOSE 3000
