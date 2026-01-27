@@ -17,7 +17,9 @@ services:
     networks:
       - feedstream
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U feedstream"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U feedstream
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,14 +38,16 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
     ports:
-      - "3300:3001"
+      - 3400:3001
     networks:
       - feedstream
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --tries=1 --timeout=5 -O- http://localhost:3001/health 2>&1 | grep -q '\"status\".*\"ok\"'"]
+      test:
+        - CMD-SHELL
+        - wget --quiet --tries=1 --timeout=5 -O- http://localhost:3001/health 2>&1 | grep -q '"status".*"ok"'
       interval: 30s
       timeout: 10s
       retries: 3
@@ -57,10 +61,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      # API URL for server-side rendering (internal docker network)
-      API_URL: http://api:3001
+      # Runtime API URL - set this to your Tailscale IP with API port
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3400/api}
     ports:
-      - "3000:3000"
+      - 3500:3000
     networks:
       - feedstream
     depends_on:
