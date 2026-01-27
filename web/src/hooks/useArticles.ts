@@ -12,8 +12,8 @@ import { getArticles, searchArticles } from "@/lib/api-client";
  */
 
 interface ArticleWithState extends Article {
-    isRead: boolean;
-    isBookmarked: boolean;
+    isRead: number;
+    isBookmarked: number;
     playbackPosition: number;
 }
 
