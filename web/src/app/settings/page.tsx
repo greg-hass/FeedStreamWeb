@@ -2,85 +2,40 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { db } from '@/lib/db';
 import { useSettingsStore } from '@/store/settingsStore';
-import { md5 } from '@/lib/utils';
 import { OpmlService } from '@/lib/opml-service';
-import { FeverAPI } from '@/lib/fever-api';
 import { BackupService } from '@/lib/backup-service';
 import Link from 'next/link';
-import { Sparkles, Workflow, Loader2, CheckCircle, AlertCircle, Bell, Cloud, HardDrive, Shield } from 'lucide-react';
+import { Sparkles, Workflow, Loader2, Bell } from 'lucide-react';
 import { NotificationSettings } from '@/components/NotificationSettings';
-import { SyncSettings } from '@/components/SyncSettings';
-import { CacheSettings } from '@/components/CacheSettings';
 
 import { useUIStore } from '@/store/uiStore';
 
 export default function SettingsPage() {
-    const { syncEndpoint, syncUsername, syncApiKey, setSyncConfig, setSyncEnabled, openaiApiKey, setOpenaiApiKey, geminiApiKey, setGeminiApiKey, backupFrequency, setBackupFrequency } = useSettingsStore();
+    const { geminiApiKey, setGeminiApiKey, backupFrequency, setBackupFrequency } = useSettingsStore();
     const { isImporting, current, total, feedName, startImport, setImportProgress, endImport } = useUIStore();
-    const [endpoint, setEndpoint] = useState('');
-    const [username, setUsername] = useState('');
-    const [apiKey, setApiKey] = useState('');
-    const [aiKey, setAiKey] = useState('');
     const [gKey, setGKey] = useState('');
-    const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-    const [testMessage, setTestMessage] = useState('');
 
     useEffect(() => {
-        setEndpoint(syncEndpoint);
-        setUsername(syncUsername);
-        setApiKey(syncApiKey);
-        setAiKey(openaiApiKey);
         setGKey(geminiApiKey);
-    }, [syncEndpoint, syncUsername, syncApiKey, openaiApiKey, geminiApiKey]);
-
-    const handleSaveSync = async () => {
-        setSyncConfig(endpoint, username, apiKey);
-        setSyncEnabled(true);
-        alert('Sync Configured!');
-    };
-
-    const handleTestSync = async () => {
-        if (!endpoint || !username || !apiKey) {
-            setTestStatus('error');
-            setTestMessage('Please fill in all fields');
-            return;
-        }
-
-        setTestStatus('testing');
-        setTestMessage('');
-
-        try {
-            const inputString = `${username}:${apiKey}`;
-            const finalKey = await md5(inputString);
-            const api = new FeverAPI(endpoint, finalKey);
-
-            await api.getGroups(); // Simple fetch to verify auth
-            setTestStatus('success');
-            setTestMessage('Connection Successful!');
-
-            // Auto-clear success after 3s
-            setTimeout(() => {
-                if (testStatus === 'success') setTestStatus('idle');
-            }, 3000);
-
-        } catch (e: any) {
-            setTestStatus('error');
-            setTestMessage(e.message || 'Connection Failed');
-        }
-    };
+    }, [geminiApiKey]);
 
     const handleSaveAI = () => {
-        setOpenaiApiKey(aiKey);
         setGeminiApiKey(gKey);
-        alert('AI Keys Saved!');
+        alert('AI Key Saved!');
     };
 
     const handleReset = async () => {
-        if (confirm('Are you sure you want to clear all data?')) {
-            await db.delete();
-            await db.open();
+        if (confirm('Are you sure you want to clear all local data?')) {
+            // Clear localStorage
+            localStorage.clear();
+            // Clear IndexedDB
+            const dbs = await window.indexedDB.databases();
+            for (const db of dbs) {
+                if (db.name) {
+                    window.indexedDB.deleteDatabase(db.name);
+                }
+            }
             window.location.reload();
         }
     };
@@ -92,17 +47,7 @@ export default function SettingsPage() {
             </header>
 
             <div className="p-6 max-w-2xl mx-auto w-full space-y-8">
-                <section className="space-y-4">
-                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Storage</h2>
-                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800">
-                        <button
-                            onClick={handleReset}
-                            className="text-red-600 hover:text-red-700 font-medium text-sm"
-                        >
-                            Clear Database & Reset App
-                        </button>
-                    </div>
-                </section>
+
 
                 <section className="space-y-4">
                     <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
@@ -125,17 +70,11 @@ export default function SettingsPage() {
                             <span className="text-xs text-zinc-500">Filters</span>
                         </Link>
                         <button
-                            onClick={async () => {
-                                if (!confirm('Delete ALL feeds, folders, and articles? This cannot be undone!')) return;
-                                await db.articles.clear();
-                                await db.feeds.clear();
-                                await db.folders.clear();
-                                alert('All feeds deleted!');
-                            }}
+                            onClick={handleReset}
                             className="flex items-center justify-between p-4 w-full text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                         >
-                            <span className="text-sm font-medium text-red-600">Delete All Feeds</span>
-                            <span className="text-xs text-zinc-500">Master Reset</span>
+                            <span className="text-sm font-medium text-red-600">Clear Local Data</span>
+                            <span className="text-xs text-zinc-500">Reset browser storage</span>
                         </button>
                     </div>
                 </section>
@@ -149,19 +88,9 @@ export default function SettingsPage() {
                             </p>
                         </div>
                         <p className="text-xs text-zinc-500">
-                            Configure OpenAI or Gemini to enable "Daily Briefings" and auto-summarization. Keys are stored locally and included in Master Backups.
+                            Configure Gemini to enable "Daily Briefings" and auto-summarization. Key is stored locally and included in Master Backups.
                         </p>
                         <div className="space-y-3">
-                            <div>
-                                <label className="block text-xs text-zinc-500 mb-1">OpenAI Key (sk-...)</label>
-                                <input
-                                    type="password"
-                                    className="w-full text-sm p-2 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
-                                    value={aiKey}
-                                    onChange={(e) => setAiKey(e.target.value)}
-                                    placeholder="sk-..."
-                                />
-                            </div>
                             <div>
                                 <label className="block text-xs text-zinc-500 mb-1">Gemini Key (AIza...)</label>
                                 <input
@@ -179,24 +108,6 @@ export default function SettingsPage() {
                         >
                             Save AI Key
                         </button>
-                    </div>
-                </section>
-
-                <section className="space-y-4">
-                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
-                        <Cloud size={14} /> Cloud Sync
-                    </h2>
-                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800">
-                        <SyncSettings />
-                    </div>
-                </section>
-
-                <section className="space-y-4">
-                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
-                        <HardDrive size={14} /> Storage & Cache
-                    </h2>
-                    <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800">
-                        <CacheSettings />
                     </div>
                 </section>
 
