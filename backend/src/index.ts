@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { config } from './config';
 import { routes } from './routes';
+import { checkDatabaseHealth } from './health';
 
 const app = Fastify({
   logger: {
@@ -25,7 +26,18 @@ await app.register(rateLimit, {
 await app.register(routes, { prefix: '/api' });
 
 // Health check
-app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/health', async () => {
+  const dbHealth = await checkDatabaseHealth();
+  
+  return {
+    status: dbHealth.status === 'healthy' ? 'ok' : 'degraded',
+    timestamp: new Date().toISOString(),
+    services: {
+      database: dbHealth,
+      api: 'online',
+    },
+  };
+});
 
 // Start server
 try {
