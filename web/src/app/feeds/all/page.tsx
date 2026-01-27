@@ -9,7 +9,7 @@ import { FeedService } from "@/lib/feed-service";
 export default function AllFeedsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [limit, setLimit] = useState(100);
-    const articles = useArticles('all', limit, searchQuery);
+    const { articles } = useArticles('all', limit, searchQuery);
 
     const handleMarkAllRead = async () => {
         if (confirm('Mark ALL articles as read? This cannot be undone.')) {

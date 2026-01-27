@@ -8,7 +8,7 @@ import { clsx } from "clsx";
 import { Sparkles, Loader2, X } from 'lucide-react';
 import { AIService } from "@/lib/ai-service";
 import { useSettingsStore } from "@/store/settingsStore";
-import { Article, db } from "@/lib/db";
+import { Article } from "@/lib/db";
 import DOMPurify from 'dompurify';
 
 function BriefingCard() {
@@ -103,30 +103,13 @@ function BriefingCard() {
 export default function HomePage() {
   const [view, setView] = useState('today');
   const [limit, setLimit] = useState(100);
-  const articles = useArticles(view, limit);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Article[] | null>(null);
+  const { articles, isLoading } = useArticles(view, limit, searchQuery);
 
   // Reset limit when view changes
   useEffect(() => {
     setLimit(100);
   }, [view]);
-
-  // Handle Search
-  useEffect(() => {
-    if (!searchQuery) {
-      setSearchResults(null);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      db.search(searchQuery).then(setSearchResults);
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  const displayArticles = searchQuery ? (searchResults || []) : articles;
 
   const handleLoadMore = () => {
     setLimit(prev => prev + 100);
@@ -162,15 +145,19 @@ export default function HomePage() {
 
       {/* Content Area */}
       <div className="flex-1 overflow-hidden">
-        {displayArticles ? (
+        {articles ? (
           <ArticleList
-            articles={displayArticles}
+            articles={articles}
             onLoadMore={handleLoadMore}
             header={view === 'today' && !searchQuery ? <BriefingCard /> : null}
           />
-        ) : (
+        ) : isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-pulse text-zinc-400">Loading...</div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-zinc-400">
+            <p>No articles</p>
           </div>
         )}
       </div>

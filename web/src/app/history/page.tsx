@@ -6,7 +6,7 @@ import { Clock } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 
 export default function HistoryPage() {
-    const articles = useArticles('history');
+    const { articles } = useArticles('history');
 
     return (
         <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">

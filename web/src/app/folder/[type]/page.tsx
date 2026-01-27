@@ -10,26 +10,19 @@ import { Article } from "@/lib/db";
 
 export default function FolderPage() {
     const { type } = useParams() as { type: string };
-    const [searchQuery, setSearchQuery] = useState('');
-    const articles = useArticles(type);
+    const { articles } = useArticles(type);
     const title = type === 'all' ? 'All Feeds' : type.charAt(0).toUpperCase() + type.slice(1);
-
-    const filteredArticles = articles?.filter((article: Article) => {
-        if (!searchQuery) return true;
-        return article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            article.summary?.toLowerCase().includes(searchQuery.toLowerCase());
-    });
 
     return (
         <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
             <AppHeader
                 showRefresh
                 showSearch
-                onSearchChange={setSearchQuery}
+                title={title}
             />
             <div className="flex-1 overflow-hidden">
-                {filteredArticles && filteredArticles.length > 0 ? (
-                    <ArticleList articles={filteredArticles} />
+                {articles && articles.length > 0 ? (
+                    <ArticleList articles={articles} />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-zinc-400 gap-2">
                         <List size={48} className="opacity-20" />

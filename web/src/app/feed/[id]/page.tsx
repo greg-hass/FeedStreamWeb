@@ -16,7 +16,7 @@ export default function FeedPage() {
     const [limit, setLimit] = useState(100);
 
     const feed = useLiveQuery(() => db.feeds.get(feedId), [feedId]);
-    const articles = useArticles(feedId, limit, searchQuery);
+    const { articles } = useArticles(feedId, limit, searchQuery);
 
     const handleMarkAllRead = async () => {
         if (confirm('Mark all articles in this feed as read?')) {

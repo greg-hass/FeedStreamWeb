@@ -6,7 +6,7 @@ import { Bookmark } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 
 export default function SavedPage() {
-    const articles = useArticles('saved');
+    const { articles } = useArticles('saved');
 
     return (
         <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
