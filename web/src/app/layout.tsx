@@ -36,6 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script src="/env-config.js" />
         <script
           dangerouslySetInnerHTML={{
             __html: `

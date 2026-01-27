@@ -5,7 +5,9 @@
  * for AI features, feed syncing, and cross-device support.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+import { getApiUrl } from './api-config';
+
+const API_BASE_URL = getApiUrl();
 
 // Generate or retrieve device ID for authentication
 function getDeviceId(): string {

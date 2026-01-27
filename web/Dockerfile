@@ -53,12 +53,13 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Create startup script for runtime env injection
+USER root
+RUN echo '#!/bin/sh\necho "window.__ENV__ = { NEXT_PUBLIC_API_URL: \"${NEXT_PUBLIC_API_URL}\" };" > /app/public/env-config.js\nexec node server.js' > /app/start.sh && chmod +x /app/start.sh
 USER nextjs
 
 EXPOSE 3000
 
 ENV PORT 3000
 
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD ["node", "server.js"]
+CMD ["/app/start.sh"]
