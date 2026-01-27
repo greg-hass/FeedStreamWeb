@@ -213,6 +213,37 @@ export const db = new FeedStreamDB();
 // Track if we're currently recovering to prevent loops
 let isRecovering = false;
 
+// Recovery loop prevention
+const MAX_RELOAD_ATTEMPTS = 3;
+const RELOAD_KEY = 'fs_reload_attempts';
+const RELOAD_TIMESTAMP_KEY = 'fs_reload_timestamp';
+
+function getReloadAttempts(): number {
+    if (typeof localStorage === 'undefined') return 0;
+    const timestamp = parseInt(localStorage.getItem(RELOAD_TIMESTAMP_KEY) || '0');
+    const now = Date.now();
+    // Reset counter if it's been more than 5 minutes
+    if (now - timestamp > 5 * 60 * 1000) {
+        localStorage.removeItem(RELOAD_KEY);
+        localStorage.removeItem(RELOAD_TIMESTAMP_KEY);
+        return 0;
+    }
+    return parseInt(localStorage.getItem(RELOAD_KEY) || '0');
+}
+
+function incrementReloadAttempts(): void {
+    if (typeof localStorage === 'undefined') return;
+    const current = getReloadAttempts();
+    localStorage.setItem(RELOAD_KEY, String(current + 1));
+    localStorage.setItem(RELOAD_TIMESTAMP_KEY, String(Date.now()));
+}
+
+function clearReloadAttempts(): void {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.removeItem(RELOAD_KEY);
+    localStorage.removeItem(RELOAD_TIMESTAMP_KEY);
+}
+
 /**
  * Check if an error is related to database cursor/connection issues
  */
@@ -295,13 +326,30 @@ export async function withDatabaseRetry<T>(
 if (typeof window !== 'undefined') {
     window.addEventListener('unhandledrejection', (event) => {
         if (isDatabaseConnectionError(event.reason) && !isRecovering) {
-            console.log('[DB] Detected unhandled database error, attempting recovery...');
+            const attempts = getReloadAttempts();
+            if (attempts >= MAX_RELOAD_ATTEMPTS) {
+                console.error('[DB] Max reload attempts reached, stopping recovery to prevent infinite loop');
+                event.preventDefault();
+                // Show user a message instead of reloading
+                if (typeof window !== 'undefined' && window.alert) {
+                    window.alert('Database connection failed. Please close and reopen the app.');
+                }
+                return;
+            }
+            
+            console.log(`[DB] Detected unhandled database error (attempt ${attempts + 1}/${MAX_RELOAD_ATTEMPTS}), attempting recovery...`);
             event.preventDefault(); // Prevent error from propagating
+            incrementReloadAttempts();
             reopenDatabase().then(() => {
                 // Reload the page to reset React state
                 window.location.reload();
             }).catch(console.error);
         }
+    });
+    
+    // Clear reload attempts on successful page load
+    window.addEventListener('load', () => {
+        clearReloadAttempts();
     });
 }
 

@@ -60,6 +60,17 @@ export class FeedService {
 
     static async refreshFeed(feed: Feed, signal?: AbortSignal, baseUrl: string = ''): Promise<number> {
         console.log(`[RefreshFeed] Starting refresh for: ${feed.title}`);
+        
+        // Create a timeout signal if none provided
+        const timeoutMs = 30000; // 30 second timeout per feed
+        const timeoutController = new AbortController();
+        const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+        
+        // Combine external signal with timeout
+        const combinedSignal = signal 
+            ? AbortSignal.any([signal, timeoutController.signal])
+            : timeoutController.signal;
+        
         try {
             if (signal?.aborted) return 0;
             const proxyUrl = `${baseUrl}/api/proxy?url=${encodeURIComponent(feed.feedURL)}`;
@@ -69,7 +80,7 @@ export class FeedService {
             if (feed.etag) headers['If-None-Match'] = feed.etag;
             if (feed.lastModified) headers['If-Modified-Since'] = feed.lastModified;
 
-            const response = await fetch(proxyUrl, { headers, signal });
+            const response = await fetch(proxyUrl, { headers, signal: combinedSignal });
 
             // Handle 304 Not Modified - feed unchanged, skip parsing
             if (response.status === 304) {
@@ -121,9 +132,11 @@ export class FeedService {
             // Merge Articles
             const newCount = await this.mergeArticles(feed.id, normalized.articles);
             console.log(`[RefreshFeed] Completed refresh for ${feed.title} (New: ${newCount})`);
+            clearTimeout(timeoutId);
             return newCount;
 
         } catch (e: any) {
+            clearTimeout(timeoutId);
             if (e.name === 'AbortError') {
                 console.log(`[RefreshFeed] Aborted: ${feed.title}`);
                 return 0;
@@ -148,28 +161,57 @@ export class FeedService {
             return 0;
         }
 
-        const CONCURRENCY_LIMIT = 2; // Reduced to prevent UI freezing on mobile
+        // Adaptive concurrency based on feed count
+        // For 230+ feeds, use lower concurrency to prevent IndexedDB locks
+        const CONCURRENCY_LIMIT = feedsToSync.length > 100 ? 1 : 2;
+        const YIELD_DELAY_MS = feedsToSync.length > 100 ? 100 : 50;
+        
+        // Process in smaller batches for large feed counts
+        // This prevents long-running transactions and memory issues
+        const BATCH_SIZE = feedsToSync.length > 100 ? 50 : 100;
+        
         let completedCount = 0;
         let startedCount = 0;
         let totalNewArticles = 0;
         const total = feedsToSync.length;
+        
+        // Track feeds that failed consecutively to avoid hammering dead feeds
+        const failedFeeds = new Set<string>();
 
         const processNext = async (): Promise<void> => {
             if (signal?.aborted || startedCount >= total) return;
 
             const feed = feedsToSync[startedCount];
             startedCount++;
+            
+            // Skip feeds that have failed 5+ times consecutively
+            if (feed.consecutiveFailures >= 5) {
+                if (!failedFeeds.has(feed.id)) {
+                    console.log(`[RefreshAll] Skipping ${feed.title} - ${feed.consecutiveFailures} consecutive failures`);
+                    failedFeeds.add(feed.id);
+                }
+                completedCount++;
+                if (onProgress && !signal?.aborted) {
+                    onProgress(completedCount, total, completedCount === total ? 'Finished' : `Updating feeds...`);
+                }
+                await processNext();
+                return;
+            }
 
             if (onProgress) {
                 onProgress(completedCount, total, `Updating ${feed.title}...`);
             }
 
-            // YIELD TO MAIN THREAD: Critical for UI smoothness
-            await new Promise(resolve => setTimeout(resolve, 50));
+            // YIELD TO MAIN THREAD: Critical for UI smoothness with 230+ feeds
+            await new Promise(resolve => setTimeout(resolve, YIELD_DELAY_MS));
 
             try {
                 const newCount = await this.refreshFeed(feed, signal);
                 totalNewArticles += newCount;
+                // Reset failed status on success
+                if (feed.consecutiveFailures > 0) {
+                    failedFeeds.delete(feed.id);
+                }
             } catch (e) {
                 console.error(`[RefreshAll] Error refreshing ${feed.title}:`, e);
             } finally {
@@ -177,6 +219,12 @@ export class FeedService {
                 if (onProgress && !signal?.aborted) {
                     onProgress(completedCount, total, completedCount === total ? 'Finished' : `Updating feeds...`);
                 }
+                
+                // Periodic yield every batch to prevent event loop blocking
+                if (completedCount % BATCH_SIZE === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
                 await processNext();
             }
         };

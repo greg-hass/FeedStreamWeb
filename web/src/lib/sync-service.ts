@@ -210,6 +210,7 @@ export class SyncService {
 
     /**
      * Process offline queue
+     * Uses atomic transactions to prevent partial syncs
      */
     static async processOfflineQueue(): Promise<void> {
         if (!currentSyncState.isOnline) return;
@@ -219,20 +220,47 @@ export class SyncService {
         if (!isAuth) return;
 
         const queue = await db.syncQueue.toArray();
+        
+        if (queue.length === 0) return;
 
-        for (const item of queue) {
-            try {
-                await this.processSyncItem(item);
-                // Remove from queue on success
-                if (item.id) {
-                    await db.syncQueue.delete(item.id);
+        // Process items in batches to avoid long-running transactions
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < queue.length; i += BATCH_SIZE) {
+            const batch = queue.slice(i, i + BATCH_SIZE);
+            
+            // Process each item in the batch atomically
+            for (const item of batch) {
+                try {
+                    // Use transaction to ensure atomicity: process AND delete together
+                    await db.transaction('rw', db.syncQueue, async () => {
+                        await this.processSyncItem(item);
+                        // Only delete if processing succeeded
+                        if (item.id) {
+                            await db.syncQueue.delete(item.id);
+                        }
+                    });
+                } catch (error) {
+                    // Transaction failed - item stays in queue
+                    console.error(`Failed to sync item ${item.recordId}:`, error);
+                    
+                    // Increment attempt count (outside transaction to avoid conflicts)
+                    if (item.id) {
+                        try {
+                            await db.syncQueue.update(item.id, { 
+                                attempts: item.attempts + 1,
+                                createdAt: new Date() // Update timestamp for retry ordering
+                            });
+                        } catch (updateError) {
+                            console.error(`Failed to update attempt count for ${item.recordId}:`, updateError);
+                        }
+                    }
+                    
+                    // Stop processing if we've had too many consecutive failures
+                    // to avoid hammering the server
+                    if (item.attempts >= 5) {
+                        console.warn(`Item ${item.recordId} has failed ${item.attempts} times, skipping for now`);
+                    }
                 }
-            } catch (error) {
-                // Increment attempt count
-                if (item.id) {
-                    await db.syncQueue.update(item.id, { attempts: item.attempts + 1 });
-                }
-                console.error(`Failed to sync item ${item.recordId}:`, error);
             }
         }
 

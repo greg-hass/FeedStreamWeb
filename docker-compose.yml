@@ -1,0 +1,74 @@
+# FeedStream - Self-Hosted RSS Reader with AI
+
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: feedstream-db
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: feedstream
+      POSTGRES_USER: feedstream
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - feedstream
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feedstream"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  api:
+    image: ghcr.io/greg-hass/feedstream-api:latest
+    container_name: feedstream-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://feedstream:${DB_PASSWORD}@postgres:5432/feedstream
+      JWT_SECRET: ${JWT_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+    ports:
+      - "3001:3001"
+    networks:
+      - feedstream
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend (Next.js)
+  web:
+    image: ghcr.io/greg-hass/feedstream-web:latest
+    container_name: feedstream-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # API URL for server-side rendering
+      API_URL: http://api:3001
+    ports:
+      - "3000:3000"
+    networks:
+      - feedstream
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+
+networks:
+  feedstream:
+    driver: bridge

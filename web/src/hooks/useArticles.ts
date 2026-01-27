@@ -1,171 +1,118 @@
-import { useLiveQuery } from "dexie-react-hooks";
-import { db, Article } from "@/lib/db";
-import Dexie from "dexie";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Article } from "@/lib/db";
 import { useUIStore } from "@/store/uiStore";
+import { getArticles, searchArticles } from "@/lib/api-client";
+
+/**
+ * useArticles Hook - Backend Version
+ * 
+ * Fetches articles from the backend API instead of IndexedDB
+ * Provides better performance for 230+ feeds
+ * Supports server-side search
+ */
+
+interface ArticleWithState extends Article {
+    isRead: boolean;
+    isBookmarked: boolean;
+    playbackPosition: number;
+}
 
 export function useArticles(
     view: 'today' | 'last24h' | 'week' | 'all' | 'saved' | 'history' | 'youtube' | 'podcasts' | 'reddit' | string = 'all',
     limit = 100,
     searchQuery: string = ''
 ) {
+    const [articles, setArticles] = useState<ArticleWithState[] | undefined>(undefined);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    
     // Subscribe to syncVersion to force re-query when sync completes
     const syncVersion = useUIStore(s => s.syncVersion);
 
-    // Raw live query - updates on every DB change
-    const liveArticles = useLiveQuery(async () => {
-        let collection: any; // Use any to avoid Dexie's complex generic type issues
-        const now = new Date();
+    const fetchArticles = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
 
-        // 1. Select the base collection strategy
-        if (view === 'today') {
-            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            collection = db.articles.where('publishedAt').above(startOfDay);
-        } else if (view === 'last24h') {
-            const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            collection = db.articles.where('publishedAt').above(yesterday);
-        } else if (view === 'week') {
-            const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            collection = db.articles.where('publishedAt').above(lastWeek);
-        } else if (view === 'saved') {
-            // Use simple index which is proven to work in Sidebar
-            const allSaved = await db.articles.where('isBookmarked').equals(1).toArray();
-            // Sort in memory (newest first)
-            allSaved.sort((a, b) => {
-                const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-                const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-                return dateB - dateA;
-            });
-            // Apply limit and map
-            return allSaved.slice(0, limit).map(a => ({
-                ...a,
-                contentHTML: undefined,
-                readerHTML: undefined,
+        try {
+            let data: any[] = [];
+
+            if (searchQuery && searchQuery.trim().length > 0) {
+                // Use backend search API
+                data = await searchArticles(searchQuery, limit);
+            } else {
+                // Map view to API parameters
+                const options: any = { limit };
+                
+                if (view === 'saved') {
+                    options.bookmarked = true;
+                } else if (view === 'history') {
+                    // Fetch all and filter client-side for now
+                    // In production, add a 'read' filter to backend
+                } else if (view !== 'all' && view !== 'today' && view !== 'last24h' && view !== 'week') {
+                    // Specific feed ID
+                    if (!['youtube', 'podcasts', 'reddit', 'history'].includes(view)) {
+                        options.feedId = view;
+                    }
+                }
+
+                data = await getArticles(options);
+
+                // Client-side filtering for views not yet supported by backend
+                if (view === 'today') {
+                    const startOfDay = new Date();
+                    startOfDay.setHours(0, 0, 0, 0);
+                    data = data.filter((a: any) => new Date(a.publishedAt) >= startOfDay);
+                } else if (view === 'last24h') {
+                    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                    data = data.filter((a: any) => new Date(a.publishedAt) >= yesterday);
+                } else if (view === 'week') {
+                    const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                    data = data.filter((a: any) => new Date(a.publishedAt) >= lastWeek);
+                } else if (view === 'history') {
+                    data = data.filter((a: any) => a.isRead);
+                } else if (view === 'youtube' || view === 'podcasts' || view === 'reddit') {
+                    // These would need backend support for mediaKind filtering
+                    // For now, fetch all and filter
+                    const mediaKind = view === 'youtube' ? 'youtube' : view === 'podcasts' ? 'podcast' : 'reddit';
+                    data = data.filter((a: any) => a.mediaKind === mediaKind);
+                }
+            }
+
+            // Map backend format to frontend format
+            const mappedArticles: ArticleWithState[] = data.map((a: any) => ({
+                id: a.id,
+                feedID: a.feedId,
+                title: a.title,
+                author: a.author,
+                summary: a.summary,
+                contentHTML: a.content,
+                url: a.url,
+                publishedAt: a.publishedAt ? new Date(a.publishedAt) : undefined,
+                updatedAt: undefined,
+                isRead: a.isRead ? 1 : 0,
+                isBookmarked: a.isBookmarked ? 1 : 0,
+                mediaKind: a.mediaKind || 'none',
+                thumbnailPath: a.thumbnailUrl,
+                enclosureURL: a.enclosureUrl,
+                enclosureType: a.enclosureType,
+                playbackPosition: a.playbackPosition || 0,
+                downloadStatus: 0,
+                imageCacheStatus: 0,
             }));
-        } else if (view === 'history') {
-            collection = db.articles.where('isRead').equals(1);
-        } else if (view === 'youtube') {
-            collection = db.articles
-                .where('[mediaKind+publishedAt]')
-                .between(['youtube', Dexie.minKey], ['youtube', Dexie.maxKey]);
-        } else if (view === 'podcasts') {
-            collection = db.articles
-                .where('[mediaKind+publishedAt]')
-                .between(['podcast', Dexie.minKey], ['podcast', Dexie.maxKey]);
-        } else if (view === 'reddit') {
-            const redditFeedIds = await db.feeds.where('type').equals('reddit').primaryKeys();
-            if (redditFeedIds.length === 0) return [];
-            // Use index instead of full scan filter
-            const results = await db.articles.where('feedID').anyOf(redditFeedIds as string[]).toArray();
-            results.sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0));
-            return results.slice(0, limit).map(a => ({ ...a, contentHTML: undefined, readerHTML: undefined }));
-        } else if (view === 'rss') {
-            const allowedFeedIds = await db.feeds.where('type').noneOf(['reddit', 'youtube', 'podcast']).primaryKeys();
-            if (allowedFeedIds.length === 0) return [];
-            // Use index instead of full scan filter
-            const results = await db.articles.where('feedID').anyOf(allowedFeedIds as string[]).toArray();
-            results.sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0));
-            return results.slice(0, limit).map(a => ({ ...a, contentHTML: undefined, readerHTML: undefined }));
-        } else if (view === 'all') {
-            collection = db.articles.orderBy('publishedAt');
-        } else {
-            // Feed ID
-            collection = db.articles.where('feedID').equals(view);
+
+            setArticles(mappedArticles);
+        } catch (e: any) {
+            console.error('[useArticles] Failed to fetch:', e);
+            setError(e.message);
+            setArticles([]);
+        } finally {
+            setIsLoading(false);
         }
-
-        // 2. Apply Search Filter (if any)
-        if (searchQuery && searchQuery.trim().length > 0) {
-            const lowerQuery = searchQuery.toLowerCase();
-            const originalCollection = collection;
-
-            // Dexie collections are immutable-ish chains, so we filter
-            // Note: This is an in-memory filter on the results of the index scan.
-            // For massive datasets, we'd need a full-text index.
-            collection = originalCollection.filter((a: Article) => {
-                const titleMatch = a.title?.toLowerCase().includes(lowerQuery);
-                const summaryMatch = a.summary?.toLowerCase().includes(lowerQuery);
-                return !!(titleMatch || summaryMatch);
-            });
-        }
-
-        // 3. Finalize Query & Optimization
-        // We reduce the limit to avoid blocking the main thread.
-        // We also manually map the results to exclude massive 'contentHTML' strings 
-        // to save React memory diffing costs.
-        const results = await collection.reverse().limit(limit).toArray();
-
-        return results.map((a: Article) => ({
-            ...a,
-            contentHTML: undefined,
-            readerHTML: undefined,
-        })) as Article[];
-
-    }, [view, limit, searchQuery, syncVersion]);
-
-    // Debounce to prevent flickering during rapid sync updates
-    // Use longer debounce (2s) during active sync, shorter (500ms) when idle
-    const [debouncedArticles, setDebouncedArticles] = useState<Article[] | undefined>(undefined);
-    const prevView = useRef(view);
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
-    const lastArticlesRef = useRef<Article[] | undefined>(undefined);
-
-    // Reset state when view changes
-    if (prevView.current !== view) {
-        prevView.current = view;
-        setDebouncedArticles(undefined);
-        lastArticlesRef.current = undefined;
-        // Cancel pending debounce on view change
-        if (timerRef.current) {
-            clearTimeout(timerRef.current);
-            timerRef.current = null;
-        }
-    }
+    }, [view, limit, searchQuery]);
 
     useEffect(() => {
-        // If we don't have debouncedArticles yet, set them immediately (first load)
-        if (lastArticlesRef.current === undefined && liveArticles !== undefined) {
-            lastArticlesRef.current = liveArticles;
-            setDebouncedArticles(liveArticles);
-            return;
-        }
+        fetchArticles();
+    }, [fetchArticles, syncVersion]);
 
-        // Skip if liveArticles hasn't changed (shallow reference check) or undefined
-        if (liveArticles === undefined) return;
-
-        // Clear any pending timer
-        if (timerRef.current) {
-            clearTimeout(timerRef.current);
-        }
-
-        // Standard debounce for regular updates
-        timerRef.current = setTimeout(() => {
-            setDebouncedArticles(current => {
-                if (!liveArticles) return current;
-                // Compare by article IDs and key properties to avoid unnecessary updates
-                if (current && current.length === liveArticles.length) {
-                    let isSame = true;
-                    for (let i = 0; i < current.length; i++) {
-                        if (current[i].id !== liveArticles[i].id ||
-                            current[i].isRead !== liveArticles[i].isRead ||
-                            current[i].isBookmarked !== liveArticles[i].isBookmarked) {
-                            isSame = false;
-                            break;
-                        }
-                    }
-                    if (isSame) return current;
-                }
-                lastArticlesRef.current = liveArticles;
-                return liveArticles;
-            });
-        }, 300);
-
-        return () => {
-            if (timerRef.current) {
-                clearTimeout(timerRef.current);
-            }
-        };
-    }, [liveArticles]);
-
-    return debouncedArticles;
+    return { articles, isLoading, error, refetch: fetchArticles };
 }
-

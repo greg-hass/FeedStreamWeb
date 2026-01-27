@@ -4,11 +4,9 @@ import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Article } from '@/lib/db';
 import { ArticleItem } from './ArticleItem';
-import { db } from '@/lib/db';
 import { usePathname, useRouter } from 'next/navigation';
 import { useScrollStore } from '@/store/scrollStore';
-import { FeedService } from '@/lib/feed-service';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useSync } from '@/hooks/useSync';
 import { useKeyboardNav } from '@/hooks/useKeyboardNav';
 import { Loader2, ArrowDown, Rss } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -88,6 +86,8 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
         }
     };
 
+    const { runSync } = useSync();
+
     const handleTouchEnd = async () => {
         if (!isDragging.current) return;
         isDragging.current = false;
@@ -99,20 +99,13 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
             setIsRefreshing(true);
             updatePullPosition(60, true); // Snap to loading position
 
-            startSync(0);
-            const controller = useUIStore.getState().abortController;
-            setProgress(0, 0, 'Refreshing...');
-
             try {
-                await FeedService.refreshAllFeeds((completed, total, message) => {
-                    setProgress(completed, total, message);
-                }, controller?.signal);
+                await runSync();
             } catch (e) {
                 console.error("Refresh failed", e);
             } finally {
                 setIsRefreshing(false);
                 updatePullPosition(0, true);
-                endSync();
             }
         } else {
             updatePullPosition(0, true);
@@ -120,23 +113,22 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     };
 
     // Optimization: Debounce Feed Updates to prevent flickering during sync
-    const rawFeeds = useLiveQuery(() => db.feeds.toArray());
-    const [feeds, setFeeds] = useState<typeof rawFeeds>([]);
+    // Note: With backend API, feeds are fetched separately
+    const [feeds, setFeeds] = useState<any[]>([]);
 
     useEffect(() => {
-        // Immediately set feeds if we have data and state is empty (first load)
-        if (rawFeeds && rawFeeds.length > 0 && (!feeds || feeds.length === 0)) {
-            setFeeds(rawFeeds);
-            return;
-        }
-
-        // Debounce subsequent updates - use length check instead of expensive JSON.stringify
-        const handler = setTimeout(() => {
-            setFeeds(rawFeeds ?? []);
-        }, 1000); // 1 second debounce for feed metadata updates (icons, lastSync, etc)
-
-        return () => clearTimeout(handler);
-    }, [rawFeeds]);
+        // Fetch feeds from backend on mount
+        const fetchFeeds = async () => {
+            try {
+                const { getFeeds } = await import('@/lib/api-client');
+                const feedsData = await getFeeds();
+                setFeeds(feedsData);
+            } catch (e) {
+                console.error("Failed to fetch feeds:", e);
+            }
+        };
+        fetchFeeds();
+    }, []);
 
     const feedsMap = useMemo(() => {
         const map = new Map();
@@ -147,18 +139,28 @@ export function ArticleList({ articles, onLoadMore, header }: ArticleListProps) 
     }, [feeds]);
 
     const handleToggleRead = useCallback(async (id: string) => {
-        const article = await db.articles.get(id);
-        if (article) {
-            await FeedService.toggleReadStatus(id, !article.isRead);
+        try {
+            const { markArticleRead } = await import('@/lib/api-client');
+            const article = articles?.find(a => a.id === id);
+            if (article) {
+                await markArticleRead(id, !article.isRead);
+            }
+        } catch (e) {
+            console.error("Failed to toggle read status:", e);
         }
-    }, []);
+    }, [articles]);
 
     const handleToggleBookmark = useCallback(async (id: string) => {
-        const article = await db.articles.get(id);
-        if (article) {
-            await FeedService.toggleBookmark(id, !article.isBookmarked);
+        try {
+            const { markArticleBookmarked } = await import('@/lib/api-client');
+            const article = articles?.find(a => a.id === id);
+            if (article) {
+                await markArticleBookmarked(id, !article.isBookmarked);
+            }
+        } catch (e) {
+            console.error("Failed to toggle bookmark:", e);
         }
-    }, []);
+    }, [articles]);
 
     // Keyboard Navigation
     const { selectedIndex } = useKeyboardNav({

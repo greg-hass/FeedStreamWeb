@@ -1,36 +1,42 @@
-
 import { useCallback } from 'react';
 import { useUIStore } from '@/store/uiStore';
-import { db } from '@/lib/db';
-import { FeedService } from '@/lib/feed-service';
+import { syncAllFeeds } from '@/lib/api-client';
 
+/**
+ * useSync Hook - Backend Version
+ * 
+ * Now uses the backend API to sync all feeds
+ * This offloads the heavy lifting from the browser to the server
+ */
 export function useSync() {
     const { startSync, setProgress, endSync } = useUIStore();
 
     const runSync = useCallback(async () => {
-        const localFeeds = await db.feeds.toArray();
-        const feedsToSync = localFeeds.filter(f => !f.isPaused);
+        console.log('[useSync] Starting backend sync');
 
-        console.log(`[useSync] Found ${localFeeds.length} feeds, ${feedsToSync.length} to sync`);
-
-        if (feedsToSync.length === 0) {
-            console.log('[useSync] No feeds to sync');
-            return;
-        }
-
-        startSync(feedsToSync.length);
+        startSync(0); // 0 = unknown total initially
+        setProgress(0, 0, 'Connecting to server...');
 
         try {
-            // Use FeedService directly on main thread (more reliable than web worker)
-            await FeedService.refreshAllFeeds((completed, total, message) => {
-                setProgress(completed, total, message);
-            });
-        } catch (e) {
+            // Use backend API for feed syncing
+            const result = await syncAllFeeds();
+            
+            console.log(`[useSync] Sync complete: ${result.successful}/${result.totalFeeds} feeds synced, ${result.newArticles} new articles`);
+            
+            setProgress(
+                result.totalFeeds, 
+                result.totalFeeds, 
+                `Synced ${result.newArticles} new articles`
+            );
+            
+            return result;
+        } catch (e: any) {
             console.error('[useSync] Refresh failed:', e);
+            setProgress(0, 0, `Sync failed: ${e.message}`);
+            throw e;
         } finally {
             endSync();
         }
-
     }, [startSync, setProgress, endSync]);
 
     return { runSync };
