@@ -10,6 +10,7 @@ import { FolderSelector } from './FolderSelector';
 import { URLDetector } from '@/lib/url-detector';
 import { FeedPreview } from './FeedPreview';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { toast } from 'sonner';
 
 interface FeedSearchModalProps {
     isOpen: boolean;
@@ -83,9 +84,9 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
             const convertedUrl = await URLDetector.convertToFeedURL(url);
             await FeedService.addFeed(convertedUrl, selectedFolderId || undefined);
             onClose();
-            alert(`Added ${title || 'feed'}`);
+            toast.success(`Added ${title || 'feed'}`);
         } catch (e: any) {
-            alert("Failed to add feed: " + e.message);
+            toast.error("Failed to add feed: " + e.message);
         } finally {
             setAddingUrl(null);
         }
@@ -128,7 +129,7 @@ export function FeedSearchModal({ isOpen, onClose }: FeedSearchModalProps) {
         }
 
         setBulkProgress(null);
-        alert(`Added ${added} feeds${failed > 0 ? `, ${failed} failed` : ''}`);
+        toast.success(`Added ${added} feeds${failed > 0 ? `, ${failed} failed` : ''}`);
         if (added > 0) {
             onClose();
         }

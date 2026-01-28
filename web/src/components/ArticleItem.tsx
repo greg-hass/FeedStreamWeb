@@ -8,6 +8,7 @@ import { clsx } from 'clsx';
 import { Article, Feed, db } from '@/lib/db';
 import { MemoizedArticleSwipeRow as ArticleSwipeRow } from './ArticleSwipeRow';
 import { useAudioStore } from '@/store/audioStore';
+import { ArticleVideoPlayer } from './article/ArticleVideoPlayer';
 
 const YOUTUBE_PATTERNS = [
     /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|live|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
@@ -138,71 +139,7 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
         e.preventDefault();
         e.stopPropagation();
         setIsVideoPlaying(true);
-        
-        // Load YouTube API if not present
-        if (!window.YT) {
-            const tag = document.createElement('script');
-            tag.src = "https://www.youtube.com/iframe_api";
-            const firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-        }
     };
-
-    const videoRef = useRef<HTMLDivElement>(null);
-    const playerRef = useRef<any>(null);
-
-    useEffect(() => {
-        if (isVideoPlaying && article.mediaKind === 'youtube' && videoId && videoRef.current) {
-            const initPlayer = () => {
-                playerRef.current = new window.YT.Player(videoRef.current, {
-                    videoId: videoId,
-                    playerVars: {
-                        autoplay: 1,
-                        playsinline: 1,
-                        modestbranding: 1,
-                        rel: 0,
-                        start: Math.floor(article.playbackPosition || 0),
-                    },
-                    events: {
-                        onStateChange: (event: any) => {
-                            if (event.data === window.YT.PlayerState.PLAYING) {
-                                const interval = setInterval(() => {
-                                    if (playerRef.current?.getCurrentTime) {
-                                        db.articles.update(article.id, { playbackPosition: playerRef.current.getCurrentTime() });
-                                    }
-                                }, 5000);
-                                playerRef.current._posInterval = interval;
-                            } else {
-                                if (playerRef.current?._posInterval) clearInterval(playerRef.current._posInterval);
-                                if (playerRef.current?.getCurrentTime) {
-                                    db.articles.update(article.id, { playbackPosition: playerRef.current.getCurrentTime() });
-                                }
-                            }
-                        }
-                    }
-                });
-            };
-
-            if (window.YT && window.YT.Player) initPlayer();
-            else {
-                const prev = window.onYouTubeIframeAPIReady;
-                window.onYouTubeIframeAPIReady = () => {
-                    if (prev) prev();
-                    initPlayer();
-                };
-            }
-        }
-
-        return () => {
-            if (playerRef.current) {
-                if (playerRef.current._posInterval) clearInterval(playerRef.current._posInterval);
-                playerRef.current.destroy();
-                playerRef.current = null;
-            }
-        };
-    }, [isVideoPlaying, videoId, article.id]);
-
-    const isLocal = isNaN(parseInt(article.id));
 
     return (
         <ArticleSwipeRow
@@ -214,8 +151,8 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
             <Link href={`/article/${article.id}`} className="block" onClick={handleArticleClick}>
                 <article className={clsx(
                     "article-item relative px-4 sm:px-6 py-4 transition-colors select-none",
-                    "hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50",
-                    "border-b border-zinc-100 dark:border-zinc-800/50",
+                    "hover:bg-zinc-100 dark:hover:bg-zinc-900/50",
+                    "border-b border-zinc-200 dark:border-zinc-800/50",
                     isSelected && "bg-brand/5 dark:bg-brand/10 border-l-4 border-l-brand pl-3 sm:pl-5"
                 )}>
                     {/* Mobile: Vertical Layout | Desktop: Horizontal Layout */}
@@ -314,7 +251,12 @@ function ArticleItemComponent({ article, feed, isSelected, onToggleRead, onToggl
                                 {isVideoPlaying && videoId ? (
                                     <div className="w-full h-full bg-black rounded-lg overflow-hidden">
                                         {article.mediaKind === 'youtube' ? (
-                                            <div ref={videoRef} className="w-full h-full" />
+                                            <ArticleVideoPlayer 
+                                                articleId={article.id} 
+                                                videoId={videoId} 
+                                                playbackPosition={article.playbackPosition} 
+                                                className="w-full h-full" 
+                                            />
                                         ) : (
                                             <iframe
                                                 src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0`}

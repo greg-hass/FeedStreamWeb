@@ -5,6 +5,7 @@ import { users, feeds, articles, folders, articleStates, briefings, syncQueue, u
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { FeedService } from '../services/feed';
 import { AIService } from '../services/ai';
+import { parseFeed } from '@feedstream/common';
 
 const feedService = new FeedService();
 const aiService = new AIService();
@@ -88,7 +89,6 @@ export async function routes(app: FastifyInstance) {
     }
 
     const text = await response.text();
-    const { parseFeed } = await import('../services/feed-parser.js');
     const parsed = await parseFeed(text, body.url);
 
     // Create feed

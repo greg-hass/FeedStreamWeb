@@ -6,6 +6,7 @@
  */
 
 import { getApiUrl } from './api-config';
+import { uuidv4 } from './utils';
 
 const API_BASE_URL = getApiUrl();
 
@@ -16,24 +17,10 @@ function getDeviceId(): string {
   let deviceId = localStorage.getItem('fs_device_id');
   if (!deviceId) {
     // Fallback UUID generator for non-secure contexts
-    deviceId = generateUUID();
+    deviceId = uuidv4();
     localStorage.setItem('fs_device_id', deviceId);
   }
   return deviceId;
-}
-
-// Fallback UUID generator for browsers without crypto.randomUUID (non-HTTPS)
-function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  
-  // Manual UUID v4 generation
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
 }
 
 interface ApiOptions {

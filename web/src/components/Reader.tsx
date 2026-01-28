@@ -9,6 +9,10 @@ import { ExternalLink, BookOpen, ZoomIn, ZoomOut, Share, Palette, Moon, Sun, Hea
 import { decodeHTMLEntities } from '@/lib/utils';
 import { db } from '@/lib/db';
 import { clsx } from 'clsx';
+import { ArticleVideoPlayer } from './article/ArticleVideoPlayer';
+
+import { toast } from 'sonner';
+import './Reader.css';
 
 // Whitelist for iframe domains
 export const ALLOWED_IFRAME_DOMAINS = [
@@ -102,7 +106,7 @@ export function Reader({ article }: ReaderProps) {
         } else {
             // Fallback: Copy to clipboard
             navigator.clipboard.writeText(article.url || window.location.href);
-            alert('Link copied to clipboard');
+            toast.success('Link copied to clipboard');
         }
     };
 
@@ -270,12 +274,12 @@ export function Reader({ article }: ReaderProps) {
                     readerHTML: cleanHtml
                 });
             } else {
-                alert("Could not parse article content");
+                toast.error("Could not parse article content");
             }
 
         } catch (e) {
             console.error(e);
-            alert("Failed to load Reader View");
+            toast.error("Failed to load Reader View");
         } finally {
             setLoading(false);
         }
@@ -381,85 +385,6 @@ export function Reader({ article }: ReaderProps) {
                     )}
                 </header>
 
-                {/* Global Styles for Content - Updated for Themes */}
-                <style jsx global>{`
-                    .reader-content {
-                        font-size: 1.125rem; /* 18px */
-                        line-height: 1.8;
-                    }
-                    .reader-content p {
-                        margin-bottom: 2em;
-                    }
-                    .reader-content h2 {
-                        font-size: 1.8rem;
-                        font-weight: 700;
-                        margin-top: 3em;
-                        margin-bottom: 1em;
-                        letter-spacing: -0.025em;
-                    }
-                    .reader-content h3 {
-                        font-size: 1.5rem;
-                        font-weight: 600;
-                        margin-top: 2.5em;
-                        margin-bottom: 1em;
-                    }
-                    .reader-content img, .reader-content video, .reader-content figure {
-                        margin: 2.5em 0;
-                        border-radius: 0.75rem;
-                        width: 100%;
-                        height: auto;
-                    }
-                    .reader-content iframe {
-                        width: 100%;
-                        aspect-ratio: 16/9;
-                        border-radius: 0.75rem;
-                        margin: 2.5em 0;
-                    }
-                    .reader-content blockquote {
-                        border-left: 4px solid currentColor;
-                        padding-left: 1.5em;
-                        font-style: italic;
-                        opacity: 0.8;
-                        margin: 2em 0;
-                    }
-                    .reader-content a {
-                        color: #ec4899; /* pink-500 (brand) */
-                        text-decoration: underline;
-                        text-underline-offset: 2px;
-                    }
-                    .reader-content ul, .reader-content ol {
-                        margin-bottom: 2em;
-                        padding-left: 1.5em;
-                    }
-                    .reader-content li {
-                        margin-bottom: 0.5em;
-                        list-style-type: disc;
-                    }
-                    
-                    /* Mobile tweaks */
-                    @media (max-width: 640px) {
-                        .reader-content iframe, .reader-content img {
-                            border-radius: 0;
-                            margin-left: -1rem; /* Break out */
-                            margin-right: -1rem;
-                            width: calc(100% + 2rem);
-                            max-width: none;
-                        }
-                    }
-                `}</style>
-
-                {/* Content */}
-                {youtubeVideoId && (
-                    <div className="mb-8">
-                        <YouTubePlayer
-                            videoId={youtubeVideoId}
-                            articleId={article.id}
-                            initialPosition={article.playbackPosition}
-                        />
-                        <hr className="my-8 border-zinc-200 dark:border-zinc-800" />
-                    </div>
-                )}
-
                 <div
                     className="reader-content prose prose-zinc dark:prose-invert prose-lg max-w-none"
                     style={{ fontSize: `${zoom}%` }}
@@ -476,91 +401,4 @@ export function Reader({ article }: ReaderProps) {
             </div>
         </div >
     );
-}
-
-function YouTubePlayer({ videoId, articleId, initialPosition = 0 }: { videoId: string; articleId: string; initialPosition?: number }) {
-    const playerRef = useRef<any>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        // Load YouTube IFrame API if not already loaded
-        if (!window.YT) {
-            const tag = document.createElement('script');
-            tag.src = "https://www.youtube.com/iframe_api";
-            const firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-        }
-
-        const initPlayer = () => {
-            playerRef.current = new window.YT.Player(containerRef.current, {
-                videoId: videoId,
-                playerVars: {
-                    autoplay: 1,
-                    playsinline: 1,
-                    modestbranding: 1,
-                    rel: 0,
-                    start: Math.floor(initialPosition),
-                },
-                events: {
-                    onStateChange: (event: any) => {
-                        // When video is playing, periodically save position
-                        if (event.data === window.YT.PlayerState.PLAYING) {
-                            const interval = setInterval(() => {
-                                if (playerRef.current && playerRef.current.getCurrentTime) {
-                                    const currentTime = playerRef.current.getCurrentTime();
-                                    db.articles.update(articleId, { playbackPosition: currentTime });
-                                } else {
-                                    clearInterval(interval);
-                                }
-                            }, 5000); // Save every 5 seconds
-                            
-                            // Store interval on player object to clear it later
-                            (playerRef.current as any)._posInterval = interval;
-                        } else {
-                            if ((playerRef.current as any)._posInterval) {
-                                clearInterval((playerRef.current as any)._posInterval);
-                            }
-                            // Save final position when paused/ended
-                            if (playerRef.current && playerRef.current.getCurrentTime) {
-                                const currentTime = playerRef.current.getCurrentTime();
-                                db.articles.update(articleId, { playbackPosition: currentTime });
-                            }
-                        }
-                    }
-                }
-            });
-        };
-
-        if (window.YT && window.YT.Player) {
-            initPlayer();
-        } else {
-            const previousOnYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady;
-            window.onYouTubeIframeAPIReady = () => {
-                if (previousOnYouTubeIframeAPIReady) previousOnYouTubeIframeAPIReady();
-                initPlayer();
-            };
-        }
-
-        return () => {
-            if (playerRef.current) {
-                if ((playerRef.current as any)._posInterval) {
-                    clearInterval((playerRef.current as any)._posInterval);
-                }
-                playerRef.current.destroy();
-            }
-        };
-    }, [videoId, articleId]);
-
-    return (
-        <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black shadow-lg">
-            <div ref={containerRef} className="w-full h-full" />
-        </div>
-    );
-}
-
-declare global {
-    interface Window {
-        YT: any;
-        onYouTubeIframeAPIReady: () => void;
-    }
 }

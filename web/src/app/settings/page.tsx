@@ -10,6 +10,7 @@ import { Sparkles, Workflow, Loader2, Bell } from 'lucide-react';
 import { NotificationSettings } from '@/components/NotificationSettings';
 
 import { useUIStore } from '@/store/uiStore';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
     const { geminiApiKey, setGeminiApiKey } = useSettingsStore();
@@ -22,7 +23,7 @@ export default function SettingsPage() {
 
     const handleSaveAI = () => {
         setGeminiApiKey(gKey);
-        alert('AI Key Saved!');
+        toast.success('AI Key Saved!');
     };
 
     const handleReset = async () => {
@@ -148,12 +149,12 @@ export default function SettingsPage() {
                                                 if (tot > 0) setImportProgress(curr, tot, msg);
                                             });
                                             endImport();
-                                            alert('Import Successful!');
+                                            toast.success('Import Successful!');
                                             e.target.value = '';
                                         } catch (err: any) {
                                             console.error(err);
                                             endImport();
-                                            alert('Import Failed: ' + (err.message || 'Unknown error'));
+                                            toast.error('Import Failed: ' + (err.message || 'Unknown error'));
                                         }
                                     }}
                                 />
@@ -196,7 +197,7 @@ export default function SettingsPage() {
                                             const backup = await BackupService.createMasterBackup();
                                             BackupService.downloadBackup(backup);
                                         } catch (e: any) {
-                                            alert('Export failed: ' + e.message);
+                                            toast.error('Export failed: ' + e.message);
                                         }
                                     }}
                                     className="flex-1 px-4 py-2.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg text-sm font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-700 transition flex items-center justify-center gap-2"
@@ -218,10 +219,10 @@ export default function SettingsPage() {
                                                 const text = await file.text();
                                                 const backup = JSON.parse(text);
                                                 await BackupService.restoreMasterBackup(backup);
-                                                alert('Master Backup restored! The app will now reload.');
-                                                window.location.reload();
+                                                toast.success('Master Backup restored! The app will now reload.');
+                                                setTimeout(() => window.location.reload(), 1500);
                                             } catch (err: any) {
-                                                alert('Restore Failed: ' + (err.message || 'Invalid file'));
+                                                toast.error('Restore Failed: ' + (err.message || 'Invalid file'));
                                             }
                                         }}
                                     />

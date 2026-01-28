@@ -7,6 +7,7 @@ import { db, AutomationRule } from '@/lib/db';
 import { Trash2, Plus, Play, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { uuidv4 } from '@/lib/utils';
 import { clsx } from 'clsx';
+import { toast } from 'sonner';
 
 export default function RulesPage() {
     const rules = useLiveQuery(() => db.rules.toArray()) || [];
@@ -21,7 +22,7 @@ export default function RulesPage() {
 
     const handleSave = async () => {
         if (!newRule.name || !newRule.conditionValue) {
-            alert("Please fill in all fields");
+            toast.error("Please fill in all fields");
             return;
         }
 

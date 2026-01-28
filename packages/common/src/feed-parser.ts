@@ -1,12 +1,12 @@
 import { XMLParser } from 'fast-xml-parser';
-import { createHash } from 'crypto';
+import { decodeHTMLEntities, sha256, uuidv4 } from './utils';
 
 export interface ParsedArticle {
   id: string;
   title: string;
   author?: string;
   summary?: string;
-  content?: string;
+  content: string;
   url?: string;
   publishedAt?: Date;
   mediaKind: string;
@@ -20,6 +20,8 @@ export interface ParsedFeed {
   siteUrl?: string;
   type: string;
   articles: ParsedArticle[];
+  iconUrl?: string;
+  rawData?: any; // Raw parsed data for specific extraction (e.g. detailed icons)
 }
 
 const xmlParser = new XMLParser({
@@ -28,20 +30,25 @@ const xmlParser = new XMLParser({
   textNodeName: '#text',
   removeNSPrefix: false,
   processEntities: false,
-  ignoreDeclaration: true,
+  ignoreDeclaration: true
 });
 
+// Date helpers
 function parseDate(dateStr: string | undefined): Date | undefined {
   if (!dateStr) return undefined;
   const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? undefined : d;
+  if (!isNaN(d.getTime())) return d;
+  return undefined;
 }
 
-function generateArticleId(feedUrl: string, entryId: string): string {
-  return createHash('sha256').update(`${feedUrl}|${entryId}`).digest('hex');
+// Stable ID generation
+async function makeStableId(feedUrl: string, entryId: string): Promise<string> {
+  const input = `${feedUrl}|${entryId}`;
+  return sha256(input);
 }
 
-function extractYouTubeVideoId(url: string): string | null {
+// Extraction helpers
+function extractYouTubeVideoID(url: string): string | null {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.replace('www.', '');
@@ -53,17 +60,27 @@ function extractYouTubeVideoId(url: string): string | null {
     if (hostname === 'youtube.com' || hostname === 'm.youtube.com') {
       const v = urlObj.searchParams.get('v');
       if (v) return v;
+
       if (urlObj.pathname.startsWith('/embed/')) {
         return urlObj.pathname.split('/')[2];
       }
+
+      if (urlObj.pathname.startsWith('/v/')) {
+        return urlObj.pathname.split('/')[2];
+      }
     }
-  } catch {
+  } catch (e) {
     // Ignore
   }
   return null;
 }
 
+function youTubeEmbedHTML(videoID: string): string {
+  return `<iframe width="100%" height="auto" style="aspect-ratio: 16/9" src="https://www.youtube.com/embed/${videoID}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+}
+
 export async function parseFeed(data: string | object, sourceUrl: string): Promise<ParsedFeed> {
+  // Check if JSON Feed
   if (typeof data === 'object' || (typeof data === 'string' && data.trim().startsWith('{'))) {
     try {
       const json = typeof data === 'string' ? JSON.parse(data) : data;
@@ -73,44 +90,54 @@ export async function parseFeed(data: string | object, sourceUrl: string): Promi
     }
   }
 
+  // XML Feed
   return parseXMLFeed(typeof data === 'string' ? data : JSON.stringify(data), sourceUrl);
 }
 
 async function parseJSONFeed(json: any, sourceUrl: string): Promise<ParsedFeed> {
   const articles: ParsedArticle[] = [];
-  const isYouTube = sourceUrl.includes('youtube.com');
 
-  for (const item of json.items || []) {
-    const uidSource = item.id || item.url || item.title || crypto.randomUUID();
-    const articleId = generateArticleId(sourceUrl, uidSource);
+  const isYouTube = sourceUrl.includes('youtube.com');
+  const type = isYouTube ? 'youtube' : 'json';
+
+  for (const item of (json.items || [])) {
+    const uidSource = item.id || item.url || item.title || uuidv4();
+    const articleID = await makeStableId(sourceUrl, uidSource);
 
     let content = item.content_html || item.summary || '';
     let mediaKind = 'none';
 
     if (item.url) {
-      const vid = extractYouTubeVideoId(item.url);
+      const vid = extractYouTubeVideoID(item.url);
       if (vid) {
-        content = `https://www.youtube.com/embed/${vid}`;
+        content = youTubeEmbedHTML(vid);
         mediaKind = 'youtube';
       }
     }
 
+    const title = decodeHTMLEntities(item.title || item.url || 'Untitled');
+    const summary = item.summary ? decodeHTMLEntities(item.summary) : undefined;
+
     articles.push({
-      id: articleId,
-      title: item.title || item.url || 'Untitled',
+      id: articleID,
+      title,
       url: item.url,
-      summary: item.summary,
+      summary,
       content,
       publishedAt: parseDate(item.date_published),
       mediaKind,
+      thumbnailUrl: item.image || item.banner_image,
+      author: item.author?.name
     });
   }
 
   return {
     title: json.title || 'Untitled Feed',
     siteUrl: json.home_page_url,
-    type: isYouTube ? 'youtube' : 'json',
+    type,
     articles,
+    iconUrl: json.icon || json.favicon,
+    rawData: json
   };
 }
 
@@ -121,14 +148,15 @@ async function parseXMLFeed(xmlData: string, sourceUrl: string): Promise<ParsedF
     channel = parsed['rdf:RDF'];
   }
 
-  let feedTitle = channel?.title || channel?.['dc:title'] || 'Untitled Feed';
+  let feedTitle: any = channel?.title || channel?.['dc:title'];
   if (typeof feedTitle === 'object' && feedTitle !== null) {
-    feedTitle = feedTitle['#text'] || feedTitle['#cdata'] || 'Untitled Feed';
+    feedTitle = feedTitle['#text'] || feedTitle['#cdata'] || '';
   }
-
   const feedLink = channel?.link || sourceUrl;
-  const isYouTube = sourceUrl.includes('youtube.com') || xmlData.includes('yt:videoId');
+
+  const isYouTube = sourceUrl.includes('youtube.com') || (xmlData.includes('yt:videoId'));
   const isReddit = sourceUrl.includes('reddit.com');
+  const type = isYouTube ? 'youtube' : (isReddit ? 'reddit' : 'rss');
 
   let items = channel?.item || channel?.entry || [];
   if (!Array.isArray(items)) items = [items];
@@ -140,24 +168,24 @@ async function parseXMLFeed(xmlData: string, sourceUrl: string): Promise<ParsedF
     if (typeof titleRaw === 'object' && titleRaw !== null) {
       titleRaw = titleRaw['#text'] || titleRaw['#cdata'] || JSON.stringify(titleRaw);
     }
-    const title = String(titleRaw);
+    const title = decodeHTMLEntities(String(titleRaw));
 
-    const link = item.link && typeof item.link === 'string' 
-      ? item.link 
-      : (item.link?.['@_href'] || '');
+    const link = item.link && typeof item.link === 'string' ? item.link : (item.link?.['@_href'] || '');
     const guid = (item.guid && typeof item.guid === 'object' ? item.guid['#text'] : item.guid) || item.id || link;
-    const articleId = generateArticleId(sourceUrl, String(guid || title));
+
+    const articleID = await makeStableId(sourceUrl, String(guid || title));
 
     let contentRaw = item['content:encoded'] || item.content || item.description || item.summary || '';
     if (typeof contentRaw === 'object' && contentRaw !== null) {
       contentRaw = contentRaw['#text'] || contentRaw['#cdata'] || JSON.stringify(contentRaw);
     }
-    const content = String(contentRaw);
+
+    let contentHTML = decodeHTMLEntities(String(contentRaw));
 
     let mediaKind = 'none';
-    let thumbnailUrl: string | undefined;
-    let enclosureUrl: string | undefined;
-    let enclosureType: string | undefined;
+    let thumbnailUrl: string | undefined = undefined;
+    let enclosureUrl: string | undefined = undefined;
+    let enclosureType: string | undefined = undefined;
 
     const enclosure = item.enclosure;
     if (enclosure) {
@@ -169,6 +197,7 @@ async function parseXMLFeed(xmlData: string, sourceUrl: string): Promise<ParsedF
 
     const ytId = item['yt:videoId'];
     if (ytId) {
+      contentHTML = youTubeEmbedHTML(ytId);
       mediaKind = 'youtube';
       thumbnailUrl = `https://i.ytimg.com/vi/${ytId}/maxresdefault.jpg`;
     }
@@ -178,21 +207,21 @@ async function parseXMLFeed(xmlData: string, sourceUrl: string): Promise<ParsedF
 
     if (!thumbnailUrl) {
       const mediaThumb = item['media:thumbnail'];
-      if (mediaThumb?.['@_url']) thumbnailUrl = mediaThumb['@_url'];
+      if (mediaThumb && mediaThumb['@_url']) thumbnailUrl = mediaThumb['@_url'];
       else if (item['itunes:image']) thumbnailUrl = item['itunes:image']['@_href'];
     }
 
-    // Reddit image extraction
     if (isReddit && !thumbnailUrl) {
       const patterns = [
         /href="(https:\/\/i\.redd\.it\/[a-zA-Z0-9]+\.(?:jpg|png|gif))"/,
         /src="(https:\/\/i\.redd\.it\/[a-zA-Z0-9]+\.(?:jpg|png|gif))"/,
         /src="(https:\/\/preview\.redd\.it\/[^"]+)"/,
+        /src="(https:\/\/external-preview\.redd\.it\/[^"]+)"/
       ];
 
       for (const pattern of patterns) {
-        const match = content.match(pattern);
-        if (match?.[1]) {
+        const match = contentHTML.match(pattern);
+        if (match && match[1]) {
           thumbnailUrl = match[1].replace(/&amp;/g, '&');
           break;
         }
@@ -200,23 +229,25 @@ async function parseXMLFeed(xmlData: string, sourceUrl: string): Promise<ParsedF
     }
 
     articles.push({
-      id: articleId,
+      id: articleID,
       title,
       url: link,
-      summary: item.description ? String(item.description) : undefined,
-      content,
+      summary: item.description ? decodeHTMLEntities(String(item.description)) : undefined,
+      content: contentHTML,
       publishedAt,
       mediaKind,
       thumbnailUrl,
       enclosureUrl,
       enclosureType,
+      author: item['dc:creator'] || item.author?.name
     });
   }
 
   return {
-    title: String(feedTitle),
+    title: String(feedTitle || ''),
     siteUrl: String(feedLink),
-    type: isYouTube ? 'youtube' : (isReddit ? 'reddit' : 'rss'),
+    type,
     articles,
+    rawData: parsed
   };
 }

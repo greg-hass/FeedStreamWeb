@@ -98,7 +98,9 @@ export default function GlobalError({
 
       window.location.reload();
     } catch (e) {
-      alert('Failed to reset: ' + e);
+      // In global error boundary, we can't depend on sonner context, fallback to alert is acceptable here as last resort
+      // or just console error since the app is crashing anyway
+      console.error('Failed to reset:', e);
       window.location.reload();
     }
   };

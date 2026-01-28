@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { feeds, articles, articleStates } from '../db/schema';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { parseFeed } from './feed-parser';
+import { parseFeed } from '@feedstream/common';
 
 export class FeedService {
   async syncFeed(feedId: string, userId: string): Promise<{ newArticles: number; updated: number }> {
@@ -27,92 +27,124 @@ export class FeedService {
       if (feed.etag) headers['If-None-Match'] = feed.etag;
       if (feed.lastModified) headers['If-Modified-Since'] = feed.lastModified;
 
-      const response = await fetch(feed.feedUrl, { headers });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-      if (response.status === 304) {
-        // Not modified
-        await db.update(feeds).set({
-          lastSyncAt: new Date(),
-          consecutiveFailures: 0,
-        }).where(eq(feeds.id, feedId));
-        return { newArticles: 0, updated: 0 };
-      }
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const newEtag = response.headers.get('etag');
-      const newLastModified = response.headers.get('last-modified');
-      const text = await response.text();
-
-      // Parse feed
-      const parsed = await parseFeed(text, feed.feedUrl);
-
-      // Update feed metadata
-      await db.update(feeds).set({
-        title: parsed.title,
-        siteUrl: parsed.siteUrl,
-        type: parsed.type,
-        lastSyncAt: new Date(),
-        consecutiveFailures: 0,
-        etag: newEtag || feed.etag,
-        lastModified: newLastModified || feed.lastModified,
-      }).where(eq(feeds.id, feedId));
-
-      // Insert/Update articles
-      let newCount = 0;
-      let updatedCount = 0;
-
-      for (const article of parsed.articles) {
-        // Check if article exists
-        const existing = await db.query.articles.findFirst({
-          where: and(
-            eq(articles.feedId, feedId),
-            eq(articles.externalId, article.id)
-          ),
+      try {
+        const response = await fetch(feed.feedUrl, { 
+          headers,
+          signal: controller.signal
         });
 
-        if (!existing) {
-          // Insert new article
-          await db.insert(articles).values({
-            feedId,
-            userId,
-            externalId: article.id,
-            title: article.title,
-            author: article.author,
-            summary: article.summary,
-            content: article.content,
-            url: article.url,
-            publishedAt: article.publishedAt,
-            mediaKind: article.mediaKind,
-            thumbnailUrl: article.thumbnailUrl,
-            enclosureUrl: article.enclosureUrl,
-            enclosureType: article.enclosureType,
-            searchVector: this.buildSearchVector(article.title, article.summary, article.content),
-          });
-          newCount++;
-        } else {
-          // Update if content changed
-          const hasChanged = 
-            existing.title !== article.title ||
-            existing.summary !== article.summary ||
-            existing.content !== article.content;
+        clearTimeout(timeout);
 
-          if (hasChanged) {
-            await db.update(articles).set({
+        if (response.status === 304) {
+          // Not modified
+          await db.update(feeds).set({
+            lastSyncAt: new Date(),
+            consecutiveFailures: 0,
+          }).where(eq(feeds.id, feedId));
+          return { newArticles: 0, updated: 0 };
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const newEtag = response.headers.get('etag');
+        const newLastModified = response.headers.get('last-modified');
+        const text = await response.text();
+
+        // Parse feed
+        const parsed = await parseFeed(text, feed.feedUrl);
+
+        // Update feed metadata
+        await db.update(feeds).set({
+          title: parsed.title,
+          siteUrl: parsed.siteUrl,
+          type: parsed.type,
+          lastSyncAt: new Date(),
+          consecutiveFailures: 0,
+          etag: newEtag || feed.etag,
+          lastModified: newLastModified || feed.lastModified,
+        }).where(eq(feeds.id, feedId));
+
+        // Insert/Update articles
+        let newCount = 0;
+        let updatedCount = 0;
+
+        for (const article of parsed.articles) {
+          // Check if article exists
+          const existing = await db.query.articles.findFirst({
+            where: and(
+              eq(articles.feedId, feedId),
+              eq(articles.externalId, article.id)
+            ),
+          });
+
+          if (!existing) {
+            // Insert new article
+            await db.insert(articles).values({
+              feedId,
+              userId,
+              externalId: article.id,
               title: article.title,
+              author: article.author,
               summary: article.summary,
               content: article.content,
+              url: article.url,
+              publishedAt: article.publishedAt,
+              mediaKind: article.mediaKind,
               thumbnailUrl: article.thumbnailUrl,
+              enclosureUrl: article.enclosureUrl,
+              enclosureType: article.enclosureType,
               searchVector: this.buildSearchVector(article.title, article.summary, article.content),
-            }).where(eq(articles.id, existing.id));
-            updatedCount++;
+            });
+            newCount++;
+          } else {
+            // Update if content changed
+            const hasChanged = 
+              existing.title !== article.title ||
+              existing.summary !== article.summary ||
+              existing.content !== article.content;
+
+            if (hasChanged) {
+              await db.update(articles).set({
+                title: article.title,
+                summary: article.summary,
+                content: article.content,
+                thumbnailUrl: article.thumbnailUrl,
+                searchVector: this.buildSearchVector(article.title, article.summary, article.content),
+              }).where(eq(articles.id, existing.id));
+              updatedCount++;
+            }
           }
         }
-      }
 
-      return { newArticles: newCount, updated: updatedCount };
+        return { newArticles: newCount, updated: updatedCount };
+      } catch (error) {
+        clearTimeout(timeout);
+        throw error;
+      } finally {
+        // Cleanup: Keep only the latest 1000 articles for this feed to prevent infinite growth
+        // This is a rough maintenance task ran after each sync
+        try {
+           const oldArticles = await db.query.articles.findMany({
+             where: eq(articles.feedId, feedId),
+             orderBy: desc(articles.publishedAt),
+             offset: 1000,
+             columns: { id: true }
+           });
+           
+           if (oldArticles.length > 0) {
+             const idsToDelete = oldArticles.map(a => a.id);
+             await db.delete(articles).where(inArray(articles.id, idsToDelete));
+             console.log(`[Cleanup] Removed ${idsToDelete.length} old articles from feed ${feedId}`);
+           }
+        } catch (cleanupError) {
+           console.error(`[Cleanup] Failed to prune feed ${feedId}:`, cleanupError);
+        }
+      }
     } catch (error) {
       // Update failure count
       await db.update(feeds).set({

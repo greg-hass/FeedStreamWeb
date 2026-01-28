@@ -5,6 +5,8 @@ import { AudioPlayer } from "@/components/AudioPlayer";
 import { TabBar } from "@/components/TabBar";
 import { GlobalUI } from "@/components/GlobalUI";
 
+import { Toaster } from 'sonner';
+
 export const metadata: Metadata = {
   title: 'FeedStream',
   description: 'Your RSS Feed Reader',
@@ -64,6 +66,14 @@ export default function RootLayout({
 
         <AudioPlayer />
         <GlobalUI />
+        <Toaster position="bottom-center" toastOptions={{
+          style: {
+            background: 'var(--background)',
+            color: 'var(--foreground)',
+            border: '1px solid var(--border)',
+          },
+          className: 'dark:bg-zinc-900 dark:text-white dark:border-zinc-800 bg-white text-zinc-900 border-zinc-200'
+        }} />
       </body>
     </html>
   );

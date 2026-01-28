@@ -6,6 +6,7 @@ import { ArrowLeft, Sparkles, Plus, Loader2, Check, Rss, Youtube, MessageCircle,
 import { FeedDiscoveryService, FeedRecommendation } from '@/lib/feed-discovery';
 import { FeedService } from '@/lib/feed-service';
 import { clsx } from 'clsx';
+import { toast } from 'sonner';
 
 export default function DiscoverPage() {
     const [recommendations, setRecommendations] = useState<FeedRecommendation[]>([]);
@@ -32,8 +33,9 @@ export default function DiscoverPage() {
         try {
             await FeedService.addFeed(rec.url);
             setSubscribed(prev => new Set(prev).add(rec.url));
+            toast.success(`Subscribed to ${rec.title}`);
         } catch (e: any) {
-            alert(`Failed to add feed: ${e.message}`);
+            toast.error(`Failed to add feed: ${e.message}`);
         } finally {
             setProcessingUrl(null);
         }
