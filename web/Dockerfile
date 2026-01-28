@@ -1,32 +1,43 @@
-
 FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
-WORKDIR /app
+WORKDIR /usr/src/app
 
-# Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
+# 1. Copy common package first
+COPY packages/common ./packages/common
+
+# 2. Build common package
+WORKDIR /usr/src/app/packages/common
+RUN npm install
+RUN npm run build
+
+# 3. Setup web dependencies
+WORKDIR /usr/src/app/web
+COPY web/package.json web/package-lock.json* ./
+
 RUN \
   if [ -f package-lock.json ]; then npm ci; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
-
 # Rebuild the source code only when needed
 FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+WORKDIR /usr/src/app
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry during the build.
+# Copy built common from deps
+COPY --from=deps /usr/src/app/packages/common ./packages/common
+
+# Setup web
+WORKDIR /usr/src/app/web
+COPY --from=deps /usr/src/app/web/node_modules ./node_modules
+COPY web/ .
+
+# Disable telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Backend API URL (passed as build arg)
+# Build args
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
@@ -34,37 +45,37 @@ RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
-WORKDIR /app
+WORKDIR /usr/src/app/web
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
+COPY --from=builder /usr/src/app/web/public ./public
 
 # Set the correct permission for prerender cache
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
 # Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /usr/src/app/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /usr/src/app/web/.next/static ./.next/static
 
-# Create startup script for runtime env injection
+# Create startup script
 USER root
-RUN mkdir -p /app/public && \
-    echo '#!/bin/sh' > /app/start.sh && \
-    echo 'echo "window.__ENV__ = { NEXT_PUBLIC_API_URL: \"${NEXT_PUBLIC_API_URL}\" };" > /app/public/env-config.js' >> /app/start.sh && \
-    echo 'exec node server.js' >> /app/start.sh && \
-    chmod +x /app/start.sh && \
-    chown nextjs:nodejs /app/start.sh /app/public
+RUN mkdir -p /usr/src/app/web/public && \
+    echo '#!/bin/sh' > ./start.sh && \
+    echo 'echo "window.__ENV__ = { NEXT_PUBLIC_API_URL: \"${NEXT_PUBLIC_API_URL}\" };" > ./public/env-config.js' >> ./start.sh && \
+    echo 'exec node server.js' >> ./start.sh && \
+    chmod +x ./start.sh && \
+    chown nextjs:nodejs ./start.sh ./public
+
 USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
 
-CMD ["/app/start.sh"]
+CMD ["./start.sh"]

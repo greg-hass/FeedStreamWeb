@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://feedstream:${DB_PASSWORD}@postgres:5432/feedstream
+      JWT_SECRET: ${JWT_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_URL: http://api:3001
